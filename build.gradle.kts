@@ -1,16 +1,20 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget as KotlinJvmTarget
+// Top-level build file
+plugins {
+    id("com.android.application") version "8.7.3" apply false
+    id("com.android.library") version "8.7.3" apply false
+    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    id("org.jetbrains.kotlin.jvm") version "2.1.0" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.2" apply false
+}
 
 allprojects {
     repositories {
-        mavenCentral()
         google()
-        maven(url = "https://jitpack.io")
+        mavenCentral()
+        maven { url = uri("https://jitpack.io") }
     }
+}
 
-    tasks.withType<KotlinCompile>().configureEach {
-        compilerOptions {
-            jvmTarget.set(KotlinJvmTarget.JVM_1_8)
-        }
-    }
+tasks.register<Delete>("clean") {
+    delete(rootProject.layout.buildDirectory)
 }
