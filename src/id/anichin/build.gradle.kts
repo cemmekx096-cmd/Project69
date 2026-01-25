@@ -1,8 +1,0 @@
-ext {
-    extName = "Anichin"
-    extClass = ".Anichin"
-    extVersionCode = 1
-    isNsfw = false
-}
-
-apply(from = "$rootDir/common.gradle")
