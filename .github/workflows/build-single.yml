@@ -28,6 +28,14 @@ jobs:
           distribution: 'temurin'
           cache: gradle
       
+      - name: Check gradlew exists
+        run: |
+          if [ ! -f "gradlew" ]; then
+            echo "❌ gradlew not found!"
+            echo "Please copy Gradle wrapper files from base repo"
+            exit 1
+          fi
+      
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       
