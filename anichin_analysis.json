@@ -1,0 +1,21 @@
+{
+  "base_url": "https://anichin.cafe",
+  "homepage": {
+    "container": "div.wrapper",
+    "card_link": "a",
+    "sample_url": "https://anichin.watch",
+    "card_image": "img.ts-post-image.wp-post-image.attachment-medium_large.size-medium_large"
+  },
+  "search": {},
+  "detail": {
+    "episode_list_selector": "a[href*=\"episode\"]",
+    "sample_episode_url": "https://anichin.watch/tales-of-herding-gods-episode-67-subtitle-indonesia/",
+    "synopsis_selector": "div.wrapper"
+  },
+  "episode": {
+    "video_selector": "iframe[src]"
+  },
+  "video_hosts": {
+    "anichin.stream": 1
+  }
+}
