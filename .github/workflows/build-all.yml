@@ -1,0 +1,55 @@
+name: Build All Extensions
+
+# Trigger: Push to main or manual
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - '!src/**/*.md'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build All Extensions
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      
+      - name: Build all extensions
+        run: ./gradlew assembleRelease
+      
+      - name: Collect all APKs
+        run: |
+          mkdir -p apk-output
+          find src -name "*.apk" -path "*/release/*" -exec cp {} apk-output/ \;
+          echo "Found APKs:"
+          ls -lh apk-output/
+      
+      - name: Upload all APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-extensions
+          path: apk-output/*.apk
+          retention-days: 7
+      
+      # Optional: Trigger deploy workflow
+      - name: Trigger deploy
+        if: github.ref == 'refs/heads/main'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          event-type: deploy-extensions
+          client-payload: '{"build_number": "${{ github.run_number }}"}'
