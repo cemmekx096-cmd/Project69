@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.id.anichin
 
 import android.app.Application
-import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -24,35 +23,31 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val lang = "id"
     override val supportsLatest = true
 
-    private val preferences: SharedPreferences by lazy {
+    private val preferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
     // ============================== Popular ===============================
 
-    override fun popularAnimeRequest(page: Int): Request {
-        return GET("$baseUrl/page/$page/", headers)
-    }
+    override fun popularAnimeRequest(page: Int): Request =
+        GET("$baseUrl/page/$page/", headers)
 
     override fun popularAnimeSelector(): String = "div.bs div.bsx"
 
-    override fun popularAnimeFromElement(element: Element): SAnime {
-        return SAnime.create().apply {
-            setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
-            title = element.selectFirst("div.tt")?.text()
-                ?: element.selectFirst("h2, h3, h4")?.text()
-                ?: "Unknown"
-            thumbnail_url = element.selectFirst("img")?.attr("src")
-        }
+    override fun popularAnimeFromElement(element: Element) = SAnime.create().apply {
+        setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
+        title = element.selectFirst("div.tt")?.text()
+            ?: element.selectFirst("h2, h3, h4")?.text()
+            ?: "Unknown"
+        thumbnail_url = element.selectFirst("img")?.attr("src")
     }
 
     override fun popularAnimeNextPageSelector(): String = "div.pagination a.next"
 
     // =============================== Latest ===============================
 
-    override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/page/$page/", headers)
-    }
+    override fun latestUpdatesRequest(page: Int): Request =
+        GET("$baseUrl/page/$page/", headers)
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
 
@@ -79,30 +74,26 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // =========================== Anime Details ============================
 
-    override fun animeDetailsParse(document: Document): SAnime {
-        return SAnime.create().apply {
-            title = document.selectFirst("h1.entry-title")?.text() ?: "Unknown"
+    override fun animeDetailsParse(document: Document) = SAnime.create().apply {
+        title = document.selectFirst("h1.entry-title")?.text() ?: "Unknown"
 
-            thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
+        thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
 
-            genre = document.select("div.genxed a").joinToString { it.text() }
+        genre = document.select("div.genxed a").joinToString { it.text() }
 
-            status = parseStatus(
-                document.selectFirst("div.spe span:contains(Status)")
-                    ?.parent()?.ownText() ?: "",
-            )
+        status = parseStatus(
+            document.selectFirst("div.spe span:contains(Status)")
+                ?.parent()?.ownText() ?: "",
+        )
 
-            description = document.selectFirst("div.entry-content p")?.text()
-                ?: document.selectFirst("div.sinopsis")?.text()
-        }
+        description = document.selectFirst("div.entry-content p")?.text()
+            ?: document.selectFirst("div.sinopsis")?.text()
     }
 
-    private fun parseStatus(statusString: String): Int {
-        return when {
-            statusString.contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
-            statusString.contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
-            else -> SAnime.UNKNOWN
-        }
+    private fun parseStatus(statusString: String): Int = when {
+        statusString.contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
+        statusString.contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
+        else -> SAnime.UNKNOWN
     }
 
     // ============================== Episodes ==============================
@@ -110,33 +101,25 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun episodeListSelector(): String =
         "div.eplister ul li, div.episodelist ul li"
 
-    override fun episodeFromElement(element: Element): SEpisode {
-        return SEpisode.create().apply {
-            val link = element.selectFirst("a")!!
-            setUrlWithoutDomain(link.attr("href"))
+    override fun episodeFromElement(element: Element) = SEpisode.create().apply {
+        val link = element.selectFirst("a")!!
+        setUrlWithoutDomain(link.attr("href"))
 
-            name = link.selectFirst("div.epl-title")?.text()
-                ?: link.text()
-                ?: "Episode"
+        name = link.selectFirst("div.epl-title")?.text()
+            ?: link.text()
+            ?: "Episode"
 
-            // Try to extract episode number from URL or title
-            episode_number = extractEpisodeNumber(name, link.attr("href"))
-
-            date_upload = System.currentTimeMillis()
-        }
+        episode_number = extractEpisodeNumber(name, link.attr("href"))
+        date_upload = System.currentTimeMillis()
     }
 
     private fun extractEpisodeNumber(title: String, url: String): Float {
-        // Try from title first: "Episode 67"
-        val titleMatch = Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE)
-            .find(title)
+        val titleMatch = Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE).find(title)
         if (titleMatch != null) {
             return titleMatch.groupValues[1].toFloatOrNull() ?: 1f
         }
 
-        // Try from URL: "/episode-67-subtitle"
-        val urlMatch = Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE)
-            .find(url)
+        val urlMatch = Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE).find(url)
         if (urlMatch != null) {
             return urlMatch.groupValues[1].toFloatOrNull() ?: 1f
         }
@@ -150,9 +133,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun videoFromElement(element: Element): Video {
         val iframeUrl = element.attr("src")
-
-        // TODO: Implement custom Anichin video extractor
-        // For now, return placeholder
         return Video(
             url = iframeUrl,
             quality = "Default",
@@ -164,16 +144,13 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val document = response.asJsoup()
         val videos = mutableListOf<Video>()
 
-        // Find all iframes
         document.select("iframe[src]").forEach { iframe ->
             val src = iframe.attr("src")
 
             when {
                 "anichin.stream" in src -> {
-                    // TODO: Extract from custom Anichin player
                     videos.add(Video(src, "Anichin Stream", src))
                 }
-                // Add more video hosts here
                 else -> {
                     videos.add(Video(src, "Unknown Host", src))
                 }
