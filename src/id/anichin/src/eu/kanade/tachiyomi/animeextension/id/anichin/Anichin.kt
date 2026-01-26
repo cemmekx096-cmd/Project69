@@ -35,8 +35,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     }
 
     private val okruExtractor by lazy { OkruExtractor(client) }
-    private val dailymotionExtractor by lazy { DailymotionExtractor(client) }
-    private val googleDriveExtractor by lazy { GoogleDriveExtractor(client) }
+    private val dailymotionExtractor by lazy { DailymotionExtractor(client, headers) }
+    private val googleDriveExtractor by lazy { GoogleDriveExtractor(client, headers) }
 
     // ============================== Popular ===============================
 
@@ -201,7 +201,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            GenreFilter(),
+            GenreFilter()
         )
     }
 
