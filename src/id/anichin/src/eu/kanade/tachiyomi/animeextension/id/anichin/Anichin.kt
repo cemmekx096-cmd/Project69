@@ -180,7 +180,13 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         return videoList.ifEmpty {
             // Ultimate fallback: return WebView option
-            listOf(Video(response.request.url.toString(), "Open in WebView (Tap to Play)", response.request.url.toString()))
+            listOf(
+                Video(
+                    response.request.url.toString(),
+                    "Open in WebView (Tap to Play)",
+                    response.request.url.toString(),
+                ),
+            )
         }
     }
 
