@@ -27,9 +27,8 @@ object AnichinFilters {
 
     val FILTER_LIST
         get() = AnimeFilterList(
-            AnimeFilter.Header("Text search and filters work!"),
+            AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            AnimeFilter.Header("NOTE: Ignored when using text search"),
             GenreFilter(),
         )
 

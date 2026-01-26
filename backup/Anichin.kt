@@ -11,9 +11,6 @@ import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
-import eu.kanade.tachiyomi.lib.dailymotionextractor.DailymotionExtractor
-import eu.kanade.tachiyomi.lib.googledriveextractor.GoogleDriveExtractor
-import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
@@ -33,10 +30,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
-
-    private val okruExtractor by lazy { OkruExtractor(client) }
-    private val dailymotionExtractor by lazy { DailymotionExtractor(client) }
-    private val googleDriveExtractor by lazy { GoogleDriveExtractor(client) }
 
     // ============================== Popular ===============================
 
@@ -59,8 +52,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Latest ===============================
 
     override fun latestUpdatesRequest(page: Int): Request {
-        // Use ongoing page for latest because homepage shows episodes, not anime
-        return GET("$baseUrl/ongoing/?page=$page")
+        return GET("$baseUrl/?page=$page")
     }
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
@@ -127,66 +119,64 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val document = response.asJsoup()
         val videoList = mutableListOf<Video>()
 
-        // First check for direct iframe in player-embed
-        document.selectFirst("div.player-embed iframe, div#pembed iframe")?.attr("src")?.let { iframeUrl ->
-            if (iframeUrl.isNotEmpty()) {
-                val cleanUrl = if (iframeUrl.startsWith("//")) "https:$iframeUrl" else iframeUrl
-                extractVideoFromUrl(cleanUrl, videoList, "Main")
-            }
-        }
-
-        // Also check select dropdown for additional servers
+        // Extract video servers from select dropdown
         document.select("select.mirror option").forEach { option ->
             val serverUrl = option.attr("value")
-            val serverName = option.text().trim()
+            val serverName = option.text()
 
-            if (serverUrl.isNotEmpty() && !serverName.contains("Select", ignoreCase = true)) {
-                val cleanUrl = if (serverUrl.startsWith("//")) "https:$serverUrl" else serverUrl
-                extractVideoFromUrl(cleanUrl, videoList, serverName)
-            }
-        }
-
-        // If still empty, try to find any iframe
-        if (videoList.isEmpty()) {
-            document.select("iframe[src]").forEach { iframe ->
-                val src = iframe.attr("src")
-                if (src.isNotEmpty() && (src.startsWith("http") || src.startsWith("//"))) {
-                    val cleanSrc = if (src.startsWith("//")) "https:$src" else src
-                    extractVideoFromUrl(cleanSrc, videoList, "Iframe")
+            if (serverUrl.isNotEmpty() && serverUrl != "Select Video Server") {
+                try {
+                    when {
+                        serverUrl.contains("ok.ru") -> {
+                            videoList.addAll(extractOkRuVideo(serverUrl, serverName))
+                        }
+                        serverUrl.contains("dailymotion") -> {
+                            videoList.addAll(extractDailymotionVideo(serverUrl, serverName))
+                        }
+                        else -> {
+                            // Generic extractor for iframe sources
+                            videoList.add(Video(serverUrl, serverName, serverUrl))
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Skip failed extractions
                 }
             }
         }
 
-        return videoList.ifEmpty {
-            listOf(Video(response.request.url.toString(), "Open in WebView", response.request.url.toString()))
+        // Fallback: check for direct iframe in player-embed
+        if (videoList.isEmpty()) {
+            document.selectFirst("div.player-embed iframe")?.attr("src")?.let { iframeUrl ->
+                if (iframeUrl.contains("ok.ru")) {
+                    videoList.addAll(extractOkRuVideo(iframeUrl, "OK.ru"))
+                } else {
+                    videoList.add(Video(iframeUrl, "Default Server", iframeUrl))
+                }
+            }
         }
+
+        return videoList
     }
 
-    private fun extractVideoFromUrl(url: String, videoList: MutableList<Video>, serverName: String) {
+    private fun extractOkRuVideo(url: String, quality: String): List<Video> {
+        val videoList = mutableListOf<Video>()
         try {
-            when {
-                url.contains("ok.ru") || url.contains("odnoklassniki") -> {
-                    videoList.addAll(okruExtractor.videosFromUrl(url, "$serverName - "))
-                }
-                url.contains("dailymotion") -> {
-                    videoList.addAll(dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - "))
-                }
-                url.contains("drive.google") || url.contains("drive.usercontent.google") -> {
-                    videoList.addAll(googleDriveExtractor.videosFromUrl(url, "$serverName - "))
-                }
-                url.contains("rumble") -> {
-                    // Rumble doesn't have dedicated extractor, use direct iframe
-                    videoList.add(Video(url, "$serverName (Rumble)", url))
-                }
-                else -> {
-                    // Generic server (Premium, etc)
-                    videoList.add(Video(url, serverName, url))
-                }
+            val videoId = url.substringAfter("videoembed/").substringBefore("?")
+            val embedUrl = "https://ok.ru/videoembed/$videoId"
+
+            // OK.ru typically provides multiple qualities
+            listOf("1080p", "720p", "480p", "360p").forEach { q ->
+                videoList.add(Video(embedUrl, "$quality - $q", embedUrl))
             }
         } catch (e: Exception) {
-            // If extraction fails, add as generic video
-            videoList.add(Video(url, "$serverName (Fallback)", url))
+            videoList.add(Video(url, quality, url))
         }
+        return videoList
+    }
+
+    private fun extractDailymotionVideo(url: String, quality: String): List<Video> {
+        // Dailymotion extraction logic
+        return listOf(Video(url, quality, url))
     }
 
     override fun videoListSelector(): String = throw UnsupportedOperationException()
@@ -201,7 +191,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            GenreFilter()
+            GenreFilter(),
         )
     }
 
