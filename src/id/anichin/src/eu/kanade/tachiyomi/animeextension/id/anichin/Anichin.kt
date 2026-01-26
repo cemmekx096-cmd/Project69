@@ -23,7 +23,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val baseUrl = "https://anichin.cafe"
     override val lang = "id"
     override val supportsLatest = true
-    
+
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
@@ -39,8 +39,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
             setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
-            title = element.selectFirst("div.tt")?.text() 
-                ?: element.selectFirst("h2, h3, h4")?.text() 
+            title = element.selectFirst("div.tt")?.text()
+                ?: element.selectFirst("h2, h3, h4")?.text()
                 ?: "Unknown"
             thumbnail_url = element.selectFirst("img")?.attr("src")
         }
@@ -56,10 +56,10 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
 
-    override fun latestUpdatesFromElement(element: Element): SAnime = 
+    override fun latestUpdatesFromElement(element: Element): SAnime =
         popularAnimeFromElement(element)
 
-    override fun latestUpdatesNextPageSelector(): String = 
+    override fun latestUpdatesNextPageSelector(): String =
         popularAnimeNextPageSelector()
 
     // =============================== Search ===============================
@@ -71,10 +71,10 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun searchAnimeSelector(): String = popularAnimeSelector()
 
-    override fun searchAnimeFromElement(element: Element): SAnime = 
+    override fun searchAnimeFromElement(element: Element): SAnime =
         popularAnimeFromElement(element)
 
-    override fun searchAnimeNextPageSelector(): String = 
+    override fun searchAnimeNextPageSelector(): String =
         popularAnimeNextPageSelector()
 
     // =========================== Anime Details ============================
@@ -82,16 +82,16 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun animeDetailsParse(document: Document): SAnime {
         return SAnime.create().apply {
             title = document.selectFirst("h1.entry-title")?.text() ?: "Unknown"
-            
+
             thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
-            
+
             genre = document.select("div.genxed a").joinToString { it.text() }
-            
+
             status = parseStatus(
                 document.selectFirst("div.spe span:contains(Status)")
-                    ?.parent()?.ownText() ?: ""
+                    ?.parent()?.ownText() ?: "",
             )
-            
+
             description = document.selectFirst("div.entry-content p")?.text()
                 ?: document.selectFirst("div.sinopsis")?.text()
         }
@@ -107,21 +107,21 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // ============================== Episodes ==============================
 
-    override fun episodeListSelector(): String = 
+    override fun episodeListSelector(): String =
         "div.eplister ul li, div.episodelist ul li"
 
     override fun episodeFromElement(element: Element): SEpisode {
         return SEpisode.create().apply {
             val link = element.selectFirst("a")!!
             setUrlWithoutDomain(link.attr("href"))
-            
+
             name = link.selectFirst("div.epl-title")?.text()
                 ?: link.text()
                 ?: "Episode"
-            
+
             // Try to extract episode number from URL or title
             episode_number = extractEpisodeNumber(name, link.attr("href"))
-            
+
             date_upload = System.currentTimeMillis()
         }
     }
@@ -133,14 +133,14 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         if (titleMatch != null) {
             return titleMatch.groupValues[1].toFloatOrNull() ?: 1f
         }
-        
+
         // Try from URL: "/episode-67-subtitle"
         val urlMatch = Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE)
             .find(url)
         if (urlMatch != null) {
             return urlMatch.groupValues[1].toFloatOrNull() ?: 1f
         }
-        
+
         return 1f
     }
 
@@ -150,24 +150,24 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun videoFromElement(element: Element): Video {
         val iframeUrl = element.attr("src")
-        
+
         // TODO: Implement custom Anichin video extractor
         // For now, return placeholder
         return Video(
             url = iframeUrl,
             quality = "Default",
-            videoUrl = iframeUrl
+            videoUrl = iframeUrl,
         )
     }
 
     override fun videoListParse(response: Response): List<Video> {
         val document = response.asJsoup()
         val videos = mutableListOf<Video>()
-        
+
         // Find all iframes
         document.select("iframe[src]").forEach { iframe ->
             val src = iframe.attr("src")
-            
+
             when {
                 "anichin.stream" in src -> {
                     // TODO: Extract from custom Anichin player
@@ -179,7 +179,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
             }
         }
-        
+
         return videos
     }
 
@@ -188,7 +188,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun List<Video>.sort(): List<Video> {
         val quality = preferences.getString("preferred_quality", "720p")
         return sortedWith(
-            compareBy { it.quality.contains(quality ?: "720p") }
+            compareBy { it.quality.contains(quality ?: "720p") },
         ).reversed()
     }
 
