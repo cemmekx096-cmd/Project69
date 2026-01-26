@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload APKs (${{ matrix.chunk.number }})
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        if: github.repository == 'yuzono/aniyomi-extensions'
+        if: github.repository == 'cemmekx096-cmd/project69'
         with:
           name: "individual-apks-${{ matrix.chunk.number }}"
           path: "**/*.apk"
@@ -151,7 +151,7 @@ jobs:
   publish:
     name: Publish extension repo
     needs: [prepare, build]
-    if: github.repository == 'yuzono/aniyomi-extensions'
+    if: github.repository == 'cemmekx096-cmd/project69'
     runs-on: 'ubuntu-24.04'
     steps:
       - name: Download APK artifacts
@@ -183,7 +183,7 @@ jobs:
       - name: Checkout repo branch
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
-          repository: yuzono/aniyomi-repo
+          repository: cemmekx096-cmd/Apk-project69
           token: ${{ secrets.BOT_PAT }}
           ref: repo
           path: repo
@@ -206,9 +206,9 @@ jobs:
           COMMIT_MESSAGE: ${{ needs.prepare.outputs.latestCommitMessage }}
         run: |
           cd repo
-          git config user.name "Yūzōnō"
-          git config user.email "yuzono@users.noreply.github.com"
-          git remote set-url origin https://github.com/yuzono/anime-repo.git
+          git config user.name "cemmekx096-cmd"
+          git config user.email "cemmekx096-cmd@users.noreply.github.com"
+          git remote set-url origin https://github.com/cemmekx096-cmd/Apk-project69.git
           git fetch origin
           git reset origin/repo
           git add -A
@@ -217,4 +217,4 @@ jobs:
 
       - name: Purge cached index on jsDelivr
         run: |
-          curl https://purge.jsdelivr.net/gh/yuzono/anime-repo@repo/index.min.json
+          curl https://purge.jsdelivr.net/gh/cemmekx096-cmd/Apk-project69@repo/index.min.json
