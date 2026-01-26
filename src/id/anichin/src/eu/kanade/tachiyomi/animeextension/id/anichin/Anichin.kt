@@ -95,7 +95,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
 
             genre = document.select("div.genxed a").joinToString { it.text() }
-
             status = when {
                 document.select("div.status").text().contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
                 document.select("div.status").text().contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
