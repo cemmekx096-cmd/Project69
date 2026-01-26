@@ -127,64 +127,101 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val document = response.asJsoup()
         val videoList = mutableListOf<Video>()
 
-        // First check for direct iframe in player-embed
-        document.selectFirst("div.player-embed iframe, div#pembed iframe")?.attr("src")?.let { iframeUrl ->
-            if (iframeUrl.isNotEmpty()) {
-                val cleanUrl = if (iframeUrl.startsWith("//")) "https:$iframeUrl" else iframeUrl
-                extractVideoFromUrl(cleanUrl, videoList, "Main")
-            }
-        }
-
-        // Also check select dropdown for additional servers
+        // Check select dropdown for servers - PRIORITY
         document.select("select.mirror option").forEach { option ->
-            val serverUrl = option.attr("value")
+            val serverValue = option.attr("value")
             val serverName = option.text().trim()
+            val dataIndex = option.attr("data-index")
 
-            if (serverUrl.isNotEmpty() && !serverName.contains("Select", ignoreCase = true)) {
-                val cleanUrl = if (serverUrl.startsWith("//")) "https:$serverUrl" else serverUrl
-                extractVideoFromUrl(cleanUrl, videoList, serverName)
+            if (serverValue.isNotEmpty() && !serverName.contains("Select", ignoreCase = true)) {
+                try {
+                    // Decode base64-encoded server URL
+                    val decodedUrl = try {
+                        String(android.util.Base64.decode(serverValue, android.util.Base64.DEFAULT))
+                    } catch (e: Exception) {
+                        serverValue // If not base64, use as-is
+                    }
+
+                    val cleanUrl = when {
+                        decodedUrl.startsWith("//") -> "https:$decodedUrl"
+                        decodedUrl.startsWith("http") -> decodedUrl
+                        else -> serverValue
+                    }
+
+                    android.util.Log.d("Anichin", "Server: $serverName | URL: $cleanUrl")
+
+                    extractVideoFromUrl(cleanUrl, videoList, "$serverName #$dataIndex")
+                } catch (e: Exception) {
+                    android.util.Log.e("Anichin", "Failed to parse server $serverName: ${e.message}")
+                }
             }
         }
 
-        // If still empty, try to find any iframe
+        // Fallback: check for direct iframe in player-embed (secondary)
+        if (videoList.isEmpty()) {
+            document.selectFirst("div.player-embed iframe, div#pembed iframe")?.attr("src")?.let { iframeUrl ->
+                if (iframeUrl.isNotEmpty()) {
+                    val cleanUrl = if (iframeUrl.startsWith("//")) "https:$iframeUrl" else iframeUrl
+                    extractVideoFromUrl(cleanUrl, videoList, "Main Player")
+                }
+            }
+        }
+
+        // Last resort: try to find any iframe
         if (videoList.isEmpty()) {
             document.select("iframe[src]").forEach { iframe ->
                 val src = iframe.attr("src")
                 if (src.isNotEmpty() && (src.startsWith("http") || src.startsWith("//"))) {
                     val cleanSrc = if (src.startsWith("//")) "https:$src" else src
-                    extractVideoFromUrl(cleanSrc, videoList, "Iframe")
+                    extractVideoFromUrl(cleanSrc, videoList, "Iframe Fallback")
                 }
             }
         }
 
         return videoList.ifEmpty {
-            listOf(Video(response.request.url.toString(), "Open in WebView", response.request.url.toString()))
+            // Ultimate fallback: return WebView option
+            listOf(Video(response.request.url.toString(), "Open in WebView (Tap to Play)", response.request.url.toString()))
         }
     }
 
     private fun extractVideoFromUrl(url: String, videoList: MutableList<Video>, serverName: String) {
         try {
+            // Debug log
+            android.util.Log.d("Anichin", "Extracting from URL: $url (Server: $serverName)")
+            
             when {
                 url.contains("ok.ru") || url.contains("odnoklassniki") -> {
-                    videoList.addAll(okruExtractor.videosFromUrl(url, "$serverName - "))
+                    val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
+                    videos.forEach { video ->
+                        android.util.Log.d("Anichin", "OK.ru Video: ${video.quality} -> ${video.url}")
+                    }
+                    videoList.addAll(videos)
                 }
                 url.contains("dailymotion") -> {
-                    videoList.addAll(dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - "))
+                    val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - ")
+                    videos.forEach { video ->
+                        android.util.Log.d("Anichin", "Dailymotion Video: ${video.quality} -> ${video.url}")
+                    }
+                    videoList.addAll(videos)
                 }
                 url.contains("drive.google") || url.contains("drive.usercontent.google") -> {
-                    videoList.addAll(googleDriveExtractor.videosFromUrl(url, "$serverName - "))
+                    val videos = googleDriveExtractor.videosFromUrl(url, "$serverName - ")
+                    videos.forEach { video ->
+                        android.util.Log.d("Anichin", "GDrive Video: ${video.quality} -> ${video.url}")
+                    }
+                    videoList.addAll(videos)
                 }
                 url.contains("rumble") -> {
-                    // Rumble doesn't have dedicated extractor, use direct iframe
+                    android.util.Log.d("Anichin", "Rumble (iframe): $url")
                     videoList.add(Video(url, "$serverName (Rumble)", url))
                 }
                 else -> {
-                    // Generic server (Premium, etc)
+                    android.util.Log.d("Anichin", "Generic server: $url")
                     videoList.add(Video(url, serverName, url))
                 }
             }
         } catch (e: Exception) {
-            // If extraction fails, add as generic video
+            android.util.Log.e("Anichin", "Extraction failed for $url: ${e.message}")
             videoList.add(Video(url, "$serverName (Fallback)", url))
         }
     }
@@ -201,7 +238,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            GenreFilter(),
+            GenreFilter()
         )
     }
 
