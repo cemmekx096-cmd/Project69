@@ -90,15 +90,15 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return SAnime.create().apply {
             title = document.selectFirst("h1.entry-title")?.text() ?: ""
             thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
-            
+
             genre = document.select("div.genxed a").joinToString { it.text() }
-            
+
             status = when {
                 document.select("div.status").text().contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
                 document.select("div.status").text().contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
                 else -> SAnime.UNKNOWN
             }
-            
+
             description = buildString {
                 document.selectFirst("div.desc")?.text()?.let { append(it) }
             }
@@ -128,7 +128,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         document.select("select.mirror option").forEach { option ->
             val serverUrl = option.attr("value")
             val serverName = option.text()
-            
+
             if (serverUrl.isNotEmpty() && serverUrl != "Select Video Server") {
                 try {
                     when {
@@ -168,7 +168,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         try {
             val videoId = url.substringAfter("videoembed/").substringBefore("?")
             val embedUrl = "https://ok.ru/videoembed/$videoId"
-            
+
             // OK.ru typically provides multiple qualities
             listOf("1080p", "720p", "480p", "360p").forEach { q ->
                 videoList.add(Video(embedUrl, "$quality - $q", embedUrl))
@@ -219,8 +219,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             Pair("Supernatural", "supernatural"),
             Pair("Thriller", "thriller"),
             Pair("Xianxia", "xianxia"),
-            Pair("Xuanhuan", "xuanhuan")
-        )
+            Pair("Xuanhuan", "xuanhuan"),
+        ),
     )
 
     private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
