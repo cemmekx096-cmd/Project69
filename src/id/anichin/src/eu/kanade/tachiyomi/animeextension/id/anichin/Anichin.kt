@@ -64,15 +64,11 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Search ===============================
 
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        val filterList = if (filters.isEmpty()) getFilterList() else filters
-        val genreFilter = filterList.find { it is GenreFilter } as? GenreFilter
+        val params = AnichinFilters.getSearchParameters(filters)
 
         return when {
             query.isNotEmpty() -> GET("$baseUrl/?s=$query&page=$page")
-            genreFilter != null && genreFilter.state.isNotEmpty() -> {
-                val genre = genreFilter.state
-                GET("$baseUrl/genres/$genre/?page=$page")
-            }
+            params.genre.isNotEmpty() -> GET("$baseUrl/genres/${params.genre}/?page=$page")
             else -> popularAnimeRequest(page)
         }
     }
@@ -224,7 +220,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
         AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
-        val state get() = vals[this.state].second
+        fun toUriPart() = vals[state].second
     }
 
     // ============================== Settings ==============================
