@@ -36,6 +36,19 @@ jobs:
             exit 1
           fi
       
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      
+      - name: Clear Gradle cache (force clean)
+        run: |
+          rm -rf ~/.gradle/caches
+          ./gradlew clean --no-daemon
+      
+      - name: List available projects
+        run: ./gradlew projects
+      
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       
@@ -44,7 +57,9 @@ jobs:
           # Default to anichin if no input
           EXTENSION="${{ github.event.inputs.extension || 'id:anichin' }}"
           echo "Building extension: $EXTENSION"
-          ./gradlew :${EXTENSION//:/:}:assembleRelease
+          
+          # Convert "id:anichin" to ":id:anichin:assembleRelease"
+          ./gradlew :${EXTENSION}:assembleRelease
       
       - name: Upload APK
         uses: actions/upload-artifact@v4

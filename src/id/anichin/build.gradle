@@ -6,3 +6,9 @@ ext {
 }
 
 apply from: "$rootDir/common.gradle"
+
+dependencies {
+    // Uncomment when needed:
+    // implementation(project(":lib:streamsb-extractor"))
+    // implementation(project(":lib:doodstream-extractor"))
+}

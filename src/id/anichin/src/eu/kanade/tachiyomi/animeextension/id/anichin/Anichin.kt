@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Document
@@ -76,16 +77,12 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun animeDetailsParse(document: Document) = SAnime.create().apply {
         title = document.selectFirst("h1.entry-title")?.text() ?: "Unknown"
-
         thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
-
         genre = document.select("div.genxed a").joinToString { it.text() }
-
         status = parseStatus(
             document.selectFirst("div.spe span:contains(Status)")
                 ?.parent()?.ownText() ?: "",
         )
-
         description = document.selectFirst("div.entry-content p")?.text()
             ?: document.selectFirst("div.sinopsis")?.text()
     }
@@ -104,60 +101,60 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun episodeFromElement(element: Element) = SEpisode.create().apply {
         val link = element.selectFirst("a")!!
         setUrlWithoutDomain(link.attr("href"))
-
         name = link.selectFirst("div.epl-title")?.text()
             ?: link.text()
             ?: "Episode"
-
         episode_number = extractEpisodeNumber(name, link.attr("href"))
         date_upload = System.currentTimeMillis()
     }
 
     private fun extractEpisodeNumber(title: String, url: String): Float {
-        val titleMatch = Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE).find(title)
-        if (titleMatch != null) {
-            return titleMatch.groupValues[1].toFloatOrNull() ?: 1f
+        Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE).find(title)?.let {
+            return it.groupValues[1].toFloatOrNull() ?: 1f
         }
-
-        val urlMatch = Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE).find(url)
-        if (urlMatch != null) {
-            return urlMatch.groupValues[1].toFloatOrNull() ?: 1f
+        Regex("""episode[- ]?(\d+)""", RegexOption.IGNORE_CASE).find(url)?.let {
+            return it.groupValues[1].toFloatOrNull() ?: 1f
         }
-
         return 1f
     }
 
     // ============================ Video Links =============================
 
-    override fun videoListSelector(): String = "iframe[src*=anichin]"
-
-    override fun videoFromElement(element: Element): Video {
-        val iframeUrl = element.attr("src")
-        return Video(
-            url = iframeUrl,
-            quality = "Default",
-            videoUrl = iframeUrl,
-        )
-    }
-
     override fun videoListParse(response: Response): List<Video> {
         val document = response.asJsoup()
         val videos = mutableListOf<Video>()
 
+        // Find all video iframes
         document.select("iframe[src]").forEach { iframe ->
-            val src = iframe.attr("src")
+            val iframeUrl = iframe.attr("src")
 
             when {
-                "anichin.stream" in src -> {
-                    videos.add(Video(src, "Anichin Stream", src))
+                "anichin.stream" in iframeUrl -> {
+                    // TODO: Implement Anichin.stream extractor
+                    // For now, return iframe URL
+                    videos.add(Video(iframeUrl, "Anichin Stream", iframeUrl))
                 }
+                // Add support for other hosts here
+                // "streamsb" in iframeUrl -> { ... }
+                // "dood" in iframeUrl -> { ... }
                 else -> {
-                    videos.add(Video(src, "Unknown Host", src))
+                    videos.add(Video(iframeUrl, "Unknown - ${iframeUrl.substringAfter("//").substringBefore("/")}", iframeUrl))
                 }
             }
         }
 
         return videos
+    }
+
+    override fun videoListSelector(): String = "iframe[src]"
+
+    override fun videoFromElement(element: Element): Video {
+        val iframeUrl = element.attr("src")
+        return Video(iframeUrl, "Default", iframeUrl)
+    }
+
+    override fun videoUrlParse(document: Document): String {
+        throw UnsupportedOperationException()
     }
 
     // ============================= Utilities ==============================
