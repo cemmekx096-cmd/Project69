@@ -201,7 +201,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            GenreFilter()
+            GenreFilter(),
         )
     }
 
