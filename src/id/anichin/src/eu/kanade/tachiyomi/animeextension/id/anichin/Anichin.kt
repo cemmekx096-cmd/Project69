@@ -195,6 +195,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             // Debug log
             android.util.Log.d("Anichin", "Extracting from URL: $url (Server: $serverName)")
             
+            
             when {
                 url.contains("ok.ru") || url.contains("odnoklassniki") -> {
                     val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
@@ -244,7 +245,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            GenreFilter()
+            GenreFilter(),
         )
     }
 
