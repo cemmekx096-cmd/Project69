@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.id.anichin
 
 import android.app.Application
-import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import android.util.Base64
 import android.util.Log
@@ -34,7 +33,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val supportsLatest = true
 
     private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_$id", Context.MODE_PRIVATE)
+        Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
     private val okruExtractor by lazy { OkruExtractor(client) }
