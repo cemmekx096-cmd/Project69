@@ -8,11 +8,8 @@ ext {
 apply from: "$rootDir/common.gradle"
 
 dependencies {
-    // Pastikan nama modul di settings.gradle sama persis seperti ini
     implementation(project(":lib:okru-extractor"))
     implementation(project(":lib:dailymotion-extractor"))
     implementation(project(":lib:googledrive-extractor"))
-
-    // Jika ada modul extractor dengan nama lain, ganti sesuai nama modul di repo
-    // implementation(project(":lib:terabox-extractor"))
+    implementation(project(":lib:cloudflare-interceptor"))
 }
