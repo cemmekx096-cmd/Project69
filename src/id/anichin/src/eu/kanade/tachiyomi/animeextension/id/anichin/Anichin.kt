@@ -31,7 +31,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val supportsLatest = true
 
     private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+        Injekt.get<Application>().getSharedPreferences("source_$id", android.content.Context.MODE_PRIVATE)
     }
 
     private val okruExtractor by lazy { OkruExtractor(client) }
@@ -48,9 +48,15 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
-            setUrlWithoutDomain(element.selectFirst("div.bsx > a")!!.attr("href"))
-            thumbnail_url = element.selectFirst("div.bsx img")?.attr("src")
-            title = element.selectFirst("div.bsx a")?.attr("title") ?: ""
+            // safe extraction to avoid NPE if structure slightly changes
+            element.selectFirst("div.bsx > a")?.attr("href")?.let { setUrlWithoutDomain(it) }
+            element.selectFirst("div.bsx img")?.let { img ->
+                val dataSrc = img.attr("data-src").ifEmpty { img.attr("src") }
+                thumbnail_url = dataSrc.ifEmpty { null }
+            }
+            title = element.selectFirst("div.bsx a")?.attr("title")
+                ?: element.selectFirst("div.bsx a")?.text()
+                ?: ""
         }
     }
 
@@ -92,13 +98,17 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun animeDetailsParse(document: Document): SAnime {
         return SAnime.create().apply {
             title = document.selectFirst("h1.entry-title")?.text() ?: ""
-            thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
+            document.selectFirst("div.thumb img")?.let { img ->
+                val dataSrc = img.attr("data-src").ifEmpty { img.attr("src") }
+                thumbnail_url = dataSrc.ifEmpty { null }
+            }
 
-            genre = document.select("div.genxed a").joinToString { it.text() }
+            genre = document.select("div.genxed a").joinToString(", ") { it.text() }
 
+            val statusText = document.select("div.status").text()
             status = when {
-                document.select("div.status").text().contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
-                document.select("div.status").text().contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
+                statusText.contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
+                statusText.contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
                 else -> SAnime.UNKNOWN
             }
 
@@ -114,9 +124,15 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun episodeFromElement(element: Element): SEpisode {
         return SEpisode.create().apply {
-            setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
-            name = element.selectFirst("span.epcur")?.text() ?: element.selectFirst("a")?.text() ?: "Episode"
-            episode_number = name.filter { it.isDigit() }.toFloatOrNull() ?: 0f
+            element.selectFirst("a")?.attr("href")?.let { setUrlWithoutDomain(it) }
+            name = element.selectFirst("span.epcur")?.text()
+                ?: element.selectFirst("a")?.text()
+                ?: "Episode"
+
+            // Extract first occurrence of integer or decimal (e.g., 12 or 12.5)
+            val match = Regex("""\d+(\.\d+)?""").find(name)
+            episode_number = match?.value?.toFloatOrNull() ?: 0f
+
             date_upload = System.currentTimeMillis()
         }
     }
@@ -135,22 +151,24 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
             if (serverValue.isNotEmpty() && !serverName.contains("Select", ignoreCase = true)) {
                 try {
-                    // Decode base64-encoded server URL
+                    // Decode base64-encoded server URL if possible; fallback to raw value
                     val decodedUrl = try {
-                        String(android.util.Base64.decode(serverValue, android.util.Base64.DEFAULT))
+                        val decoded = String(android.util.Base64.decode(serverValue, android.util.Base64.DEFAULT))
+                        // only accept decoded if it looks like an URL
+                        if (decoded.startsWith("http", ignoreCase = true) || decoded.startsWith("//")) decoded else serverValue
                     } catch (e: Exception) {
                         serverValue // If not base64, use as-is
                     }
 
                     val cleanUrl = when {
                         decodedUrl.startsWith("//") -> "https:$decodedUrl"
-                        decodedUrl.startsWith("http") -> decodedUrl
+                        decodedUrl.startsWith("http", ignoreCase = true) -> decodedUrl
                         else -> serverValue
                     }
 
                     android.util.Log.d("Anichin", "Server: $serverName | URL: $cleanUrl")
 
-                    extractVideoFromUrl(cleanUrl, videoList, "$serverName #$dataIndex")
+                    extractVideoFromUrl(cleanUrl, videoList, if (dataIndex.isNotEmpty()) "$serverName #$dataIndex" else serverName)
                 } catch (e: Exception) {
                     android.util.Log.e("Anichin", "Failed to parse server $serverName: ${e.message}")
                 }
@@ -171,7 +189,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         if (videoList.isEmpty()) {
             document.select("iframe[src]").forEach { iframe ->
                 val src = iframe.attr("src")
-                if (src.isNotEmpty() && (src.startsWith("http") || src.startsWith("//"))) {
+                if (src.isNotEmpty() && (src.startsWith("http", ignoreCase = true) || src.startsWith("//"))) {
                     val cleanSrc = if (src.startsWith("//")) "https:$src" else src
                     extractVideoFromUrl(cleanSrc, videoList, "Iframe Fallback")
                 }
@@ -194,30 +212,30 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         try {
             // Debug log
             android.util.Log.d("Anichin", "Extracting from URL: $url (Server: $serverName)")
-            
+
             when {
-                url.contains("ok.ru") || url.contains("odnoklassniki") -> {
+                url.contains("ok.ru", ignoreCase = true) || url.contains("odnoklassniki", ignoreCase = true) -> {
                     val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
                     videos.forEach { video ->
                         android.util.Log.d("Anichin", "OK.ru Video: ${video.quality} -> ${video.url}")
                     }
                     videoList.addAll(videos)
                 }
-                url.contains("dailymotion") -> {
+                url.contains("dailymotion", ignoreCase = true) -> {
                     val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - ")
                     videos.forEach { video ->
                         android.util.Log.d("Anichin", "Dailymotion Video: ${video.quality} -> ${video.url}")
                     }
                     videoList.addAll(videos)
                 }
-                url.contains("drive.google") || url.contains("drive.usercontent.google") -> {
+                url.contains("drive.google", ignoreCase = true) || url.contains("drive.usercontent.google", ignoreCase = true) -> {
                     val videos = googleDriveExtractor.videosFromUrl(url, "$serverName - ")
                     videos.forEach { video ->
                         android.util.Log.d("Anichin", "GDrive Video: ${video.quality} -> ${video.url}")
                     }
                     videoList.addAll(videos)
                 }
-                url.contains("rumble") -> {
+                url.contains("rumble", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Rumble (iframe): $url")
                     videoList.add(Video(url, "$serverName (Rumble)", url))
                 }
@@ -287,11 +305,17 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             setDefaultValue(PREF_QUALITY_DEFAULT)
             summary = "%s"
 
-            setOnPreferenceChangeListener { _, newValue ->
+            // Load saved value so UI shows current selection
+            val saved = preferences.getString(PREF_QUALITY_KEY, PREF_QUALITY_DEFAULT)
+            value = saved
+
+            setOnPreferenceChangeListener { pref, newValue ->
                 val selected = newValue as String
-                val index = findIndexOfValue(selected)
-                val entry = entryValues[index] as String
-                preferences.edit().putString(key, entry).commit()
+                // store the selection
+                preferences.edit().putString(key, selected).apply()
+                // update the preference UI
+                pref.summary = selected
+                true
             }
         }.also(screen::addPreference)
     }
