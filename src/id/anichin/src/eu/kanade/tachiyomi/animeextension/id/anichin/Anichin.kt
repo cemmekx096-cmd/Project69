@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.id.anichin
 
 import android.app.Application
-import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import android.util.Base64
@@ -80,7 +79,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun latestUpdatesNextPageSelector(): String = popularAnimeNextPageSelector()
 
     // =============================== Search ===============================
-
 
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         val params = AnichinFilters.getSearchParameters(filters)
