@@ -12,6 +12,7 @@ object AnichinFilters {
                     val part = f.toUriPart()
                     if (part.isNotEmpty()) params.genre = part
                 }
+                else -> Unit
             }
         }
         return params
@@ -45,7 +46,7 @@ object AnichinFilters {
         ),
     )
 
-    private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
+    open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
         AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
         fun toUriPart() = vals[state].second
     }
