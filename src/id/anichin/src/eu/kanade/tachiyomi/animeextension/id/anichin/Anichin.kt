@@ -34,7 +34,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val supportsLatest = true
 
     private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_$id", MODE_PRIVATE)
+        Injekt.get<Application>().getSharedPreferences("source_$id", Context.MODE_PRIVATE)
     }
 
     private val okruExtractor by lazy { OkruExtractor(client) }
