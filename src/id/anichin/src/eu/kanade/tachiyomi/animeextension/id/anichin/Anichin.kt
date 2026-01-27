@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit
 class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "Anichin"
-    override val baseUrl = "https://anichin.cafe"
+    override val baseUrl = "https://anichin.watch"
     override val lang = "id"
     override val supportsLatest = true
 
