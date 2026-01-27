@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
+import android.content.Context
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -31,7 +32,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val supportsLatest = true
 
     private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_$id", android.content.Context.MODE_PRIVATE)
+        Injekt.get<Application>().getSharedPreferences("source_$id", Context.MODE_PRIVATE)
     }
 
     private val okruExtractor by lazy { OkruExtractor(client) }
