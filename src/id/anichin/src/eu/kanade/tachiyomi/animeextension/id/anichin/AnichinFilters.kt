@@ -42,7 +42,7 @@ object AnichinFilters {
             Pair("Wuxia", "wuxia"),
             Pair("Xianxia", "xianxia"),
             Pair("Xuanhuan", "xuanhuan"),
-        )
+        ),
     )
 
     private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :

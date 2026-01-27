@@ -21,7 +21,6 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
 import okhttp3.Response
-import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
@@ -246,7 +245,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     Log.d("Anichin", "Rumble iframe: $url")
                     videoList.add(Video(url, "$serverName (Rumble)", url))
                 }
-                "anichinv2" in lower || "anichin" in lower && lower.contains(".m3u8") -> {
+                "anichinv2" in lower || ("anichin" in lower && lower.contains(".m3u8")) -> {
                     // Premium HLS server or direct HLS URL
                     videoList.add(Video(url, "$serverName (HLS)", url))
                 }
