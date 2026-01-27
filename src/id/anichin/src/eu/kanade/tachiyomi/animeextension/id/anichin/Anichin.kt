@@ -95,6 +95,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
 
             genre = document.select("div.genxed a").joinToString { it.text() }
+
             status = when {
                 document.select("div.status").text().contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
                 document.select("div.status").text().contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
@@ -194,7 +195,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             // Debug log
             android.util.Log.d("Anichin", "Extracting from URL: $url (Server: $serverName)")
             
-            
             when {
                 url.contains("ok.ru") || url.contains("odnoklassniki") -> {
                     val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
@@ -244,7 +244,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            GenreFilter(),
+            GenreFilter()
         )
     }
 
