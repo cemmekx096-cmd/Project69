@@ -4,49 +4,26 @@ import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 
 object AnichinFilters {
-
-    open class UriPartFilter(
-        displayName: String,
-        val vals: Array<Pair<String, String>>,
-    ) : AnimeFilter.Select<String>(
-        displayName,
-        vals.map { it.first }.toTypedArray(),
-    ) {
-        fun toUriPart() = vals[state].second
+    fun getSearchParameters(filters: AnimeFilterList): Params {
+        val params = Params()
+        filters.forEach { f ->
+            when (f) {
+                is GenreFilter -> {
+                    val part = f.toUriPart()
+                    if (part.isNotEmpty()) params.genre = part
+                }
+            }
+        }
+        return params
     }
 
-    private inline fun <reified R> AnimeFilterList.getFirst(): R {
-        return this.filterIsInstance<R>().first()
+    class Params {
+        var genre: String = ""
     }
 
-    private inline fun <reified R> AnimeFilterList.asUriPart(): String {
-        return (this.getFirst<R>() as UriPartFilter).toUriPart()
-    }
-
-    class GenreFilter : UriPartFilter("Genres", FiltersData.GENRE)
-
-    val FILTER_LIST
-        get() = AnimeFilterList(
-            AnimeFilter.Header("Text search and filters work!"),
-            AnimeFilter.Separator(),
-            AnimeFilter.Header("NOTE: Ignored when using text search"),
-            GenreFilter(),
-        )
-
-    data class FilterSearchParams(
-        val genre: String = "",
-    )
-
-    internal fun getSearchParameters(filters: AnimeFilterList): FilterSearchParams {
-        if (filters.isEmpty()) return FilterSearchParams()
-
-        return FilterSearchParams(
-            genre = filters.asUriPart<GenreFilter>(),
-        )
-    }
-
-    private object FiltersData {
-        val GENRE = arrayOf(
+    class GenreFilter : UriPartFilter(
+        "Genres",
+        arrayOf(
             Pair("<select>", ""),
             Pair("Action", "action"),
             Pair("Action Drama", "action-drama"),
@@ -66,5 +43,10 @@ object AnichinFilters {
             Pair("Xianxia", "xianxia"),
             Pair("Xuanhuan", "xuanhuan"),
         )
+    )
+
+    private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
+        AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
+        fun toUriPart() = vals[state].second
     }
 }

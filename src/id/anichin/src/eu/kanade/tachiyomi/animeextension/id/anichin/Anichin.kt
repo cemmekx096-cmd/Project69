@@ -1,10 +1,12 @@
 package eu.kanade.tachiyomi.animeextension.id.anichin
 
 import android.app.Application
+import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
+import android.util.Log
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
-import android.content.Context
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -19,6 +21,7 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
 import okhttp3.Response
+import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
@@ -42,19 +45,20 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Popular ===============================
 
     override fun popularAnimeRequest(page: Int): Request {
-        return GET("$baseUrl/ongoing/?page=$page")
+        return GET("$baseUrl/ongoing/?page=$page", headers)
     }
 
     override fun popularAnimeSelector(): String = "div.listupd article.bs"
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
-            // safe extraction to avoid NPE if structure slightly changes
             element.selectFirst("div.bsx > a")?.attr("href")?.let { setUrlWithoutDomain(it) }
+
             element.selectFirst("div.bsx img")?.let { img ->
-                val dataSrc = img.attr("data-src").ifEmpty { img.attr("src") }
-                thumbnail_url = dataSrc.ifEmpty { null }
+                val candidate = img.attr("data-src").ifEmpty { img.attr("src") }.ifEmpty { null }
+                thumbnail_url = candidate
             }
+
             title = element.selectFirst("div.bsx a")?.attr("title")
                 ?: element.selectFirst("div.bsx a")?.text()
                 ?: ""
@@ -66,8 +70,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Latest ===============================
 
     override fun latestUpdatesRequest(page: Int): Request {
-        // Use ongoing page for latest because homepage shows episodes, not anime
-        return GET("$baseUrl/ongoing/?page=$page")
+        return GET("$baseUrl/ongoing/?page=$page", headers)
     }
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
@@ -82,8 +85,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val params = AnichinFilters.getSearchParameters(filters)
 
         return when {
-            query.isNotEmpty() -> GET("$baseUrl/?s=$query&page=$page")
-            params.genre.isNotEmpty() -> GET("$baseUrl/genres/${params.genre}/?page=$page")
+            query.isNotEmpty() -> GET("$baseUrl/?s=$query&page=$page", headers)
+            params.genre.isNotEmpty() -> GET("$baseUrl/genres/${params.genre}/?page=$page", headers)
             else -> popularAnimeRequest(page)
         }
     }
@@ -99,23 +102,22 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun animeDetailsParse(document: Document): SAnime {
         return SAnime.create().apply {
             title = document.selectFirst("h1.entry-title")?.text() ?: ""
+
             document.selectFirst("div.thumb img")?.let { img ->
-                val dataSrc = img.attr("data-src").ifEmpty { img.attr("src") }
-                thumbnail_url = dataSrc.ifEmpty { null }
+                val src = img.attr("data-src").ifEmpty { img.attr("src") }.ifEmpty { null }
+                thumbnail_url = src
             }
 
             genre = document.select("div.genxed a").joinToString(", ") { it.text() }
 
-            val statusText = document.select("div.status").text()
+            val statusText = document.selectFirst("div.status")?.text().orEmpty()
             status = when {
                 statusText.contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
                 statusText.contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
                 else -> SAnime.UNKNOWN
             }
 
-            description = buildString {
-                document.selectFirst("div.desc")?.text()?.let { append(it) }
-            }
+            description = document.selectFirst("div.desc")?.text() ?: ""
         }
     }
 
@@ -126,12 +128,15 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun episodeFromElement(element: Element): SEpisode {
         return SEpisode.create().apply {
             element.selectFirst("a")?.attr("href")?.let { setUrlWithoutDomain(it) }
-            name = element.selectFirst("span.epcur")?.text()
+
+            val nameCandidate = element.selectFirst("span.epcur")?.text()
                 ?: element.selectFirst("a")?.text()
                 ?: "Episode"
 
-            // Extract first occurrence of integer or decimal (e.g., 12 or 12.5)
-            val match = Regex("""\d+(\.\d+)?""").find(name)
+            name = nameCandidate
+
+            // Support decimal (12.5) as well as simple integers
+            val match = Regex("""\d+(\.\d+)?""").find(nameCandidate)
             episode_number = match?.value?.toFloatOrNull() ?: 0f
 
             date_upload = System.currentTimeMillis()
@@ -144,117 +149,129 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val document = response.asJsoup()
         val videoList = mutableListOf<Video>()
 
-        // Check select dropdown for servers - PRIORITY
+        // 1) Check select.mirror options (primary)
         document.select("select.mirror option").forEach { option ->
-            val serverValue = option.attr("value")
-            val serverName = option.text().trim()
-            val dataIndex = option.attr("data-index")
+            val serverValue = option.attr("value").orEmpty()
+            val serverName = option.text().trim().ifEmpty { "Server" }
+            val dataIndex = option.attr("data-index").ifEmpty { "" }
 
-            if (serverValue.isNotEmpty() && !serverName.contains("Select", ignoreCase = true)) {
+            if (serverValue.isNotEmpty() && !serverName.contains("select", ignoreCase = true)) {
                 try {
-                    // Decode base64-encoded server URL if possible; fallback to raw value
-                    val decodedUrl = try {
-                        val decoded = String(android.util.Base64.decode(serverValue, android.util.Base64.DEFAULT))
-                        // only accept decoded if it looks like an URL
-                        if (decoded.startsWith("http", ignoreCase = true) || decoded.startsWith("//")) decoded else serverValue
+                    // Try base64 decode; if decoded contains iframe -> parse iframe src,
+                    // otherwise treat as direct URL.
+                    var decoded = serverValue
+                    try {
+                        val bytes = Base64.decode(serverValue, Base64.DEFAULT)
+                        val asStr = String(bytes)
+                        if (asStr.contains("<iframe", ignoreCase = true) || asStr.contains("src=", ignoreCase = true)) {
+                            decoded = asStr
+                        }
                     } catch (e: Exception) {
-                        serverValue // If not base64, use as-is
+                        // not base64 — keep original
                     }
 
-                    val cleanUrl = when {
-                        decodedUrl.startsWith("//") -> "https:$decodedUrl"
-                        decodedUrl.startsWith("http", ignoreCase = true) -> decodedUrl
-                        else -> serverValue
-                    }
+                    val extractedUrl = AnichinFactory.extractIframeSrcOrUrl(decoded)
+                        ?: serverValue
 
-                    android.util.Log.d("Anichin", "Server: $serverName | URL: $cleanUrl")
+                    val label = if (dataIndex.isNotEmpty()) "$serverName #$dataIndex" else serverName
+                    Log.d("Anichin", "Found server: $label -> $extractedUrl")
 
-                    extractVideoFromUrl(cleanUrl, videoList, if (dataIndex.isNotEmpty()) "$serverName #$dataIndex" else serverName)
+                    extractVideoFromUrl(extractedUrl, videoList, label)
                 } catch (e: Exception) {
-                    android.util.Log.e("Anichin", "Failed to parse server $serverName: ${e.message}")
+                    Log.e("Anichin", "Failed parsing server option '$serverName': ${e.message}")
                 }
             }
         }
 
-        // Fallback: check for direct iframe in player-embed (secondary)
+        // 2) player-embed iframe fallback
         if (videoList.isEmpty()) {
-            document.selectFirst("div.player-embed iframe, div#pembed iframe")?.attr("src")?.let { iframeUrl ->
-                if (iframeUrl.isNotEmpty()) {
-                    val cleanUrl = if (iframeUrl.startsWith("//")) "https:$iframeUrl" else iframeUrl
-                    extractVideoFromUrl(cleanUrl, videoList, "Main Player")
-                }
+            val iframeSrc = document.selectFirst("div.player-embed iframe, div#pembed iframe")?.attr("src")
+            iframeSrc?.takeIf { it.isNotEmpty() }?.let {
+                val clean = if (it.startsWith("//")) "https:$it" else it
+                extractVideoFromUrl(clean, videoList, "Main Player")
             }
         }
 
-        // Last resort: try to find any iframe
+        // 3) Generic iframe fallback
         if (videoList.isEmpty()) {
             document.select("iframe[src]").forEach { iframe ->
                 val src = iframe.attr("src")
-                if (src.isNotEmpty() && (src.startsWith("http", ignoreCase = true) || src.startsWith("//"))) {
-                    val cleanSrc = if (src.startsWith("//")) "https:$src" else src
-                    extractVideoFromUrl(cleanSrc, videoList, "Iframe Fallback")
+                if (src.isNotEmpty()) {
+                    val clean = if (src.startsWith("//")) "https:$src" else src
+                    extractVideoFromUrl(clean, videoList, "Iframe Fallback")
                 }
+            }
+        }
+
+        // 4) Download links (Terabox / Mirrored) — parse soraurlx blocks
+        document.select("div.soraurlx").forEach { block ->
+            val quality = block.selectFirst("strong")?.text()?.trim() ?: "Download"
+            block.select("a[href]").forEach { a ->
+                val href = a.attr("href")
+                val hostLabel = when {
+                    href.contains("terabox", ignoreCase = true) -> "Terabox"
+                    href.contains("mirrored.to", ignoreCase = true) -> "Mirrored"
+                    else -> "Download"
+                }
+                videoList.add(Video(href, "$quality - $hostLabel (Download)", href))
             }
         }
 
         return videoList.ifEmpty {
-            // Ultimate fallback: return WebView option
-            listOf(
-                Video(
-                    response.request.url.toString(),
-                    "Open in WebView (Tap to Play)",
-                    response.request.url.toString(),
-                ),
-            )
+            // Fallback: open page in WebView
+            listOf(Video(response.request.url.toString(), "Open in WebView (Tap to Play)", response.request.url.toString()))
         }
     }
 
     private fun extractVideoFromUrl(url: String, videoList: MutableList<Video>, serverName: String) {
         try {
-            // Debug log
-            android.util.Log.d("Anichin", "Extracting from URL: $url (Server: $serverName)")
-
+            val lower = url.lowercase()
             when {
-                url.contains("ok.ru", ignoreCase = true) || url.contains("odnoklassniki", ignoreCase = true) -> {
+                "ok.ru" in lower || "odnoklassniki" in lower -> {
                     val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
-                    videos.forEach { video ->
-                        android.util.Log.d("Anichin", "OK.ru Video: ${video.quality} -> ${video.url}")
-                    }
+                    videos.forEach { Log.d("Anichin", "OK.ru: ${it.quality} -> ${it.url}") }
                     videoList.addAll(videos)
                 }
-                url.contains("dailymotion", ignoreCase = true) -> {
+                "dailymotion" in lower || "dai.ly" in lower -> {
                     val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - ")
-                    videos.forEach { video ->
-                        android.util.Log.d("Anichin", "Dailymotion Video: ${video.quality} -> ${video.url}")
-                    }
+                    videos.forEach { Log.d("Anichin", "Dailymotion: ${it.quality} -> ${it.url}") }
                     videoList.addAll(videos)
                 }
-                url.contains("drive.google", ignoreCase = true) || url.contains("drive.usercontent.google", ignoreCase = true) -> {
+                "drive.google" in lower || "drive.googleusercontent" in lower || "docs.google" in lower -> {
                     val videos = googleDriveExtractor.videosFromUrl(url, "$serverName - ")
-                    videos.forEach { video ->
-                        android.util.Log.d("Anichin", "GDrive Video: ${video.quality} -> ${video.url}")
-                    }
+                    videos.forEach { Log.d("Anichin", "GDrive: ${it.quality} -> ${it.url}") }
                     videoList.addAll(videos)
                 }
-                url.contains("rumble", ignoreCase = true) -> {
-                    android.util.Log.d("Anichin", "Rumble (iframe): $url")
+                "rumble" in lower -> {
+                    Log.d("Anichin", "Rumble iframe: $url")
                     videoList.add(Video(url, "$serverName (Rumble)", url))
                 }
+                "anichinv2" in lower || "anichin" in lower && lower.contains(".m3u8") -> {
+                    // Premium HLS server or direct HLS URL
+                    videoList.add(Video(url, "$serverName (HLS)", url))
+                }
+                // Mirrored / Terabox downloads (treated as downloadable links)
+                "terabox" in lower || "mirrored.to" in lower -> {
+                    videoList.add(Video(url, "$serverName (Download)", url))
+                }
                 else -> {
-                    android.util.Log.d("Anichin", "Generic server: $url")
-                    videoList.add(Video(url, serverName, url))
+                    // Generic server: may itself be an embeddable player. Add as-is.
+                    Log.d("Anichin", "Generic server: $url")
+                    // Try to parse if the url itself contains a base64-encoded iframe string
+                    val iframeSrc = AnichinFactory.extractIframeSrcOrUrl(url)
+                    val finalUrl = iframeSrc ?: url
+                    videoList.add(Video(finalUrl, serverName, finalUrl))
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("Anichin", "Extraction failed for $url: ${e.message}")
+            Log.e("Anichin", "Extraction failed for $url: ${e.message}")
+            // Add fallback entry so user can open page or link
             videoList.add(Video(url, "$serverName (Fallback)", url))
         }
     }
 
     override fun videoListSelector(): String = throw UnsupportedOperationException()
-
     override fun videoFromElement(element: Element): Video = throw UnsupportedOperationException()
-
     override fun videoUrlParse(document: Document): String = throw UnsupportedOperationException()
 
     // ============================== Filters ===============================
@@ -263,36 +280,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            GenreFilter(),
+            AnichinFilters.GenreFilter(),
         )
-    }
-
-    private class GenreFilter : UriPartFilter(
-        "Genres",
-        arrayOf(
-            Pair("<select>", ""),
-            Pair("Action", "action"),
-            Pair("Action Drama", "action-drama"),
-            Pair("Actions", "actions"),
-            Pair("Adventure", "adventure"),
-            Pair("Comedy", "comedy"),
-            Pair("Drama", "drama"),
-            Pair("Fantasy", "fantasy"),
-            Pair("Historical", "historical"),
-            Pair("Martial Arts", "martial-arts"),
-            Pair("Romance", "romance"),
-            Pair("Sci-Fi", "sci-fi"),
-            Pair("Slice of Life", "slice-of-life"),
-            Pair("Supernatural", "supernatural"),
-            Pair("Thriller", "thriller"),
-            Pair("Xianxia", "xianxia"),
-            Pair("Xuanhuan", "xuanhuan"),
-        ),
-    )
-
-    private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
-        AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
-        fun toUriPart() = vals[state].second
     }
 
     // ============================== Settings ==============================
@@ -306,22 +295,17 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             setDefaultValue(PREF_QUALITY_DEFAULT)
             summary = "%s"
 
-            // Load saved value so UI shows current selection
-            val saved = preferences.getString(PREF_QUALITY_KEY, PREF_QUALITY_DEFAULT)
-            value = saved
+            // reflect saved preference
+            value = preferences.getString(PREF_QUALITY_KEY, PREF_QUALITY_DEFAULT)
 
             setOnPreferenceChangeListener { pref, newValue ->
                 val selected = newValue as String
-                // store the selection
                 preferences.edit().putString(key, selected).apply()
-                // update the preference UI
                 pref.summary = selected
                 true
             }
         }.also(screen::addPreference)
     }
-
-    // ============================= Utilities ==============================
 
     companion object {
         private const val PREF_QUALITY_KEY = "preferred_quality"
