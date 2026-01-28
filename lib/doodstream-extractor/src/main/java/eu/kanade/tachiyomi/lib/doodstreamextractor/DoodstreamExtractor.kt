@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.lib.doodstreamextractor
 
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.HEAD
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -10,20 +9,22 @@ import java.util.Locale
 
 class DoodstreamExtractor(private val client: OkHttpClient) {
     
-    private val headers: Headers = Headers.Builder()
-        .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-        .add("Accept-Language", "en-US,en;q=0.5")
-        .add("Accept-Encoding", "gzip, deflate, br")
-        .add("DNT", "1")
-        .add("Connection", "keep-alive")
-        .add("Upgrade-Insecure-Requests", "1")
-        .add("Sec-Fetch-Dest", "document")
-        .add("Sec-Fetch-Mode", "navigate")
-        .add("Sec-Fetch-Site", "none")
-        .add("Sec-Fetch-User", "?1")
-        .add("TE", "trailers")
-        .build()
+    companion object {
+        private val DOODSTREAM_HEADERS = Headers.Builder()
+            .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+            .add("Accept-Language", "en-US,en;q=0.5")
+            .add("Accept-Encoding", "gzip, deflate, br")
+            .add("DNT", "1")
+            .add("Connection", "keep-alive")
+            .add("Upgrade-Insecure-Requests", "1")
+            .add("Sec-Fetch-Dest", "document")
+            .add("Sec-Fetch-Mode", "navigate")
+            .add("Sec-Fetch-Site", "none")
+            .add("Sec-Fetch-User", "?1")
+            .add("TE", "trailers")
+            .build()
+    }
     
     fun videosFromUrl(url: String, prefix: String = ""): List<Video> {
         android.util.Log.d("DoodstreamExtractor", "=== EXTRACT START ===")
@@ -33,30 +34,26 @@ class DoodstreamExtractor(private val client: OkHttpClient) {
             val videoId = extractVideoId(url)
             if (videoId.isEmpty()) {
                 android.util.Log.w("DoodstreamExtractor", "No video ID found")
-                return emptyList()
+                return listOf(Video(url, "${prefix}Doodstream (Direct)", url))
             }
             
             android.util.Log.d("DoodstreamExtractor", "Video ID: $videoId")
             
-            // Strategy 1: Try known CDN patterns first (fastest)
-            val cdnVideos = tryKnownCdnPatterns(videoId, prefix)
-            if (cdnVideos.isNotEmpty()) {
-                return cdnVideos
-            }
+            // 1. Try direct CDN patterns
+            val directVideos = tryDirectCdnPatterns(videoId, prefix)
+            if (directVideos.isNotEmpty()) return directVideos
             
-            // Strategy 2: Try embed page extraction
+            // 2. Try embed page
             val embedVideos = tryEmbedPageExtraction(url, videoId, prefix)
-            if (embedVideos.isNotEmpty()) {
-                return embedVideos
-            }
+            if (embedVideos.isNotEmpty()) return embedVideos
             
-            // Strategy 3: Fallback to direct URL
-            android.util.Log.w("DoodstreamExtractor", "All strategies failed, using fallback")
-            listOf(Video(url, "${prefix}Doodstream (Direct)", url))
+            // 3. Fallback
+            android.util.Log.w("DoodstreamExtractor", "All methods failed, using fallback")
+            listOf(Video(url, "${prefix}Doodstream (Fallback)", url))
             
         } catch (e: Exception) {
             android.util.Log.e("DoodstreamExtractor", "Extraction failed", e)
-            emptyList()
+            listOf(Video(url, "${prefix}Doodstream (Error)", url))
         } finally {
             android.util.Log.d("DoodstreamExtractor", "=== EXTRACT END ===")
         }
@@ -70,63 +67,50 @@ class DoodstreamExtractor(private val client: OkHttpClient) {
             Regex("""video/([a-zA-Z0-9]{10,})""")
         )
         
-        for (pattern in patterns) {
+        patterns.forEach { pattern ->
             val match = pattern.find(url)
             if (match != null) {
-                return match.groupValues.last()
+                val id = match.groupValues.last()
+                if (id.length >= 10) return id
             }
         }
         
-        // Last resort: get last part of URL
-        return url.substringAfterLast("/").substringBefore("?").substringBefore("&")
+        // Fallback
+        return url.substringAfterLast("/")
+            .substringBefore("?")
+            .substringBefore("&")
+            .takeIf { it.length >= 10 } ?: ""
     }
     
-    private fun tryKnownCdnPatterns(videoId: String, prefix: String): List<Video> {
-        val cdnDomains = listOf(
-            "dsvplay.com",
-            "myvidplay.com", 
-            "doodstream.com",
-            "dood.la",
-            "dood.watch",
-            "dood.to"
-        )
-        
-        val patterns = listOf(
-            "/v/{id}.mp4",
-            "/d/{id}.mp4", 
-            "/e/{id}.mp4",
-            "/{id}.mp4",
-            "/v/{id}/video.mp4",
-            "/{id}/video.mp4",
-            "/v/{id}/playlist.m3u8",
-            "/{id}/playlist.m3u8"
-        )
-        
-        val testUrls = mutableListOf<String>()
-        
-        for (domain in cdnDomains) {
-            for (pattern in patterns) {
-                testUrls.add("https://$domain${pattern.replace("{id}", videoId)}")
-            }
-        }
-        
-        // Also try CDN subdomain patterns
-        testUrls.addAll(listOf(
+    private fun tryDirectCdnPatterns(videoId: String, prefix: String): List<Video> {
+        val testUrls = listOf(
+            "https://dsvplay.com/v/$videoId.mp4",
+            "https://myvidplay.com/v/$videoId.mp4",
+            "https://dsvplay.com/d/$videoId.mp4",
+            "https://myvidplay.com/d/$videoId.mp4",
             "https://$videoId.doodcdn.com/$videoId.mp4",
             "https://$videoId.cdndownload.com/$videoId.mp4",
-            "https://$videoId.clouddatacdn.com/$videoId.mp4"
-        ))
+            "https://dsvplay.com/$videoId.mp4",
+            "https://myvidplay.com/$videoId.mp4"
+        )
         
-        android.util.Log.d("DoodstreamExtractor", "Testing ${testUrls.size} CDN URLs")
+        android.util.Log.d("DoodstreamExtractor", "Testing ${testUrls.size} direct URLs")
         
         for (testUrl in testUrls) {
             try {
-                val response = client.newCall(HEAD(testUrl, headers)).execute()
+                // Custom HEAD request since network.HEAD doesn't exist
+                val request = Request.Builder()
+                    .url(testUrl)
+                    .headers(DOODSTREAM_HEADERS)
+                    .head()
+                    .build()
                 
-                val contentType = response.header("Content-Type", "").lowercase(Locale.US)
-                val contentLength = response.header("Content-Length", "0").toLong()
+                val response = client.newCall(request).execute()
                 
-                android.util.Log.d("DoodstreamExtractor", "Test $testUrl → ${response.code}, $contentType, ${contentLength}bytes")
+                val contentType = response.header("Content-Type", "")?.lowercase(Locale.US) ?: ""
+                val contentLength = response.header("Content-Length", "0")?.toLong() ?: 0L
+                
+                android.util.Log.d("DoodstreamExtractor", "Test $testUrl → Code:${response.code}, Type:$contentType, Size:${contentLength}bytes")
                 
                 if (response.isSuccessful && 
                     (contentType.contains("video/") || 
@@ -134,13 +118,13 @@ class DoodstreamExtractor(private val client: OkHttpClient) {
                      contentType.contains("application/vnd.apple.mpegurl")) &&
                     contentLength > 1024) {
                     
-                    android.util.Log.d("DoodstreamExtractor", "✓ Found valid CDN URL: $testUrl")
+                    android.util.Log.d("DoodstreamExtractor", "✓ Found valid URL: $testUrl")
                     return listOf(Video(testUrl, "${prefix}Doodstream CDN", testUrl))
                 }
                 
                 response.close()
             } catch (e: Exception) {
-                // Continue testing
+                // Continue
             }
         }
         
@@ -154,63 +138,64 @@ class DoodstreamExtractor(private val client: OkHttpClient) {
             url
         }
         
-        android.util.Log.d("DoodstreamExtractor", "Trying embed page: $embedUrl")
+        android.util.Log.d("DoodstreamExtractor", "Trying embed: $embedUrl")
         
         return try {
-            val response = client.newCall(GET(embedUrl, headers)).execute()
+            val response = client.newCall(GET(embedUrl, DOODSTREAM_HEADERS)).execute()
             val html = response.body?.string() ?: ""
             
-            // Look for direct video URLs in HTML
-            val videoUrls = mutableListOf<Video>()
+            val videos = mutableListOf<Video>()
             
-            // Pattern 1: Direct MP4/M3U8 links
-            val directPattern = Regex("""(https?://[^\s"']*\.(?:mp4|m3u8|mkv|webm)[^\s"']*)""")
-            directPattern.findAll(html).forEach { match ->
-                val foundUrl = match.groupValues[1]
-                if (foundUrl.contains(videoId) || foundUrl.contains("dood")) {
-                    videoUrls.add(Video(foundUrl, "${prefix}Doodstream Direct", foundUrl))
+            // Direct video URLs
+            val directPatterns = listOf(
+                Regex("""(https?://[^\s"']*\.mp4[^\s"']*)"""),
+                Regex("""(https?://[^\s"']*\.m3u8[^\s"']*)"""),
+                Regex("""(https?://[^\s"']*\.mkv[^\s"']*)"""),
+                Regex("""(https?://[^\s"']*\.webm[^\s"']*)""")
+            )
+            
+            directPatterns.forEach { pattern ->
+                pattern.findAll(html).forEach { match ->
+                    val videoUrl = match.groupValues[1]
+                    if (videoUrl.contains(videoId) || 
+                        videoUrl.contains("dood") || 
+                        videoUrl.contains("clouddatacdn")) {
+                        videos.add(Video(videoUrl, "${prefix}Doodstream Direct", videoUrl))
+                    }
                 }
             }
             
-            // Pattern 2: Sources in scripts
+            // Script patterns
             val scriptPatterns = listOf(
                 Regex("""sources\s*:\s*\[\s*\{\s*src\s*:\s*["']([^"']+)["']"""),
                 Regex("""file\s*:\s*["']([^"']+)["']"""),
-                Regex(""""url"\s*:\s*["']([^"']+)["']"""),
-                Regex("""video_url\s*:\s*["']([^"']+)["']""")
+                Regex(""""url"\s*:\s*"([^"]+)"""),
+                Regex("""video_url\s*:\s*["']([^"']+)["']"""),
+                Regex("""videoSrc\s*:\s*["']([^"']+)["']""")
             )
             
-            for (pattern in scriptPatterns) {
+            scriptPatterns.forEach { pattern ->
                 pattern.findAll(html).forEach { match ->
-                    val foundUrl = match.groupValues[1]
-                    videoUrls.add(Video(foundUrl, "${prefix}Doodstream Script", foundUrl))
+                    val videoUrl = match.groupValues[1]
+                    videos.add(Video(videoUrl, "${prefix}Doodstream Script", videoUrl))
                 }
             }
             
-            // Pattern 3: Iframe sources
+            // Iframe sources
             val iframePattern = Regex("""<iframe[^>]+src=["']([^"']+)["']""")
             iframePattern.findAll(html).forEach { match ->
                 val iframeUrl = match.groupValues[1]
                 if (iframeUrl.contains(".mp4") || iframeUrl.contains(".m3u8")) {
-                    videoUrls.add(Video(iframeUrl, "${prefix}Doodstream Iframe", iframeUrl))
+                    videos.add(Video(iframeUrl, "${prefix}Doodstream Iframe", iframeUrl))
                 }
             }
             
             // Remove duplicates
-            videoUrls.distinctBy { it.videoUrl }
+            videos.distinctBy { it.videoUrl }
             
         } catch (e: Exception) {
-            android.util.Log.e("DoodstreamExtractor", "Embed page failed", e)
+            android.util.Log.e("DoodstreamExtractor", "Embed extraction failed", e)
             emptyList()
         }
     }
-}
-
-// Helper extension for HEAD request
-private fun HEAD(url: String, headers: Headers): Request {
-    return Request.Builder()
-        .url(url)
-        .headers(headers)
-        .head()
-        .build()
 }
