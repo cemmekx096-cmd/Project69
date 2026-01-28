@@ -30,16 +30,14 @@ import java.util.concurrent.TimeUnit
 class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "Anichin"
-    override val baseUrl = "https://anichin.watch"
+    override val baseUrl = "https://anichin.name"
     override val lang = "id"
     override val supportsLatest = true
 
-    // FIX 1: Gunakan CloudflareInterceptor dengan client biasa, bukan cloudflareClient
     private val cloudflareInterceptor by lazy {
         CloudflareInterceptor(network.client)
     }
 
-    // FIX 2: Timeout diperbesar dan hapus duplikasi interceptor
     override val client: OkHttpClient = network.client.newBuilder()
         .addInterceptor(cloudflareInterceptor)
         .connectTimeout(90, TimeUnit.SECONDS)
@@ -47,7 +45,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         .writeTimeout(90, TimeUnit.SECONDS)
         .build()
 
-    // FIX 3: Tambahkan headers yang proper untuk bypass Cloudflare
     override fun headersBuilder(): Headers.Builder = super.headersBuilder().apply {
         add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
         add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
@@ -272,36 +269,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filters are ignored if using text search!"),
             AnimeFilter.Separator(),
-            GenreFilter(),
+            AnichinFilters.GenreFilter(),
         )
-    }
-
-    private class GenreFilter : UriPartFilter(
-        "Genres",
-        arrayOf(
-            Pair("<select>", ""),
-            Pair("Action", "action"),
-            Pair("Action Drama", "action-drama"),
-            Pair("Actions", "actions"),
-            Pair("Adventure", "adventure"),
-            Pair("Comedy", "comedy"),
-            Pair("Drama", "drama"),
-            Pair("Fantasy", "fantasy"),
-            Pair("Historical", "historical"),
-            Pair("Martial Arts", "martial-arts"),
-            Pair("Romance", "romance"),
-            Pair("Sci-Fi", "sci-fi"),
-            Pair("Slice of Life", "slice-of-life"),
-            Pair("Supernatural", "supernatural"),
-            Pair("Thriller", "thriller"),
-            Pair("Xianxia", "xianxia"),
-            Pair("Xuanhuan", "xuanhuan"),
-        ),
-    )
-
-    private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
-        AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
-        fun toUriPart() = vals[state].second
     }
 
     // ============================== Settings ==============================
@@ -331,52 +300,5 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         private const val PREF_QUALITY_DEFAULT = "720p"
         private val PREF_QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p")
         private val PREF_QUALITY_VALUES = arrayOf("1080p", "720p", "480p", "360p")
-    }
-}
-
-// ============================== Filter Data ===============================
-
-data class AnichinFiltersData(val genre: String)
-
-object AnichinFilters {
-    fun getSearchParameters(filters: AnimeFilterList): AnichinFiltersData {
-        var genre = ""
-
-        filters.forEach { filter ->
-            when (filter) {
-                is GenreFilter -> genre = filter.toUriPart()
-                else -> {}
-            }
-        }
-
-        return AnichinFiltersData(genre)
-    }
-
-    private class GenreFilter : UriPartFilter(
-        "Genres",
-        arrayOf(
-            Pair("<select>", ""),
-            Pair("Action", "action"),
-            Pair("Action Drama", "action-drama"),
-            Pair("Actions", "actions"),
-            Pair("Adventure", "adventure"),
-            Pair("Comedy", "comedy"),
-            Pair("Drama", "drama"),
-            Pair("Fantasy", "fantasy"),
-            Pair("Historical", "historical"),
-            Pair("Martial Arts", "martial-arts"),
-            Pair("Romance", "romance"),
-            Pair("Sci-Fi", "sci-fi"),
-            Pair("Slice of Life", "slice-of-life"),
-            Pair("Supernatural", "supernatural"),
-            Pair("Thriller", "thriller"),
-            Pair("Xianxia", "xianxia"),
-            Pair("Xuanhuan", "xuanhuan"),
-        ),
-    )
-
-    private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
-        AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
-        fun toUriPart() = vals[state].second
     }
 }
