@@ -1,0 +1,86 @@
+src/
+└── id/
+    └── anichin/
+        ├── Anichin.kt                    # File utama
+        └── lib/                          # Library/extractors
+            ├── doodstreamextractor/
+            │   └── DoodstreamExtractor.kt
+            ├── okruextractor/            # Sudah ada
+            │   └── OkruExtractor.kt
+            └── playlistutils/            # Sudah ada
+                └── PlaylistUtils.kt
+                
+                
+                
+struktur yg ku pake 
+root/
+├── src
+│     ├── all
+│     └── id
+│           └── anichin
+│                  └── src/eu/kanade/tachiyomi/animeextension/id/anichin/Anichin.kt
+│                               ├── anichinfactory.kt
+│                               └── anichinfilter.kt
+└── lib
+       ├── m4upload-extractor
+       └── okru-extractor
+           └── src/main/java/eu/kanade/tachiyomi/lib/okruextractor/OkruExtractor.kt
+           
+           
+           root/
+├── src
+│   └── id
+│       └── anichin
+│           └── src/eu/kanade/tachiyomi/animeextension/id/anichin/
+│               ├── Anichin.kt
+│               ├── AnichinFactory.kt
+│               └── AnichinFilters.kt
+└── lib
+    ├── m4upload-extractor
+    ├── okru-extractor
+    │   └── src/main/java/eu/kanade/tachiyomi/lib/okruextractor/OkruExtractor.kt
+    └── doodstream-extractor  <-- INI TEMPATNYA!
+        └── src/main/java/eu/kanade/tachiyomi/lib/doodstreamextractor/DoodstreamExtractor.kt
+        
+        
+        
+        
+        
+        
+        
+        
+        // Di build.gradle module anichin, tambahkan dependency:
+dependencies {
+    implementation project(':lib:doodstream-extractor')
+    implementation project(':lib:okru-extractor')
+    implementation project(':lib:m4upload-extractor')
+    // ... lainnya
+}
+
+
+
+
+
+
+
+// Di bagian imports tambahkan:
+import eu.kanade.tachiyomi.lib.doodstreamextractor.DoodstreamExtractor
+
+// Di dalam class Anichin, tambahkan:
+private val doodstreamExtractor by lazy { DoodstreamExtractor(client) }
+
+// Di fungsi extractVideoFromUrl atau processDownloadLink:
+when {
+    // ... kondisi lainnya ...
+    
+    url.contains("dsvplay.com") || url.contains("myvidplay.com") || 
+    url.contains("doodstream") || url.contains("dood.") -> {
+        
+        android.util.Log.d("Anichin", "Extracting Doodstream with dedicated extractor")
+        val videos = doodstreamExtractor.videosFromUrl(url, "$serverName - ")
+        android.util.Log.d("Anichin", "Doodstream videos found: ${videos.size}")
+        videoList.addAll(videos)
+    }
+    
+    // ... kondisi lainnya ...
+}
