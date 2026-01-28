@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.lib.googledriveextractor.GoogleDriveExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
+import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -33,13 +34,29 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val lang = "id"
     override val supportsLatest = true
 
-    private val cloudflareInterceptor by lazy { CloudflareInterceptor(network.client) }
+    // FIX 1: Gunakan CloudflareInterceptor dengan client biasa, bukan cloudflareClient
+    private val cloudflareInterceptor by lazy { 
+        CloudflareInterceptor(network.client) 
+    }
 
-    override val client: OkHttpClient = network.cloudflareClient.newBuilder()
+    // FIX 2: Timeout diperbesar dan hapus duplikasi interceptor
+    override val client: OkHttpClient = network.client.newBuilder()
         .addInterceptor(cloudflareInterceptor)
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(90, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
+        .writeTimeout(90, TimeUnit.SECONDS)
         .build()
+
+    // FIX 3: Tambahkan headers yang proper untuk bypass Cloudflare
+    override fun headersBuilder(): Headers.Builder = super.headersBuilder().apply {
+        add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+        add("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7")
+        add("Referer", baseUrl)
+        add("DNT", "1")
+        add("Connection", "keep-alive")
+        add("Upgrade-Insecure-Requests", "1")
+    }
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
@@ -52,7 +69,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Popular ===============================
 
     override fun popularAnimeRequest(page: Int): Request {
-        return GET("$baseUrl/ongoing/?page=$page")
+        return GET("$baseUrl/ongoing/?page=$page", headers)
     }
 
     override fun popularAnimeSelector(): String = "div.listupd article.bs"
@@ -70,8 +87,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Latest ===============================
 
     override fun latestUpdatesRequest(page: Int): Request {
-        // Use ongoing page for latest because homepage shows episodes, not anime
-        return GET("$baseUrl/ongoing/?page=$page")
+        return GET("$baseUrl/ongoing/?page=$page", headers)
     }
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
@@ -85,11 +101,13 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         val params = AnichinFilters.getSearchParameters(filters)
 
-        return when {
-            query.isNotEmpty() -> GET("$baseUrl/?s=$query&page=$page")
-            params.genre.isNotEmpty() -> GET("$baseUrl/genres/${params.genre}/?page=$page")
-            else -> popularAnimeRequest(page)
+        val url = when {
+            query.isNotEmpty() -> "$baseUrl/?s=$query&page=$page"
+            params.genre.isNotEmpty() -> "$baseUrl/genres/${params.genre}/?page=$page"
+            else -> "$baseUrl/ongoing/?page=$page"
         }
+
+        return GET(url, headers)
     }
 
     override fun searchAnimeSelector(): String = popularAnimeSelector()
@@ -313,5 +331,52 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         private const val PREF_QUALITY_DEFAULT = "720p"
         private val PREF_QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p")
         private val PREF_QUALITY_VALUES = arrayOf("1080p", "720p", "480p", "360p")
+    }
+}
+
+// ============================== Filter Data ===============================
+
+data class AnichinFiltersData(val genre: String)
+
+object AnichinFilters {
+    fun getSearchParameters(filters: AnimeFilterList): AnichinFiltersData {
+        var genre = ""
+
+        filters.forEach { filter ->
+            when (filter) {
+                is GenreFilter -> genre = filter.toUriPart()
+                else -> {}
+            }
+        }
+
+        return AnichinFiltersData(genre)
+    }
+
+    private class GenreFilter : UriPartFilter(
+        "Genres",
+        arrayOf(
+            Pair("<select>", ""),
+            Pair("Action", "action"),
+            Pair("Action Drama", "action-drama"),
+            Pair("Actions", "actions"),
+            Pair("Adventure", "adventure"),
+            Pair("Comedy", "comedy"),
+            Pair("Drama", "drama"),
+            Pair("Fantasy", "fantasy"),
+            Pair("Historical", "historical"),
+            Pair("Martial Arts", "martial-arts"),
+            Pair("Romance", "romance"),
+            Pair("Sci-Fi", "sci-fi"),
+            Pair("Slice of Life", "slice-of-life"),
+            Pair("Supernatural", "supernatural"),
+            Pair("Thriller", "thriller"),
+            Pair("Xianxia", "xianxia"),
+            Pair("Xuanhuan", "xuanhuan"),
+        ),
+    )
+
+    private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
+        AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
+        fun toUriPart() = vals[state].second
     }
 }
