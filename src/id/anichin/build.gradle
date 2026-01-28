@@ -12,5 +12,5 @@ dependencies {
     implementation(project(":lib:dailymotion-extractor"))
     implementation(project(":lib:googledrive-extractor"))
     implementation(project(":lib:cloudflare-interceptor"))
-    implementation(project(":lib:playlistutils"))  // TAMBAH INI
+    implementation(project(":lib:playlist-utils"))  // TAMBAH INI
 }
