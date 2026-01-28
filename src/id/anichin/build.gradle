@@ -1,7 +1,7 @@
 ext {
     extName = 'Anichin'
     extClass = '.Anichin'
-    extVersionCode = 9
+    extVersionCode = 10  // Naikkan version
     isNsfw = false
 }
 
@@ -12,4 +12,5 @@ dependencies {
     implementation(project(":lib:dailymotion-extractor"))
     implementation(project(":lib:googledrive-extractor"))
     implementation(project(":lib:cloudflare-interceptor"))
+    implementation(project(":lib:playlistutils"))  // TAMBAH INI
 }
