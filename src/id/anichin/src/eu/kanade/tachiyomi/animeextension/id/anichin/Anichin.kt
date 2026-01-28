@@ -15,7 +15,6 @@ import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.lib.dailymotionextractor.DailymotionExtractor
 import eu.kanade.tachiyomi.lib.doodstreamextractor.DoodstreamExtractor
 import eu.kanade.tachiyomi.lib.googledriveextractor.GoogleDriveExtractor
-import eu.kanade.tachiyomi.lib.gdriveplayerextractor.GdrivePlayerExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
 import eu.kanade.tachiyomi.network.GET
@@ -289,80 +288,76 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             when {
                 cleanUrl.contains("dsvplay.com") || cleanUrl.contains("myvidplay.com") ||
                 cleanUrl.contains("doodstream") || cleanUrl.contains("/d/") -> {
-                    android.util.Log.d("Anichin", "Detected Doodstream")
-                    val videos = doodstreamExtractor.videosFromUrl(cleanUrl, "$text - ")
-                    android.util.Log.d("Anichin", "Doodstream: ${videos.size} videos")
-                    videoList.addAll(videos)
-                }
-                cleanUrl.contains("drive.google.com") || cleanUrl.contains("docs.google.com") -> {
-                    android.util.Log.d("Anichin", "Detected Google Drive")
-                    try {
-                        val videos = googleDriveExtractor.videosFromUrl(cleanUrl, "$text - ")
-                        android.util.Log.d("Anichin", "GDrive: ${videos.size} videos")
-                        videoList.addAll(videos)
-                    } catch (e: Exception) {
-                        android.util.Log.e("Anichin", "GDrive failed: ${e.message}")
-                        videoList.add(Video(cleanUrl, "$text (Google Drive)", cleanUrl))
+                    cleanUrl.contains("drive.google.com") || cleanUrl.contains("docs.google.com") -> {
+                        android.util.Log.d("Anichin", "Detected Google Drive")
+                        try {
+                            val videos = googleDriveExtractor.videosFromUrl(cleanUrl, "$text - ")
+                            android.util.Log.d("Anichin", "GDrive: ${videos.size} videos")
+                            videoList.addAll(videos)
+                        } catch (e: Exception) {
+                            android.util.Log.e("Anichin", "GDrive failed: ${e.message}")
+                            videoList.add(Video(cleanUrl, "$text (Google Drive)", cleanUrl))
+                        }
+                    }
+                    cleanUrl.contains("terabox.com") || cleanUrl.contains("1024tera.com") -> {
+                        android.util.Log.d("Anichin", "Detected Terabox")
+                        videoList.add(Video(cleanUrl, "$text (Terabox)", cleanUrl))
+                    }
+                    cleanUrl.contains(".mp4") || cleanUrl.contains(".m3u8") ||
+                    cleanUrl.contains(".mkv") || cleanUrl.contains(".webm") -> {
+                        android.util.Log.d("Anichin", "Detected direct video")
+                        videoList.add(Video(cleanUrl, "$text (Direct)", cleanUrl))
+                    }
+                    else -> {
+                        android.util.Log.d("Anichin", "Generic mirror")
+                        extractVideoFromUrl(cleanUrl, videoList, text)
                     }
                 }
-                cleanUrl.contains("terabox.com") || cleanUrl.contains("1024tera.com") -> {
-                    android.util.Log.d("Anichin", "Detected Terabox")
-                    videoList.add(Video(cleanUrl, "$text (Terabox)", cleanUrl))
-                }
-                cleanUrl.contains(".mp4") || cleanUrl.contains(".m3u8") ||
-                cleanUrl.contains(".mkv") || cleanUrl.contains(".webm") -> {
-                    android.util.Log.d("Anichin", "Detected direct video")
-                    videoList.add(Video(cleanUrl, "$text (Direct)", cleanUrl))
-                }
-                else -> {
-                    android.util.Log.d("Anichin", "Generic mirror")
-                    extractVideoFromUrl(cleanUrl, videoList, text)
-                }
+            } catch (e: Exception) {
+                android.util.Log.e("Anichin", "Failed to process '$text': ${e.message}")
             }
-        } catch (e: Exception) {
-            android.util.Log.e("Anichin", "Failed to process '$text': ${e.message}")
         }
-    }
 
-    private fun normalizeUrl(url: String): String {
-        if (url.isBlank()) return ""
-        return when {
-            url.startsWith("//") -> "https:$url"
-            url.startsWith("/") && url.length > 1 -> "$baseUrl$url"
-            url.startsWith("#") || url.startsWith("javascript:") -> ""
-            url.startsWith("http") -> url
-            else -> if (url.contains(".") && !url.contains(" ")) "https://$url" else ""
+        private fun normalizeUrl(url: String): String {
+            if (url.isBlank()) return ""
+            return when {
+                url.startsWith("//") -> "https:$url"
+                url.startsWith("/") && url.length > 1 -> "$baseUrl$url"
+                url.startsWith("#") || url.startsWith("javascript:") -> ""
+                url.startsWith("http") -> url
+                else -> if (url.contains(".") && !url.contains(" ")) "https://$url" else ""
+            }
         }
-    }
 
-    private fun extractVideoFromUrl(url: String, videoList: MutableList<Video>, serverName: String) {
-        try {
-            android.util.Log.d("Anichin", "Extracting: $url (Server: $serverName)")
-            when {
-                url.contains("ok.ru") || url.contains("odnoklassniki") -> {
-                    android.util.Log.d("Anichin", "Extracting OK.ru")
-                    val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
-                    android.util.Log.d("Anichin", "OK.ru: ${videos.size}")
-                    videoList.addAll(videos)
-                }
-                url.contains("dailymotion") -> {
-                    android.util.Log.d("Anichin", "Extracting Dailymotion")
-                    val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - ")
-                    android.util.Log.d("Anichin", "Dailymotion: ${videos.size}")
-                    videoList.addAll(videos)
-                }
-                url.contains("drive.google") || url.contains("drive.usercontent.google") -> {
-                    android.util.Log.d("Anichin", "Extracting Google Drive")
-                    val videos = googleDriveExtractor.videosFromUrl(url, "$serverName - ")
-                    android.util.Log.d("Anichin", "GDrive: ${videos.size}")
-                    videoList.addAll(videos)
-                }
-                url.contains("dsvplay.com") || url.contains("myvidplay.com") ||
-                url.contains("doodstream") || url.contains("/d/") -> {
-                    android.util.Log.d("Anichin", "Extracting Doodstream")
-                    val videos = doodstreamExtractor.videosFromUrl(url, "$serverName - ")
-                    android.util.Log.d("Anichin", "Doodstream: ${videos.size}")
-                    videoList.addAll(videos)
+        private fun extractVideoFromUrl(url: String, videoList: MutableList<Video>, serverName: String) {
+            try {
+                android.util.Log.d("Anichin", "Extracting: $url (Server: $serverName)")
+                when {
+                    url.contains("ok.ru") || url.contains("odnoklassniki") -> {
+                        android.util.Log.d("Anichin", "Extracting OK.ru")
+                        val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
+                        android.util.Log.d("Anichin", "OK.ru: ${videos.size}")
+                        videoList.addAll(videos)
+                    }
+                    url.contains("dailymotion") -> {
+                        android.util.Log.d("Anichin", "Extracting Dailymotion")
+                        val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - ")
+                        android.util.Log.d("Anichin", "Dailymotion: ${videos.size}")
+                        videoList.addAll(videos)
+                    }
+                    url.contains("drive.google") || url.contains("drive.usercontent.google") -> {
+                        android.util.Log.d("Anichin", "Extracting Google Drive")
+                        val videos = googleDriveExtractor.videosFromUrl(url, "$serverName - ")
+                        android.util.Log.d("Anichin", "GDrive: ${videos.size}")
+                        videoList.addAll(videos)
+                    }
+                    url.contains("dsvplay.com") || url.contains("myvidplay.com") ||
+                    url.contains("doodstream") || url.contains("/d/") -> {
+                        android.util.Log.d("Anichin", "Extracting Doodstream")
+                        val videos = doodstreamExtractor.videosFromUrl(url, "$serverName - ")
+                        android.util.Log.d("Anichin", "Doodstream: ${videos.size}")
+                        videoList.addAll(videos)
+                    }
                 }
                 url.contains(".m3u8") -> {
                     android.util.Log.d("Anichin", "Extracting HLS")
