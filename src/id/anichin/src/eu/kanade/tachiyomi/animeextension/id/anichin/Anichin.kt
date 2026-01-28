@@ -35,8 +35,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val supportsLatest = true
 
     // FIX 1: Gunakan CloudflareInterceptor dengan client biasa, bukan cloudflareClient
-    private val cloudflareInterceptor by lazy { 
-        CloudflareInterceptor(network.client) 
+    private val cloudflareInterceptor by lazy {
+        CloudflareInterceptor(network.client)
     }
 
     // FIX 2: Timeout diperbesar dan hapus duplikasi interceptor
