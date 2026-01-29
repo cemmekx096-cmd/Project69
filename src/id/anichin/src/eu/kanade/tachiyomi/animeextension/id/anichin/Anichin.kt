@@ -256,7 +256,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             Log.d("Anichin", "Processing: '$text' -> $cleanUrl")
             when {
                 cleanUrl.contains("dsvplay.com") || cleanUrl.contains("myvidplay.com") ||
-                cleanUrl.contains("doodstream") || cleanUrl.contains("/d/") -> {
+                    cleanUrl.contains("doodstream") || cleanUrl.contains("/d/") -> {
                     Log.d("Anichin", "Detected Doodstream")
                     val videos = doodstreamExtractor.videosFromUrl(cleanUrl, "$text - ")
                     Log.d("Anichin", "Doodstream: ${videos.size} videos")
@@ -278,7 +278,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     videoList.add(Video(cleanUrl, "$text (Terabox)", cleanUrl))
                 }
                 cleanUrl.contains(".mp4") || cleanUrl.contains(".m3u8") ||
-                cleanUrl.contains(".mkv") || cleanUrl.contains(".webm") -> {
+                    cleanUrl.contains(".mkv") || cleanUrl.contains(".webm") -> {
                     Log.d("Anichin", "Detected direct video")
                     videoList.add(Video(cleanUrl, "$text (Direct)", cleanUrl))
                 }
@@ -326,7 +326,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     videoList.addAll(videos)
                 }
                 url.contains("dsvplay.com") || url.contains("myvidplay.com") ||
-                url.contains("doodstream") || url.contains("/d/") -> {
+                    url.contains("doodstream") || url.contains("/d/") -> {
                     Log.d("Anichin", "Extracting Doodstream")
                     val videos = doodstreamExtractor.videosFromUrl(url, "$serverName - ")
                     Log.d("Anichin", "Doodstream: ${videos.size}")
@@ -355,7 +355,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun getFilterList(): AnimeFilterList = AnimeFilterList(
         AnimeFilter.Header("NOTE: Filters ignored if text search!"),
-        AnimeFilter.Separator()
+        AnimeFilter.Separator(),
     )
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
