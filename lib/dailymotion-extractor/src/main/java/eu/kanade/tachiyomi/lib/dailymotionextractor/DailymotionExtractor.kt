@@ -1,135 +1,141 @@
 package eu.kanade.tachiyomi.lib.dailymotionextractor
 
-import eu.kanade.tachiyomi.animesource.model.Track
 import eu.kanade.tachiyomi.animesource.model.Video
-import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.POST
-import eu.kanade.tachiyomi.util.parseAs
 import kotlinx.serialization.json.Json
-import okhttp3.FormBody
 import okhttp3.Headers
-import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.RequestBody.Companion.toRequestBody
-import uy.kohesive.injekt.injectLazy
 
-class DailymotionExtractor(private val client: OkHttpClient, private val headers: Headers) {
-
+/**
+ * Extractor untuk Dailymotion video streaming service
+ * 
+ * Supports:
+ * - geo.dailymotion.com embed players
+ * - Player metadata API
+ * - Multiple quality options (240p - 1080p)
+ * 
+ * @param client OkHttpClient instance untuk network requests
+ * @param json Json instance untuk parsing (optional, uses default if not provided)
+ */
+class DailymotionExtractor(
+    private val client: OkHttpClient,
+    private val json: Json = Json { ignoreUnknownKeys = true }
+) {
+    
     companion object {
-        private const val DAILYMOTION_URL = "https://www.dailymotion.com"
-        private const val GRAPHQL_URL = "https://graphql.api.dailymotion.com"
+        private const val API_BASE = "https://www.dailymotion.com/player/metadata/video"
+        private val QUALITY_ORDER = listOf("1080", "720", "480", "380", "240")
     }
-
-    private fun headersBuilder(block: Headers.Builder.() -> Unit = {}) = headers.newBuilder()
-        .add("Accept", "*/*")
-        .set("Referer", "$DAILYMOTION_URL/")
-        .set("Origin", DAILYMOTION_URL)
-        .apply { block() }
-        .build()
-
-    private val json: Json by injectLazy()
-
-    private val playlistUtils by lazy { PlaylistUtils(client, headers) }
-
-    fun videosFromUrl(url: String, prefix: String = "Dailymotion - ", baseUrl: String = "", password: String? = null): List<Video> {
-        val htmlString = client.newCall(GET(url)).execute().body.string()
-
-        val internalData = htmlString.substringAfter("\"dmInternalData\":").substringBefore("</script>")
-        val ts = internalData.substringAfter("\"ts\":").substringBefore(",")
-        val v1st = internalData.substringAfter("\"v1st\":\"").substringBefore("\",")
-
-        val videoQuery = url.toHttpUrl().run {
-            queryParameter("video") ?: pathSegments.last()
+    
+    /**
+     * Extract videos dari Dailymotion URL
+     * 
+     * @param url Embed URL atau player URL
+     * @param prefix Label prefix untuk quality labels
+     * @return List of Video dengan berbagai kualitas
+     */
+    fun videosFromUrl(url: String, prefix: String = "Dailymotion"): List<Video> {
+        return try {
+            val videoId = extractVideoId(url) ?: return emptyList()
+            val metadata = fetchMetadata(videoId)
+            
+            parseQualities(metadata, prefix, url)
+        } catch (e: Exception) {
+            emptyList()
         }
-
-        val jsonUrl = "$DAILYMOTION_URL/player/metadata/video/$videoQuery?locale=en-US&dmV1st=$v1st&dmTs=$ts&is_native_app=0"
-        val parsed = client.newCall(GET(jsonUrl)).execute().parseAs<DailyQuality>()
-
+    }
+    
+    /**
+     * Extract video ID dari URL
+     * 
+     * Supports formats:
+     * - geo.dailymotion.com/player/{VIDEO_ID}.html
+     * - geo.dailymotion.com/player/{VIDEO_ID}.html?video={HASH}
+     * - dailymotion.com/video/{VIDEO_ID}
+     */
+    private fun extractVideoId(url: String): String? {
         return when {
-            parsed.qualities != null && parsed.error == null -> videosFromDailyResponse(parsed, prefix)
-            parsed.error?.type == "password_protected" && parsed.id != null -> {
-                videosFromProtectedUrl(url, prefix, parsed.id, htmlString, ts, v1st, baseUrl, password)
+            url.contains("/player/") -> {
+                url.substringAfter("/player/")
+                    .substringBefore(".html")
+                    .substringBefore("?")
             }
-            else -> emptyList()
-        }
+            url.contains("/video/") -> {
+                url.substringAfter("/video/")
+                    .substringBefore("?")
+                    .substringBefore("/")
+            }
+            else -> null
+        }?.takeIf { it.isNotEmpty() }
     }
-
-    private fun videosFromProtectedUrl(
-        url: String,
+    
+    /**
+     * Fetch metadata dari Dailymotion API
+     */
+    private fun fetchMetadata(videoId: String): DailymotionMetadata {
+        val apiUrl = "$API_BASE/$videoId"
+        
+        val response = client.newCall(
+            GET(apiUrl, Headers.headersOf(
+                "User-Agent", "Mozilla/5.0",
+                "Accept", "application/json"
+            ))
+        ).execute()
+        
+        val jsonText = response.body.string()
+        return json.decodeFromString<DailymotionMetadata>(jsonText)
+    }
+    
+    /**
+     * Parse qualities dari metadata
+     */
+    private fun parseQualities(
+        metadata: DailymotionMetadata,
         prefix: String,
-        videoId: String,
-        htmlString: String,
-        ts: String,
-        v1st: String,
-        baseUrl: String,
-        password: String?,
+        refererUrl: String
     ): List<Video> {
-        val postUrl = "$GRAPHQL_URL/oauth/token"
-        val clientId = htmlString.substringAfter("client_id\":\"").substringBefore('"')
-        val clientSecret = htmlString.substringAfter("client_secret\":\"").substringBefore('"')
-        val scope = htmlString.substringAfter("client_scope\":\"").substringBefore('"')
-
-        val tokenBody = FormBody.Builder()
-            .add("client_id", clientId)
-            .add("client_secret", clientSecret)
-            .add("traffic_segment", ts)
-            .add("visitor_id", v1st)
-            .add("grant_type", "client_credentials")
-            .add("scope", scope)
-            .build()
-
-        val tokenResponse = client.newCall(POST(postUrl, headersBuilder(), tokenBody)).execute()
-        val tokenParsed = tokenResponse.parseAs<TokenResponse>()
-
-        val idUrl = "$GRAPHQL_URL/"
-        val idHeaders = headersBuilder {
-            set("Accept", "application/json, text/plain, */*")
-            add("Authorization", "${tokenParsed.token_type} ${tokenParsed.access_token}")
-        }
-
-        val idData = """
-            {
-               "query":"query playerPasswordQuery(${'$'}videoId:String!,${'$'}password:String!){video(xid:${'$'}videoId,password:${'$'}password){id xid}}",
-               "variables":{
-                  "videoId":"$videoId",
-                  "password":"$password"
-               }
-            }
-        """.trimIndent().toRequestBody("application/json".toMediaType())
-
-        val idResponse = client.newCall(POST(idUrl, idHeaders, idData)).execute()
-        val idParsed = idResponse.parseAs<ProtectedResponse>().data.video
-
-        val dmvk = htmlString.substringAfter("\"dmvk\":\"").substringBefore('"')
-        val getVideoIdUrl = "$DAILYMOTION_URL/player/metadata/video/${idParsed.xid}?embedder=${"$baseUrl/"}&locale=en-US&dmV1st=$v1st&dmTs=$ts&is_native_app=0"
-        val getVideoIdHeaders = headersBuilder {
-            add("Cookie", "dmvk=$dmvk; ts=$ts; v1st=$v1st; usprivacy=1---; client_token=${tokenParsed.access_token}")
-            set("Referer", url)
-        }
-
-        val parsed = client.newCall(GET(getVideoIdUrl, getVideoIdHeaders)).execute()
-            .parseAs<DailyQuality>()
-
-        return videosFromDailyResponse(parsed, prefix, getVideoIdHeaders)
-    }
-
-    private fun videosFromDailyResponse(parsed: DailyQuality, prefix: String, playlistHeaders: Headers? = null): List<Video> {
-        val masterUrl = parsed.qualities?.auto?.firstOrNull()?.url
-            ?: return emptyList<Video>()
-
-        val subtitleList = parsed.subtitles?.data?.map {
-            Track(it.urls.first(), it.label)
-        } ?: emptyList<Track>()
-
-        val masterHeaders = playlistHeaders ?: headersBuilder()
-
-        return playlistUtils.extractFromHls(
-            masterUrl,
-            masterHeadersGen = { _, _ -> masterHeaders },
-            subtitleList = subtitleList,
-            videoNameGen = { "$prefix$it" },
+        val videoList = mutableListOf<Video>()
+        val qualities = metadata.qualities ?: return emptyList()
+        
+        val headers = Headers.headersOf(
+            "Referer", "https://geo.dailymotion.com/",
+            "User-Agent", "Mozilla/5.0",
+            "Accept", "*/*"
         )
+        
+        // Process dalam urutan quality (highest first)
+        QUALITY_ORDER.forEach { quality ->
+            val qualityArray = qualities[quality]
+            if (qualityArray != null && qualityArray.isNotEmpty()) {
+                val qualityInfo = qualityArray[0]
+                
+                videoList.add(
+                    Video(
+                        url = qualityInfo.url,
+                        quality = "$prefix - ${quality}p",
+                        videoUrl = qualityInfo.url,
+                        headers = headers
+                    )
+                )
+            }
+        }
+        
+        return videoList
+    }
+    
+    /**
+     * Extract videos dari base64 encoded iframe
+     * Utility function untuk auto-detection flow
+     */
+    fun videosFromBase64(base64: String, prefix: String = "Dailymotion"): List<Video> {
+        return try {
+            val decoded = String(android.util.Base64.decode(base64, android.util.Base64.DEFAULT))
+            val iframeSrcRegex = """<iframe[^>]+src=["']([^"']+)["']""".toRegex()
+            val url = iframeSrcRegex.find(decoded)?.groupValues?.get(1) ?: return emptyList()
+            
+            videosFromUrl(url, prefix)
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 }

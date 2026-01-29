@@ -1,7 +1,7 @@
 ext {
     extName = 'Anichin'
     extClass = '.Anichin'
-    extVersionCode = 11  // Naikkan version
+    extVersionCode = 12.5  // Naikkan version
     isNsfw = false
 }
 
@@ -15,4 +15,8 @@ dependencies {
     implementation project(':lib:doodstream-extractor')
     implementation project(':lib:gdriveplayer-extractor')
     implementation(project(":lib:playlist-utils"))  // TAMBAH INI
+    // ✨ NEW EXTRACTORS
+    implementation(project(":lib:anichin-extractor"))
+    implementation(project(":lib:rubyvidhub-extractor"))
+    implementation(project(":lib:rumble-extractor"))
 }
