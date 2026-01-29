@@ -18,7 +18,6 @@ import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Headers
 import okhttp3.OkHttpClient
