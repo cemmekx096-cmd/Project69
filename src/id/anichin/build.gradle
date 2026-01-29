@@ -1,11 +1,7 @@
 ext {
     extName = 'Anichin'
     extClass = '.Anichin'
-<<<<<<< HEAD
-    extVersionCode = 13 // Naikkan version
-=======
-    extVersionCode = 13.5  // Naikkan version
->>>>>>> 76d07b777e33d8361256ce1a274e0b78ac3ca6af
+    extVersionCode = 15
     isNsfw = false
 }
 
