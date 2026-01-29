@@ -65,7 +65,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // Existing extractors
     private val okruExtractor by lazy { OkruExtractor(client) }
-    private val dailymotionExtractor by lazy { DailymotionExtractor(client, headers) }
+    private val dailymotionExtractor by lazy { DailymotionExtractor(client, json) }
     private val googleDriveExtractor by lazy { GoogleDriveExtractor(client, headers) }
     private val playlistUtils by lazy { PlaylistUtils(client, headers) }
 
