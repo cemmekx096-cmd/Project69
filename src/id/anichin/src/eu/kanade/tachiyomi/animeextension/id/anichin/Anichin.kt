@@ -197,7 +197,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             "div#download",
             "div#mirror",
             "section.download",
-            "section.mirror"
+            "section.mirror",
         )
         for (selector in downloadSelectors) {
             val elements = document.select(selector)
@@ -216,7 +216,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             "a[href*='terabox.com']",
             "a[href*='1024tera.com']",
             "a[href*='drive.google.com']",
-            "a[href*='docs.google.com']"
+            "a[href*='docs.google.com']",
         )
         directPatterns.forEach { pattern ->
             val links = document.select(pattern)
