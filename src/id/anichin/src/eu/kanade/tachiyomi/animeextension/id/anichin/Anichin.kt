@@ -416,4 +416,3 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         private val PREF_QUALITY_VALUES = arrayOf("1080p", "720p", "480p", "360p")
     }
 }
-
