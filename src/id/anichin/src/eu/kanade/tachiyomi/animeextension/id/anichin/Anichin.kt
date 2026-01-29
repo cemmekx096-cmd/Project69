@@ -285,7 +285,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             val cleanUrl = normalizeUrl(url)
             if (cleanUrl.isBlank()) return
             android.util.Log.d("Anichin", "Processing: '$text' -> $cleanUrl")
-            
             when {
                 cleanUrl.contains("dsvplay.com") || cleanUrl.contains("myvidplay.com") ||
                 cleanUrl.contains("doodstream") || cleanUrl.contains("/d/") -> {
