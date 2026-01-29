@@ -7,25 +7,25 @@ import okhttp3.OkHttpClient
 
 /**
  * Extractor untuk RubyVidHub video streaming service
- * 
+ *
  * Supports:
  * - rubyvidhub.com embed pages
  * - Packed JavaScript extraction
  * - HLS streaming dengan multiple qualities
- * 
+ *
  * Quality markers:
  * - _o = Original quality
  * - _h = High (720p)
  * - _n = Normal (480p)
  * - _l = Low (360p)
- * 
+ *
  * @param client OkHttpClient instance untuk network requests
  */
 class RubyVidHubExtractor(private val client: OkHttpClient) {
-    
+
     /**
      * Extract videos dari RubyVidHub URL
-     * 
+     *
      * @param url Embed URL (e.g., https://rubyvidhub.com/embed-nl6xk6ovhayo.html)
      * @param prefix Label prefix untuk quality labels
      * @return List of Video dengan berbagai kualitas
@@ -35,14 +35,14 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
             val headers = buildHeaders(url)
             val html = fetchEmbedPage(url, headers)
             val masterUrl = extractMasterPlaylistUrl(html) ?: return emptyList()
-            
+
             val masterPlaylist = fetchMasterPlaylist(masterUrl, headers)
             parseM3u8Playlist(masterPlaylist, masterUrl, headers, prefix)
         } catch (e: Exception) {
             emptyList()
         }
     }
-    
+
     /**
      * Build headers dengan referer
      */
@@ -51,10 +51,10 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
             "Referer", url,
             "User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
             "Accept", "*/*",
-            "Accept-Language", "en-US,en;q=0.9"
+            "Accept-Language", "en-US,en;q=0.9",
         )
     }
-    
+
     /**
      * Fetch embed page HTML
      */
@@ -64,7 +64,7 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
             .body
             .string()
     }
-    
+
     /**
      * Extract master playlist URL dari HTML
      * Handles packed JavaScript
@@ -72,23 +72,23 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
     private fun extractMasterPlaylistUrl(html: String): String? {
         // Try to extract using JsUnpacker
         JsUnpacker.extractSourceUrl(html)?.let { return it }
-        
+
         // Fallback: direct regex patterns
         val patterns = listOf(
             """sources:\s*\[\s*\{\s*file:\s*["']([^"']+\.m3u8[^"']*)["']""".toRegex(),
             """"(https://[^"]*\.m3u8[^"]*)"""".toRegex(),
-            """file:\s*["']([^"']+\.m3u8[^"']*)["']""".toRegex()
+            """file:\s*["']([^"']+\.m3u8[^"']*)["']""".toRegex(),
         )
-        
+
         for (pattern in patterns) {
             pattern.find(html)?.groupValues?.get(1)?.let { url ->
                 if (url.isNotEmpty()) return url
             }
         }
-        
+
         return null
     }
-    
+
     /**
      * Fetch master playlist
      */
@@ -98,7 +98,7 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
             .body
             .string()
     }
-    
+
     /**
      * Parse M3U8 master playlist untuk extract semua kualitas
      */
@@ -106,23 +106,23 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
         playlist: String,
         baseUrl: String,
         headers: Headers,
-        prefix: String
+        prefix: String,
     ): List<Video> {
         val videoList = mutableListOf<Video>()
         val lines = playlist.lines()
-        
+
         var currentQuality = "Unknown"
-        
+
         for (i in lines.indices) {
             val line = lines[i].trim()
-            
+
             when {
                 line.startsWith("#EXT-X-STREAM-INF") -> {
                     // Parse quality info jika ada
                     val resolution = line.substringAfter("RESOLUTION=", "")
                         .substringBefore(",")
                         .substringAfter("x", "")
-                    
+
                     currentQuality = when {
                         resolution.contains("1080") -> "1080p"
                         resolution.contains("720") -> "720p"
@@ -131,7 +131,7 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
                         else -> "Unknown"
                     }
                 }
-                
+
                 line.isNotEmpty() && !line.startsWith("#") -> {
                     // URL playlist untuk quality tertentu
                     val videoUrl = if (line.startsWith("http")) {
@@ -140,7 +140,7 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
                         val base = baseUrl.substringBeforeLast("/")
                         "$base/$line"
                     }
-                    
+
                     // Detect quality dari URL jika belum terdetect dari STREAM-INF
                     val detectedQuality = when {
                         currentQuality != "Unknown" -> currentQuality
@@ -150,27 +150,27 @@ class RubyVidHubExtractor(private val client: OkHttpClient) {
                         videoUrl.contains("_l") || videoUrl.contains("_l.") -> "360p"
                         else -> "Unknown"
                     }
-                    
+
                     val qualityLabel = if (prefix.isNotEmpty()) {
                         "$prefix - $detectedQuality"
                     } else {
                         detectedQuality
                     }
-                    
+
                     videoList.add(
                         Video(
                             url = videoUrl,
                             quality = qualityLabel,
                             videoUrl = videoUrl,
-                            headers = headers
-                        )
+                            headers = headers,
+                        ),
                     )
-                    
+
                     currentQuality = "Unknown"
                 }
             }
         }
-        
+
         // Sort by quality priority
         return videoList.sortedByDescending { video ->
             when {

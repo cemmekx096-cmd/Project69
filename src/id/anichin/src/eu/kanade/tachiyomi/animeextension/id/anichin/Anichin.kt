@@ -11,15 +11,12 @@ import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
+import eu.kanade.tachiyomi.lib.anichinextractor.AnichinExtractor
 import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.lib.dailymotionextractor.DailymotionExtractor
 import eu.kanade.tachiyomi.lib.googledriveextractor.GoogleDriveExtractor
-import eu.kanade.tachiyomi.lib.gdriveplayerextractor.GdrivePlayerExtractor
-import eu.kanade.tachiyomi.lib.doodstreamextractor.DoodstreamExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
-// ✨ NEW EXTRACTORS
-import eu.kanade.tachiyomi.lib.anichinextractor.AnichinExtractor
 import eu.kanade.tachiyomi.lib.rubyvidhubextractor.RubyVidHubExtractor
 import eu.kanade.tachiyomi.lib.rumbleextractor.RumbleExtractor
 import eu.kanade.tachiyomi.network.GET
@@ -71,7 +68,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     private val dailymotionExtractor by lazy { DailymotionExtractor(client, headers) }
     private val googleDriveExtractor by lazy { GoogleDriveExtractor(client, headers) }
     private val playlistUtils by lazy { PlaylistUtils(client, headers) }
-    
+
     // ✨ NEW EXTRACTORS
     private val anichinVipExtractor by lazy { AnichinExtractor(client) }
     private val rubyVidExtractor by lazy { RubyVidHubExtractor(client) }
@@ -195,7 +192,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         android.util.Log.d("Anichin", "[$index] Skipping ADS server")
                         return@forEachIndexed
                     }
-                    
+
                     // Decode base64
                     val decodedHtml = try {
                         String(android.util.Base64.decode(serverValue, android.util.Base64.DEFAULT))
@@ -248,7 +245,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     android.util.Log.d("Anichin", "Anichin VIP videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
-                
+
                 // ✨ RubyVidHub
                 url.contains("rubyvidhub", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting RubyVidHub")
@@ -256,13 +253,13 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     android.util.Log.d("Anichin", "RubyVidHub videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
-                
+
                 // ✨ Rumble (improved extractor)
                 url.contains("rumble.com") -> {
                     android.util.Log.d("Anichin", "Extracting Rumble (new extractor)")
                     val videos = rumbleExtractor.videosFromUrl(url, serverName)
                     android.util.Log.d("Anichin", "Rumble videos: ${videos.size}")
-                    
+
                     // Fallback ke old method jika gagal
                     if (videos.isEmpty()) {
                         android.util.Log.d("Anichin", "Fallback to old Rumble extraction")
@@ -271,7 +268,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         videoList.addAll(videos)
                     }
                 }
-                
+
                 // Existing extractors
                 url.contains("ok.ru") || url.contains("odnoklassniki") -> {
                     android.util.Log.d("Anichin", "Extracting OK.ru")
@@ -279,34 +276,34 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     android.util.Log.d("Anichin", "OK.ru videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
-                
+
                 url.contains("dailymotion") -> {
                     android.util.Log.d("Anichin", "Extracting Dailymotion")
                     val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - ")
                     android.util.Log.d("Anichin", "Dailymotion videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
-                
+
                 url.contains("drive.google") || url.contains("drive.usercontent.google") -> {
                     android.util.Log.d("Anichin", "Extracting Google Drive")
                     val videos = googleDriveExtractor.videosFromUrl(url, "$serverName - ")
                     android.util.Log.d("Anichin", "GDrive videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
-                
+
                 url.contains(".m3u8") -> {
                     android.util.Log.d("Anichin", "Extracting HLS")
                     val videos = playlistUtils.extractFromHls(url, baseUrl)
                     android.util.Log.d("Anichin", "HLS videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
-                
+
                 // ✨ URL Shorteners (short.icu, dll) - follow redirect
                 url.contains("short.", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Following URL shortener: $url")
                     val finalUrl = followRedirect(url)
                     android.util.Log.d("Anichin", "Redirected to: $finalUrl")
-                    
+
                     if (finalUrl != url) {
                         // Recursive call dengan final URL
                         extractVideoFromUrl(finalUrl, videoList, serverName)
@@ -314,7 +311,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         videoList.add(Video(url, serverName, url))
                     }
                 }
-                
+
                 else -> {
                     android.util.Log.d("Anichin", "Generic iframe: $url")
                     videoList.add(Video(url, serverName, url))
@@ -419,3 +416,4 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         private val PREF_QUALITY_VALUES = arrayOf("1080p", "720p", "480p", "360p")
     }
 }
+

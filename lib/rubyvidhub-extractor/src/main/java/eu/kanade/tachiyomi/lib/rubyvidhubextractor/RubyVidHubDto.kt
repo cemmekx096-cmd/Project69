@@ -5,10 +5,10 @@ package eu.kanade.tachiyomi.lib.rubyvidhubextractor
  * Format: eval(function(p,a,c,k,e,d){...}('payload', base, count, 'keywords'.split('|'), ...))
  */
 object JsUnpacker {
-    
+
     /**
      * Unpack packed JavaScript code
-     * 
+     *
      * @param packedJs Packed JavaScript string
      * @return Unpacked JavaScript code
      */
@@ -17,19 +17,19 @@ object JsUnpacker {
             // Extract the packed content
             val payloadRegex = Regex("""}\('(.*?)',(\d+),(\d+),'(.*?)'\.split""")
             val match = payloadRegex.find(packedJs) ?: return packedJs
-            
+
             val payload = match.groupValues[1]
             val radix = match.groupValues[2].toIntOrNull() ?: 36
             val count = match.groupValues[3].toIntOrNull() ?: 0
             val keywords = match.groupValues[4].split('|')
-            
+
             // Decode payload
             decodePayload(payload, radix, count, keywords)
         } catch (e: Exception) {
             packedJs // Return original jika gagal unpack
         }
     }
-    
+
     /**
      * Decode payload menggunakan radix dan keywords
      */
@@ -37,24 +37,24 @@ object JsUnpacker {
         payload: String,
         radix: Int,
         count: Int,
-        keywords: List<String>
+        keywords: List<String>,
     ): String {
         var result = payload
-        
+
         // Replace encoded words dengan keywords
         for (i in count - 1 downTo 0) {
             val encoded = encodeBase(i, radix)
             val keyword = if (i < keywords.size) keywords[i] else ""
-            
+
             if (keyword.isNotEmpty()) {
                 // Replace whole words only
                 result = result.replace(Regex("\\b$encoded\\b"), keyword)
             }
         }
-        
+
         return result
     }
-    
+
     /**
      * Encode number ke base tertentu (misal base 36)
      */
@@ -65,10 +65,10 @@ object JsUnpacker {
             num.toString(radix)
         }
     }
-    
+
     /**
      * Extract source URL dari packed atau unpacked JavaScript
-     * 
+     *
      * @param js JavaScript code (packed atau unpacked)
      * @return Source URL jika ditemukan, null jika tidak
      */
@@ -79,7 +79,7 @@ object JsUnpacker {
         } else {
             js
         }
-        
+
         // Pattern untuk extract source URL
         val patterns = listOf(
             // sources:[{file:"URL"}]
@@ -87,15 +87,15 @@ object JsUnpacker {
             // file:"URL"
             """file:\s*["']([^"']+\.m3u8[^"']*)["']""".toRegex(),
             // "file":"URL"
-            """"file":\s*"([^"]+\.m3u8[^"]*?)"""".toRegex()
+            """"file":\s*"([^"]+\.m3u8[^"]*?)"""".toRegex(),
         )
-        
+
         for (pattern in patterns) {
             pattern.find(unpacked)?.groupValues?.get(1)?.let { url ->
                 if (url.isNotEmpty()) return url
             }
         }
-        
+
         return null
     }
 }
