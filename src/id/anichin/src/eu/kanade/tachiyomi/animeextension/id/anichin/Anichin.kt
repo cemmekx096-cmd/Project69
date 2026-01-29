@@ -2,8 +2,6 @@ package eu.kanade.tachiyomi.animeextension.id.anichin
 
 import android.app.Application
 import android.content.SharedPreferences
-import android.util.Base64
-import android.util.Log
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
@@ -15,12 +13,13 @@ import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.lib.dailymotionextractor.DailymotionExtractor
-import eu.kanade.tachiyomi.lib.doodstreamextractor.DoodstreamExtractor
 import eu.kanade.tachiyomi.lib.googledriveextractor.GoogleDriveExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -29,9 +28,11 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import uy.kohesive.injekt.injectLazy
 import java.util.concurrent.TimeUnit
 
 class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
+
     override val name = "Anichin"
     override val baseUrl = "https://anichin.watch"
     override val lang = "id"
@@ -62,301 +63,254 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
+    private val json: Json by injectLazy()
+
     private val okruExtractor by lazy { OkruExtractor(client) }
     private val dailymotionExtractor by lazy { DailymotionExtractor(client, headers) }
     private val googleDriveExtractor by lazy { GoogleDriveExtractor(client, headers) }
-    private val doodstreamExtractor by lazy { DoodstreamExtractor(client) }
     private val playlistUtils by lazy { PlaylistUtils(client, headers) }
 
-    override fun popularAnimeRequest(page: Int): Request {
-        return GET("$baseUrl/ongoing/?page=$page", headers)
-    }
+    // ============================== Popular ===============================
+
+    override fun popularAnimeRequest(page: Int): Request = GET("$baseUrl/ongoing/?page=$page", headers)
 
     override fun popularAnimeSelector(): String = "div.listupd article.bs"
 
     override fun popularAnimeFromElement(element: Element): SAnime {
-        val linkElement = element.selectFirst("div.bsx > a")
-            ?: element.selectFirst("div.bsx a") ?: return SAnime.create()
         return SAnime.create().apply {
-            setUrlWithoutDomain(linkElement.attr("href"))
+            setUrlWithoutDomain(element.selectFirst("div.bsx > a")!!.attr("href"))
             thumbnail_url = element.selectFirst("div.bsx img")?.attr("src")
-            title = linkElement.attr("title").ifBlank { linkElement.text() }
+            title = element.selectFirst("div.bsx a")?.attr("title") ?: ""
         }
     }
 
     override fun popularAnimeNextPageSelector(): String = "div.pagination a.next"
 
-    override fun latestUpdatesRequest(page: Int): Request = popularAnimeRequest(page)
+    // =============================== Latest ===============================
 
+    override fun latestUpdatesRequest(page: Int): Request = GET("$baseUrl/ongoing/?page=$page", headers)
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
-
     override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
-
     override fun latestUpdatesNextPageSelector(): String = popularAnimeNextPageSelector()
 
+    // =============================== Search ===============================
+
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        val cleanQuery = query.trim()
+        val params = AnichinFilters.getSearchParameters(filters)
         val url = when {
-            cleanQuery.isNotEmpty() -> "$baseUrl/?s=$cleanQuery&page=$page"
+            query.isNotEmpty() -> "$baseUrl/?s=$query&page=$page"
+            params.genre.isNotEmpty() -> "$baseUrl/genres/${params.genre}/?page=$page"
             else -> "$baseUrl/ongoing/?page=$page"
         }
         return GET(url, headers)
     }
 
     override fun searchAnimeSelector(): String = popularAnimeSelector()
-
     override fun searchAnimeFromElement(element: Element): SAnime = popularAnimeFromElement(element)
-
     override fun searchAnimeNextPageSelector(): String = popularAnimeNextPageSelector()
+
+    // =========================== Anime Details ============================
 
     override fun animeDetailsParse(document: Document): SAnime {
         return SAnime.create().apply {
-            title = document.selectFirst("h1.entry-title")?.text()?.trim() ?: ""
-            thumbnail_url = document.selectFirst("div.thumb img, .thumb img")?.attr("src")
-            genre = document.select("div.genxed a, .genre a").joinToString { it.text().trim() }
+            title = document.selectFirst("h1.entry-title")?.text() ?: ""
+            thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
+            genre = document.select("div.genxed a").joinToString { it.text() }
             status = when {
-                document.select("div.status, .status").any { it.text().contains("Ongoing", true) } -> SAnime.ONGOING
-                document.select("div.status, .status").any { it.text().contains("Completed", true) } -> SAnime.COMPLETED
+                document.select("div.status").text().contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
+                document.select("div.status").text().contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
                 else -> SAnime.UNKNOWN
             }
-            description = document.selectFirst("div.desc, .desc")?.text()?.trim() ?: ""
+            description = document.selectFirst("div.desc")?.text()
         }
     }
+
+    // ============================== Episodes ==============================
 
     override fun episodeListSelector(): String = "div.eplister ul li"
 
     override fun episodeFromElement(element: Element): SEpisode {
-        val linkElement = element.selectFirst("a") ?: return SEpisode.create()
-        val rawName = element.selectFirst("span.epcur")?.text()
-            ?: linkElement.text().trim().ifBlank { "Episode" }
         return SEpisode.create().apply {
-            setUrlWithoutDomain(linkElement.attr("href"))
-            name = rawName.takeIf { it.length <= 80 } ?: "${rawName.take(77)}..."
-            episode_number = rawName.filter(Char::isDigit).toFloatOrNull() ?: 0f
+            setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
+            val rawName = element.selectFirst("span.epcur")?.text()
+                ?: element.selectFirst("a")?.text()
+                ?: "Episode"
+            name = if (rawName.length > 77) rawName.take(77) + "..." else rawName
+            episode_number = rawName.filter { it.isDigit() }.toFloatOrNull() ?: 0f
             date_upload = System.currentTimeMillis()
         }
     }
 
+    // ============================ Video Links =============================
+
     override fun videoListParse(response: Response): List<Video> {
         val document = response.asJsoup()
         val videoList = mutableListOf<Video>()
-        Log.d("Anichin", "=== VIDEO PARSE START: ${response.request.url} ===")
-        parseStreamingServers(document, videoList)
-        parseDownloadMirrorLinks(document, videoList)
-        Log.d("Anichin", "=== TOTAL VIDEOS: ${videoList.size} ===")
-        val uniqueVideos = videoList.distinctBy { it.videoUrl }
-        if (uniqueVideos.size < videoList.size) {
-            Log.d("Anichin", "Removed ${videoList.size - uniqueVideos.size} duplicates")
-        }
-        return uniqueVideos.ifEmpty {
-            listOf(Video(response.request.url.toString(), "Open in WebView", response.request.url.toString()))
-        }
-    }
 
-    private fun parseStreamingServers(document: Document, videoList: MutableList<Video>) {
-        Log.d("Anichin", "=== PARSING STREAMING SERVERS ===")
+        android.util.Log.d("Anichin", "=== VIDEO PARSE START ===")
+
         document.select("select.mirror option").forEachIndexed { index, option ->
             val serverValue = option.attr("value")
             val serverName = option.text().trim()
-            Log.d("Anichin", "[Streaming $index] Server: $serverName")
-            if (serverValue.isNotEmpty() && !serverName.contains("Select", true)) {
+
+            if (serverValue.isNotEmpty() && !serverName.contains("Select", ignoreCase = true)) {
                 try {
                     val decodedHtml = try {
-                        String(Base64.decode(serverValue, Base64.DEFAULT))
+                        String(android.util.Base64.decode(serverValue, android.util.Base64.DEFAULT))
                     } catch (e: Exception) {
-                        Log.e("Anichin", "Base64 failed: ${e.message}")
                         serverValue
                     }
+
                     val iframeSrc = Regex("""<iframe[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
-                        .find(decodedHtml)?.groupValues?.get(1)
+                        .find(decodedHtml)
+                        ?.groupValues
+                        ?.get(1)
+
                     if (iframeSrc != null) {
                         val cleanUrl = when {
                             iframeSrc.startsWith("//") -> "https:$iframeSrc"
-                            iframeSrc.startsWith("http") -> iframeSrc
                             else -> iframeSrc
                         }
-                        Log.d("Anichin", "[Streaming $index] Iframe: $cleanUrl")
-                        extractVideoFromUrl(cleanUrl, videoList, serverName)
-                    } else {
-                        extractVideoFromUrl(serverValue, videoList, "$serverName (Direct)")
+                        android.util.Log.d("Anichin", "[$index] $serverName: $cleanUrl")
+                        extractVideoFromIframe(cleanUrl, videoList, serverName)
                     }
                 } catch (e: Exception) {
-                    Log.e("Anichin", "[Streaming $index] Error: ${e.message}")
+                    android.util.Log.e("Anichin", "[$index] Error: ${e.message}")
                 }
             }
         }
-    }
 
-    private fun parseDownloadMirrorLinks(document: Document, videoList: MutableList<Video>) {
-        Log.d("Anichin", "=== PARSING DOWNLOAD/MIRROR LINKS ===")
-        val downloadSelectors = listOf(
-            "div.download",
-            "div.download-links",
-            "div.mirror-links",
-            "div.links-download",
-            "div#download",
-            "div#mirror",
-            "section.download",
-            "section.mirror",
-        )
-        for (selector in downloadSelectors) {
-            val elements = document.select(selector)
-            if (elements.isNotEmpty()) {
-                Log.d("Anichin", "Found section: $selector (${elements.size})")
-                elements.forEach { section ->
-                    parseLinksInSection(section, "Download", videoList)
-                }
-            }
-        }
-        val directPatterns = listOf(
-            "a[href*='dsvplay.com']",
-            "a[href*='myvidplay.com']",
-            "a[href*='doodstream']",
-            "a[href*='dood.']",
-            "a[href*='terabox.com']",
-            "a[href*='1024tera.com']",
-            "a[href*='drive.google.com']",
-            "a[href*='docs.google.com']",
-        )
-        directPatterns.forEach { pattern ->
-            val links = document.select(pattern)
-            if (links.isNotEmpty()) {
-                Log.d("Anichin", "Found ${links.size} links: $pattern")
-                links.forEach { link ->
-                    val url = link.attr("href")
-                    val text = link.text().trim()
-                    val displayText = if (text.isNotBlank()) text else "Mirror Link"
-                    if (url.isNotBlank()) {
-                        Log.d("Anichin", "[Direct] '$displayText' -> $url")
-                        processDownloadMirrorLink(url, displayText, videoList)
-                    }
-                }
-            }
+        android.util.Log.d("Anichin", "=== TOTAL: ${videoList.size} ===")
+        return videoList.ifEmpty {
+            listOf(Video(response.request.url.toString(), "WebView (Tap to open)", response.request.url.toString()))
         }
     }
 
-    private fun parseLinksInSection(section: Element, sectionType: String, videoList: MutableList<Video>) {
-        val links = section.select("a[href]")
-        Log.d("Anichin", "Parsing $sectionType: ${links.size} links")
-        links.forEachIndexed { index, link ->
-            val url = link.attr("href")
-            val text = link.text().trim()
-            if (url.isNotBlank()) {
-                val displayText = if (text.isNotBlank()) text else "$sectionType Link ${index + 1}"
-                Log.d("Anichin", "[$sectionType $index] '$displayText' -> $url")
-                processDownloadMirrorLink(url, displayText, videoList)
-            }
-        }
-    }
-
-    private fun processDownloadMirrorLink(url: String, text: String, videoList: MutableList<Video>) {
+    private fun extractVideoFromIframe(url: String, videoList: MutableList<Video>, quality: String) {
         try {
-            val cleanUrl = normalizeUrl(url)
-            if (cleanUrl.isBlank()) return
-            Log.d("Anichin", "Processing: '$text' -> $cleanUrl")
             when {
-                cleanUrl.contains("dsvplay.com") || cleanUrl.contains("myvidplay.com") ||
-                    cleanUrl.contains("doodstream") || cleanUrl.contains("/d/") -> {
-                    Log.d("Anichin", "Detected Doodstream")
-                    val videos = doodstreamExtractor.videosFromUrl(cleanUrl, "$text - ")
-                    Log.d("Anichin", "Doodstream: ${videos.size} videos")
-                    videoList.addAll(videos)
+                // Anichin.stream custom player
+                url.contains("anichin.stream") || url.contains("anichinv2.icu") -> {
+                    extractAnichinStream(url, videoList, quality)
                 }
-                cleanUrl.contains("drive.google.com") || cleanUrl.contains("docs.google.com") -> {
-                    Log.d("Anichin", "Detected Google Drive")
-                    try {
-                        val videos = googleDriveExtractor.videosFromUrl(cleanUrl, "$text - ")
-                        Log.d("Anichin", "GDrive: ${videos.size} videos")
+                // OK.ru
+                url.contains("ok.ru") -> {
+                    val videos = okruExtractor.videosFromUrl(url, "$quality - ")
+                    if (videos.isNotEmpty()) {
                         videoList.addAll(videos)
-                    } catch (e: Exception) {
-                        Log.e("Anichin", "GDrive failed: ${e.message}")
-                        videoList.add(Video(cleanUrl, "$text (Google Drive)", cleanUrl))
+                    } else {
+                        android.util.Log.w("Anichin", "$quality: OK.ru extraction failed")
                     }
                 }
-                cleanUrl.contains("terabox.com") || cleanUrl.contains("1024tera.com") -> {
-                    Log.d("Anichin", "Detected Terabox")
-                    videoList.add(Video(cleanUrl, "$text (Terabox)", cleanUrl))
-                }
-                cleanUrl.contains(".mp4") || cleanUrl.contains(".m3u8") ||
-                    cleanUrl.contains(".mkv") || cleanUrl.contains(".webm") -> {
-                    Log.d("Anichin", "Detected direct video")
-                    videoList.add(Video(cleanUrl, "$text (Direct)", cleanUrl))
-                }
-                else -> {
-                    Log.d("Anichin", "Generic mirror")
-                    extractVideoFromUrl(cleanUrl, videoList, text)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("Anichin", "Failed to process '$text': ${e.message}")
-        }
-    }
-
-    private fun normalizeUrl(url: String): String {
-        if (url.isBlank()) return ""
-        return when {
-            url.startsWith("//") -> "https:$url"
-            url.startsWith("/") && url.length > 1 -> "$baseUrl$url"
-            url.startsWith("#") || url.startsWith("javascript:") -> ""
-            url.startsWith("http") -> url
-            else -> if (url.contains(".") && !url.contains(" ")) "https://$url" else ""
-        }
-    }
-
-    private fun extractVideoFromUrl(url: String, videoList: MutableList<Video>, serverName: String) {
-        try {
-            Log.d("Anichin", "Extracting: $url (Server: $serverName)")
-            when {
-                url.contains("ok.ru") || url.contains("odnoklassniki") -> {
-                    Log.d("Anichin", "Extracting OK.ru")
-                    val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
-                    Log.d("Anichin", "OK.ru: ${videos.size}")
-                    videoList.addAll(videos)
-                }
+                // Dailymotion
                 url.contains("dailymotion") -> {
-                    Log.d("Anichin", "Extracting Dailymotion")
-                    val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - ")
-                    Log.d("Anichin", "Dailymotion: ${videos.size}")
-                    videoList.addAll(videos)
+                    val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$quality - ")
+                    if (videos.isNotEmpty()) {
+                        videoList.addAll(videos)
+                    } else {
+                        android.util.Log.w("Anichin", "$quality: Dailymotion extraction failed")
+                    }
                 }
-                url.contains("drive.google") || url.contains("drive.usercontent.google") -> {
-                    Log.d("Anichin", "Extracting Google Drive")
-                    val videos = googleDriveExtractor.videosFromUrl(url, "$serverName - ")
-                    Log.d("Anichin", "GDrive: ${videos.size}")
-                    videoList.addAll(videos)
+                // Google Drive
+                url.contains("drive.google") -> {
+                    val videos = googleDriveExtractor.videosFromUrl(url, "$quality - ")
+                    if (videos.isNotEmpty()) {
+                        videoList.addAll(videos)
+                    } else {
+                        android.util.Log.w("Anichin", "$quality: GDrive extraction failed")
+                    }
                 }
-                url.contains("dsvplay.com") || url.contains("myvidplay.com") ||
-                    url.contains("doodstream") || url.contains("/d/") -> {
-                    Log.d("Anichin", "Extracting Doodstream")
-                    val videos = doodstreamExtractor.videosFromUrl(url, "$serverName - ")
-                    Log.d("Anichin", "Doodstream: ${videos.size}")
-                    videoList.addAll(videos)
-                }
-                url.contains(".m3u8") -> {
-                    Log.d("Anichin", "Extracting HLS")
-                    val videos = playlistUtils.extractFromHls(url, baseUrl)
-                    Log.d("Anichin", "HLS: ${videos.size}")
-                    videoList.addAll(videos)
+                // Rumble
+                url.contains("rumble.com") -> {
+                    extractRumble(url, videoList, quality)
                 }
                 else -> {
-                    Log.d("Anichin", "Generic URL")
-                    videoList.add(Video(url, serverName, url))
+                    android.util.Log.d("Anichin", "$quality: Unknown source $url")
                 }
             }
         } catch (e: Exception) {
-            Log.e("Anichin", "Extraction failed: ${e.message}")
-            videoList.add(Video(url, "$serverName (Error)", url))
+            android.util.Log.e("Anichin", "$quality extraction error: ${e.message}")
         }
     }
 
-    override fun videoListSelector(): String = throw UnsupportedOperationException()
-    override fun videoFromElement(element: Element): Video = throw UnsupportedOperationException()
-    override fun videoUrlParse(document: Document): String = throw UnsupportedOperationException()
+    private fun extractAnichinStream(url: String, videoList: MutableList<Video>, quality: String) {
+        try {
+            val document = client.newCall(GET(url, headers)).execute().asJsoup()
 
-    override fun getFilterList(): AnimeFilterList = AnimeFilterList(
-        AnimeFilter.Header("NOTE: Filters ignored if text search!"),
+            // Method 1: Find Rumble embed in iframe
+            val rumbleUrl = document.selectFirst("iframe[src*=rumble]")?.attr("src")
+            if (rumbleUrl != null) {
+                val cleanRumble = if (rumbleUrl.startsWith("//")) "https:$rumbleUrl" else rumbleUrl
+                android.util.Log.d("Anichin", "$quality: Found Rumble in anichin.stream")
+                extractRumble(cleanRumble, videoList, quality)
+                return
+            }
+
+            // Method 2: Find video/source tag
+            val videoUrl = document.selectFirst("video source, video")?.attr("src")
+            if (!videoUrl.isNullOrEmpty()) {
+                android.util.Log.d("Anichin", "$quality: Found direct video $videoUrl")
+                videoList.add(Video(videoUrl, quality, videoUrl))
+                return
+            }
+
+            // Method 3: Search for m3u8 in scripts
+            val m3u8Url = document.select("script").mapNotNull { script ->
+                Regex("""["'](https?://[^"']*\.m3u8[^"']*)["']""")
+                    .find(script.data())
+                    ?.groupValues
+                    ?.get(1)
+            }.firstOrNull()
+
+            if (m3u8Url != null) {
+                android.util.Log.d("Anichin", "$quality: Found m3u8 $m3u8Url")
+                val videos = playlistUtils.extractFromHls(m3u8Url, url, videoNameGen = { "$quality - $it" })
+                videoList.addAll(videos)
+            } else {
+                android.util.Log.w("Anichin", "$quality: No video found in anichin.stream")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Anichin", "$quality anichin.stream error: ${e.message}")
+        }
+    }
+
+    private fun extractRumble(url: String, videoList: MutableList<Video>, quality: String) {
+        try {
+            val document = client.newCall(GET(url, headers)).execute().asJsoup()
+
+            // Find m3u8 in scripts
+            val m3u8Url = document.select("script").mapNotNull { script ->
+                Regex("""["'](https://[^"']*\.m3u8[^"']*)["']""")
+                    .findAll(script.data())
+                    .map { it.groupValues[1] }
+                    .firstOrNull()
+            }.firstOrNull()
+
+            if (m3u8Url != null) {
+                android.util.Log.d("Anichin", "$quality: Found Rumble m3u8")
+                val videos = playlistUtils.extractFromHls(m3u8Url, url, videoNameGen = { "$quality - $it" })
+                videoList.addAll(videos)
+            } else {
+                android.util.Log.w("Anichin", "$quality: Rumble m3u8 not found")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Anichin", "$quality Rumble error: ${e.message}")
+        }
+    }
+
+    override fun videoListSelector() = throw UnsupportedOperationException()
+    override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
+    override fun videoUrlParse(document: Document) = throw UnsupportedOperationException()
+
+    // ============================== Filters ===============================
+
+    override fun getFilterList() = AnimeFilterList(
+        AnimeFilter.Header("NOTE: Filters ignored if using text search!"),
         AnimeFilter.Separator(),
+        AnichinFilters.GenreFilter(),
     )
+
+    // ============================== Settings ==============================
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         ListPreference(screen.context).apply {
@@ -367,11 +321,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             setDefaultValue(PREF_QUALITY_DEFAULT)
             summary = "%s"
             setOnPreferenceChangeListener { _, newValue ->
-                val selected = newValue as String
-                val index = findIndexOfValue(selected)
-                val entry = entryValues[index] as String
-                preferences.edit().putString(key, entry).apply()
-                true
+                preferences.edit().putString(key, newValue as String).commit()
             }
         }.also(screen::addPreference)
     }
