@@ -1,12 +1,14 @@
 <div align="center">
 
+![app icon](./.github/readme-images/app-icon.png)
+
+# Aniyomi Extensions - Sub Indonesia
+
 | Install |
 |:-------:|
 | [![Install](https://img.shields.io/badge/Click%20here%20to%20install%20repo-gray?style=flat&labelColor=red)](aniyomi://add-repo?url=https://raw.githubusercontent.com/cemmekx096-cmd/Apk-project69/refs/heads/repo/index.min.json) |
 
 </div>
-
-# ![app icon](./.github/readme-images/app-icon.png) Aniyomi Extensions - Sub Indonesia
 
 Ini adalah fork dari repository [yuzono/aniyomi-extensions](https://github.com/yuzono/aniyomi-extensions).
 
@@ -46,7 +48,6 @@ Kontribusi welcome!
 Untuk development:
 1. Lihat [CONTRIBUTING.md](./CONTRIBUTING.md)
 2. Baca [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
-3. lihat [STRUCTURE.md](./STRUCTURE.md)
 
 ## ⚠️ Disclaimer
 
