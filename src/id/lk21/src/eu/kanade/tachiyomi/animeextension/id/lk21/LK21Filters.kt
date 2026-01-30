@@ -4,7 +4,7 @@ import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 
 object LK21Filters {
-    
+
     fun getSearchParameters(filters: AnimeFilterList): Params {
         val params = Params()
         

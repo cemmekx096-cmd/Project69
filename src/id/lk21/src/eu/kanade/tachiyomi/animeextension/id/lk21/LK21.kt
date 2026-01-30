@@ -2,11 +2,9 @@ package eu.kanade.tachiyomi.animeextension.id.lk21
 
 import android.app.Application
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
-import androidx.preference.SwitchPreferenceCompat
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.SAnime
@@ -444,7 +442,6 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         } catch (e: Exception) {
             ReportLog.reportError("LK21-Extractor", "Extraction failed for $playerUrl: ${e.message}")
             e.printStackTrace()
-            
             // Add iframe as error fallback
             videoList.add(
                 Video(

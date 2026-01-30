@@ -46,7 +46,7 @@ object ReportLog {
 
 // Kelas untuk mengatur konfigurasi level log
 object LogConfig {
-    var isDebugEnabled = true  // Menentukan apakah log debug diaktifkan
+    var isDebugEnabled = true
 
     fun setDebugMode(enabled: Boolean) {
         isDebugEnabled = enabled
