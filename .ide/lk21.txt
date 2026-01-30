@@ -1,0 +1,379 @@
+========================================
+ANIYOMI EXTENSION - LK21 (FILM & SERIES)
+========================================
+
+METADATA:
+---------
+Name: LK21
+Language: Indonesian
+Base URL: https://d21.team/
+Content Type: Movie & TV Series
+Version: 1.0
+Author: Community
+
+IMPORTANT NOTES:
+----------------
+- LK21 uses a gateway page (d21.team) that redirects to the actual domain
+- Main domain changes frequently, but gateway remains stable
+- Current main domain: tv7.lk21official.cc (but may change)
+- Extension will automatically fetch the correct domain from gateway
+
+========================================
+1. BASE URLS & ENDPOINTS
+========================================
+
+GATEWAY_URL = "https://d21.team/"
+DOWNLOAD_BASE = "https://dl.lk21.party/"
+PLAYER_BASE = "https://playeriframe.sbs/iframe/"
+POSTER_BASE = "https://poster.lk21.party/"
+
+// Dynamic base URL (fetched from gateway)
+MAIN_BASE_URL = get from gateway button: <a href="https://lk21.de" class="cta-button green-button">
+
+ENDPOINTS:
+- Homepage/Latest: "/"
+- Search: "/?s={query}"
+- Genre: "/genre/{genre}"
+- Country: "/country/{country}"
+- Year: "/{year}"
+- Series Latest: "/nontondrama?page=latest-series"
+- Series Ongoing: "/nontondrama?page=series/ongoing"
+- Series Complete: "/nontondrama?page=series/complete"
+
+========================================
+2. POPULAR & LATEST MOVIES
+========================================
+
+REQUEST:
+Method: GET
+URL: {MAIN_BASE_URL}/
+
+PARSING:
+Container: <ul class="sliders" role="list">
+Item: <li class="slider" role="listitem">
+
+For each item:
+  Link: <a href="{url}"> → extract {url}
+  Poster: <img src="{poster_url}"> inside <picture>
+  Title: <h3 class="poster-title" itemprop="name">{title}</h3>
+  Year: <span class="year" itemprop="datePublished">{year}</span>
+  Rating: <span class="rating"><i class="fa-star"></i> {rating}</span>
+  Duration: <span class="duration" itemprop="duration" content="{duration}">{duration}</span>
+  Quality: <span class="label label-HD">HD</span> (or label-CAM, etc)
+  Genre: <div class="genre">{genres}</div>
+  
+  // For series
+  Episode: <span class="episode complete">EPS<strong>{ep_count}</strong></span>
+  Season: <span class="duration">S.{season}</span>
+
+========================================
+3. SEARCH
+========================================
+
+REQUEST:
+Method: GET
+URL: {MAIN_BASE_URL}/?s={query}
+
+PARSING:
+Same structure as Popular/Latest (uses same container and item selectors)
+
+========================================
+4. GENRE & COUNTRY FILTER
+========================================
+
+AVAILABLE GENRES:
+- Action: /genre/action
+- Adventure: /genre/adventure
+- Animation: /genre/animation
+- Biography: /genre/biography
+- Comedy: /genre/comedy
+- Crime: /genre/crime
+- Documentary: /genre/documentary
+- Drama: /genre/drama
+- Family: /genre/family
+- Fantasy: /genre/fantasy
+
+AVAILABLE COUNTRIES:
+- USA: /country/usa
+- Australia: /country/australia
+- China: /country/china
+- France: /country/france
+- Japan: /country/japan
+- South Korea: /country/south-korea
+- Malaysia: /country/malaysia
+- Russia: /country/russia
+- Thailand: /country/thailand
+- India: /country/india
+
+REQUEST:
+Method: GET
+URL: {MAIN_BASE_URL}/genre/{genre} or /country/{country}
+
+PARSING:
+Same structure as Homepage
+
+========================================
+5. MOVIE/SERIES DETAIL PAGE
+========================================
+
+REQUEST:
+Method: GET
+URL: {MAIN_BASE_URL}/{film-slug}
+Example: https://tv7.lk21official.cc/dhurandhar-2025
+
+PARSING METADATA:
+Title: <h1 itemprop="name">{title}</h1>
+Poster: <img src="{poster}" inside <picture>
+Rating: <span class="rating"><i class="fa-star"></i> {rating}</span>
+Year: <span class="year" itemprop="datePublished">{year}</span>
+Quality: <span class="label label-HD">HD</span>
+Duration: <span class="duration" itemprop="duration" content="PT3M26S">{duration}</span>
+Genre: <div class="genre">{genres}</div>
+Synopsis: <div class="synopsis expanded" data-full="{synopsis}">{synopsis}</div>
+
+Additional Info:
+- Subtitle: <span>Subtitle: </span><a href="/translator/{translator}">{translator}</a>
+- Director: <span>Sutradara: </span><a href="/director/{director}">{director}</a>
+- Cast: <span>Bintang Film: </span><a href="/artist/{actor}">{actor}</a>
+- Country: <span>Negara: </span><a href="/country/{country}">{country}</a>
+- Release: <span>Release: </span>{release_date}
+- Updated: <span>Updated: </span>{updated_date}
+- Votes: <span>Votes: </span>{votes}
+
+========================================
+6. VIDEO PLAYERS (STREAMING)
+========================================
+
+PARSING PLAYER OPTIONS:
+Container: <ul id="player-list">
+Players: <li><a href="{player_url}" data-server="{server}" data-url="{embed_url}">{server_name}</a></li>
+
+AVAILABLE PLAYERS:
+1. P2P:
+   - Selector: <a data-server="p2p">
+   - URL Pattern: https://playeriframe.sbs/iframe/p2p/{video_id}
+   
+2. TurboVIP:
+   - Selector: <a data-server="turbovip">
+   - URL Pattern: https://playeriframe.sbs/iframe/turbovip/{video_id}
+   
+3. Cast:
+   - Selector: <a data-server="cast">
+   - URL Pattern: https://playeriframe.sbs/iframe/cast/{video_id}
+   
+4. Hydrax:
+   - Selector: <a data-server="hydrax">
+   - URL Pattern: https://playeriframe.sbs/iframe/hydrax/{video_id}
+
+IFRAME CONTAINER:
+<div class="main-player" data-iframe_url="https://playeriframe.sbs/iframe.php?url=" 
+     data-post_id="{post_id}" data-related_type="movie" data-host="movie">
+  <iframe src="{player_url}" id="main-player" frameborder="0" 
+          name="main-player-iframe" allowfullscreen="true"></iframe>
+</div>
+
+VIDEO EXTRACTION:
+The player iframe URLs may require additional extraction:
+- Load the iframe URL
+- Extract actual video source from the iframe content
+- May use various video hosts (check iframe content for <video> or <source> tags)
+
+========================================
+7. DOWNLOAD LINKS
+========================================
+
+DOWNLOAD BUTTON:
+<a href="https://dl.lk21.party/{film-slug}/" target="_blank" class="btn btn-small">
+  <i class="fa-download"></i>DOWNLOAD
+</a>
+
+REQUEST:
+Method: GET
+URL: https://dl.lk21.party/{film-slug}/
+
+PARSING DOWNLOAD PAGE:
+Title: DOWNLOAD MOVIE {TITLE} ({YEAR}).MP4 SUBTITLE INDONESIA - INDEXMOVIE.BIZ
+
+Episode Selector (for series):
+<select>
+  <option value="Season 1 - Episode 1">Season 1 - Episode 1</option>
+</select>
+
+Download Table:
+<table>
+  <thead>
+    <tr>
+      <th>QUALITY</th>
+      <th>PROVIDER</th>
+      <th>DOWNLOAD</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Google Share</strong></td>
+      <td align="center">
+        <a href="{download_url}" target="_blank" class="btnx btn-1080">
+          DOWNLOAD 1080p
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Telegram</strong></td>
+      <td align="center">
+        <a target="_blank" href="{telegram_url}" class="btnx btn-480">
+          ...
+        </a>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+DOWNLOAD PROVIDERS:
+- Google Share: Usually highest quality (1080p)
+- MEGA
+- Telegram
+- Filesflditch
+- Sendcm
+
+QUALITY OPTIONS:
+- 1080p (class="btnx btn-1080")
+- 720p (class="btnx btn-720")
+- 480p (class="btnx btn-480")
+- 360p (class="btnx btn-360")
+
+========================================
+8. SERIES/EPISODE HANDLING
+========================================
+
+SERIES DETECTION:
+Episode indicator: <span class="episode complete">EPS<strong>{count}</strong></span>
+Season indicator: <span class="duration">S.{season}</span>
+
+SERIES DETAIL PAGE:
+Same URL structure as movies: {MAIN_BASE_URL}/{series-slug}
+
+EPISODE LIST:
+Container: <ul class="episode-list fade-in">
+Episode Item: <li><a href="/{series-slug}-season-{s}-episode-{e}-{year}" class="">{episode_number}</a></li>
+
+Example:
+<li>
+  <a href="/can-this-love-be-translated-season-1-episode-1-2026" class="">1</a>
+</li>
+<li>
+  <a href="/can-this-love-be-translated-season-1-episode-2-2026" class="">2</a>
+</li>
+
+EPISODE DETAIL PAGE:
+URL: {MAIN_BASE_URL}/{series-slug}-season-{s}-episode-{e}-{year}
+Players: Same structure as movie detail page
+Download: https://dl.lk21.party/get/{series-slug}-season-{s}-episode-{e}-{year}
+
+========================================
+9. PAGINATION
+========================================
+
+Pagination container: <div class="pagination">
+Current page: <span class="current">{page}</span>
+Next page: <a class="next page-numbers" href="/{path}/page/{page}/">Next</a>
+Page number: <a class="page-numbers" href="/{path}/page/{page}/">{page}</a>
+
+========================================
+10. IMPLEMENTATION NOTES
+========================================
+
+1. GATEWAY HANDLING:
+   - First load d21.team
+   - Extract main domain from green button href
+   - Use that domain for all subsequent requests
+   - Cache the domain (refresh periodically)
+
+2. CLOUDFLARE BYPASS:
+   - Site may use Cloudflare protection
+   - May require user-agent spoofing
+   - Suggested User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+
+3. VIDEO EXTRACTION:
+   - Players are embedded iframes
+   - May need to extract video source from iframe
+   - Some players may require additional requests
+   - Check for <video> tag or HLS/MP4 sources
+
+4. SERIES vs MOVIES:
+   - Check for episode indicator in list
+   - Series have episode lists in detail page
+   - Download URLs differ (movie vs episode)
+
+5. ERROR HANDLING:
+   - Domain may change - re-fetch from gateway
+   - Some players may be broken - provide multiple options
+   - Download links may expire - show multiple providers
+
+========================================
+11. SAMPLE IMPLEMENTATION (PSEUDO-CODE)
+========================================
+
+class LK21 {
+  private var baseUrl: String? = null
+  
+  fun getBaseUrl(): String {
+    if (baseUrl == null || isExpired()) {
+      val gatewayHtml = httpGet("https://d21.team/")
+      baseUrl = extractFromHtml(gatewayHtml, "<a href=\"(.*?)\" class=\"cta-button green-button\"")
+    }
+    return baseUrl!!
+  }
+  
+  fun popularMovies(page: Int): List<Movie> {
+    val url = "${getBaseUrl()}/page/$page"
+    val html = httpGet(url)
+    return parseMovieList(html)
+  }
+  
+  fun parseMovieList(html: String): List<Movie> {
+    val movies = mutableListOf<Movie>()
+    val items = selectAll(html, "li.slider")
+    
+    for (item in items) {
+      val movie = Movie(
+        url = select(item, "a[href]").attr("href"),
+        title = select(item, "h3.poster-title").text(),
+        poster = select(item, "img").attr("src"),
+        year = select(item, "span.year").text(),
+        rating = select(item, "span.rating").text(),
+        genre = select(item, "div.genre").text()
+      )
+      movies.add(movie)
+    }
+    return movies
+  }
+  
+  fun movieDetails(url: String): MovieDetail {
+    val html = httpGet("${getBaseUrl()}$url")
+    return MovieDetail(
+      title = select(html, "h1[itemprop=name]").text(),
+      poster = select(html, "picture img").attr("src"),
+      synopsis = select(html, "div.synopsis").text(),
+      players = parsePlayers(html),
+      downloadUrl = select(html, "a[href*=dl.lk21.party]").attr("href")
+    )
+  }
+  
+  fun parsePlayers(html: String): List<Player> {
+    val players = mutableListOf<Player>()
+    val playerItems = selectAll(html, "ul#player-list li a")
+    
+    for (item in playerItems) {
+      players.add(Player(
+        name = item.text(),
+        url = item.attr("data-url"),
+        server = item.attr("data-server")
+      ))
+    }
+    return players
+  }
+}
+
+========================================
+END OF LK21 EXTENSION DOCUMENTATION
+========================================

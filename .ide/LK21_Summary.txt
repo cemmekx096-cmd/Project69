@@ -1,0 +1,217 @@
+========================================
+LK21 EXTENSION - DATA SUMMARY
+========================================
+
+BASE URLS:
+----------
+Gateway: https://d21.team/
+Main Site: https://tv7.lk21official.cc/ (dynamic, fetch from gateway)
+Download: https://dl.lk21.party/
+Player: https://playeriframe.sbs/iframe/
+Poster CDN: https://poster.lk21.party/
+
+GATEWAY EXTRACTION:
+-------------------
+Button: <a href="https://lk21.de" class="cta-button green-button">KE HALAMAN LK21</a>
+Extract: href attribute → this is the current main domain
+
+========================================
+HOMEPAGE / LATEST MOVIES
+========================================
+
+URL: {MAIN_BASE_URL}/
+Method: GET
+
+SELECTORS:
+Container: <ul class="sliders" role="list">
+Item: <li class="slider" role="listitem">
+  Link: <a href="/film-slug">
+  Poster: <img src="https://poster.lk21.party/...">
+  Title: <h3 class="poster-title">
+  Year: <span class="year">2025</span>
+  Rating: <span class="rating"><i class="fa-star"></i> 6.8</span>
+  Duration: <span class="duration">03:26</span>
+  Genre: <div class="genre">Action, Adventure</div>
+  Quality: <span class="label label-HD">HD</span>
+  
+  // For Series
+  Episode: <span class="episode complete">EPS<strong>12</strong></span>
+  Season: <span class="duration">S.1</span>
+
+========================================
+SEARCH
+========================================
+
+URL: {MAIN_BASE_URL}/?s={query}
+Method: GET
+Parsing: Same as homepage
+
+========================================
+GENRE & COUNTRY
+========================================
+
+Genre URL: {MAIN_BASE_URL}/genre/{genre}
+Country URL: {MAIN_BASE_URL}/country/{country}
+
+Available Genres:
+- action, adventure, animation, biography, comedy, crime
+- documentary, drama, family, fantasy
+
+Available Countries:
+- usa, australia, china, france, japan, south-korea
+- malaysia, russia, thailand, india
+
+Parsing: Same as homepage
+
+========================================
+MOVIE/SERIES DETAIL PAGE
+========================================
+
+URL: {MAIN_BASE_URL}/{film-slug}
+Example: https://tv7.lk21official.cc/dhurandhar-2025
+
+SELECTORS:
+Title: <h1 itemprop="name">
+Poster: <picture><img src="..."></picture>
+Rating: <span class="rating"><i class="fa-star"></i> 6.8</span>
+Year: <span class="year">2025</span>
+Quality: <span class="label label-HD">HD</span>
+Duration: <span class="duration" itemprop="duration" content="PT3M26S">03:26</span>
+Genre: <div class="genre">Action, Adventure</div>
+Synopsis: <div class="synopsis expanded" data-full="...">
+
+Additional Info:
+- Subtitle: <a href="/translator/{name}">{name}</a>
+- Director: <a href="/director/{name}">{name}</a>
+- Cast: <a href="/artist/{name}">{name}</a>
+- Country: <a href="/country/{name}">{name}</a>
+- Release: "05 Dec 2025" (text node)
+- Updated: "30 Jan 2026 05:39:02" (text node)
+- Votes: "158" (text node)
+
+========================================
+VIDEO PLAYERS
+========================================
+
+Container: <ul id="player-list">
+Item: <li><a href="..." data-server="{server}" data-url="{embed_url}">{name}</a></li>
+
+PLAYERS:
+1. P2P: 
+   Selector: <a data-server="p2p">
+   URL: https://playeriframe.sbs/iframe/p2p/{id}
+
+2. TurboVIP:
+   Selector: <a data-server="turbovip">
+   URL: https://playeriframe.sbs/iframe/turbovip/{id}
+
+3. Cast:
+   Selector: <a data-server="cast">
+   URL: https://playeriframe.sbs/iframe/cast/{id}
+
+4. Hydrax:
+   Selector: <a data-server="hydrax">
+   URL: https://playeriframe.sbs/iframe/hydrax/{id}
+
+IFRAME CONTAINER:
+<div class="main-player" data-iframe_url="https://playeriframe.sbs/iframe.php?url=">
+  <iframe src="{player_url}" id="main-player" frameborder="0" 
+          name="main-player-iframe" allowfullscreen="true"></iframe>
+</div>
+
+========================================
+DOWNLOAD LINKS
+========================================
+
+Download Button: 
+<a href="https://dl.lk21.party/{film-slug}/" class="btn btn-small">
+  <i class="fa-download"></i>DOWNLOAD
+</a>
+
+DOWNLOAD PAGE:
+URL: https://dl.lk21.party/{film-slug}/
+
+Episode Selector (for series):
+<select>
+  <option>Season 1 - Episode 1</option>
+</select>
+
+Table Structure:
+<table>
+  <tr>
+    <td><strong>Google Share</strong></td>
+    <td><a href="{url}" class="btnx btn-1080">DOWNLOAD 1080p</a></td>
+  </tr>
+  <tr>
+    <td><strong>Telegram</strong></td>
+    <td><a href="{url}" class="btnx btn-480">...</a></td>
+  </tr>
+</table>
+
+PROVIDERS:
+- Google Share (usually highest quality)
+- MEGA
+- Telegram
+- Filesflditch
+- Sendcm
+
+QUALITY CLASSES:
+- btn-1080 → 1080p
+- btn-720 → 720p
+- btn-480 → 480p
+- btn-360 → 360p
+
+========================================
+SERIES/EPISODE
+========================================
+
+DETECTION:
+Episode Indicator: <span class="episode complete">EPS<strong>12</strong></span>
+Season Indicator: <span class="duration">S.1</span>
+
+EPISODE LIST:
+Container: <ul class="episode-list fade-in">
+Item: <li><a href="/{series}-season-{s}-episode-{e}-{year}">{number}</a></li>
+
+Example:
+<li><a href="/can-this-love-be-translated-season-1-episode-1-2026">1</a></li>
+<li><a href="/can-this-love-be-translated-season-1-episode-2-2026">2</a></li>
+
+Episode Download:
+https://dl.lk21.party/get/{series}-season-{s}-episode-{e}-{year}
+
+========================================
+PAGINATION
+========================================
+
+Container: <div class="pagination">
+Current: <span class="current">{page}</span>
+Next: <a class="next page-numbers" href="/{path}/page/{page}/">Next</a>
+Page: <a class="page-numbers" href="/{path}/page/{page}/">{page}</a>
+
+========================================
+QUICK REFERENCE
+========================================
+
+GET MAIN DOMAIN:
+1. Load https://d21.team/
+2. Find: <a class="cta-button green-button">
+3. Extract: href attribute
+4. Use for all subsequent requests
+
+MOVIE FLOW:
+1. Homepage → get movie list
+2. Click movie → detail page
+3. Select player → iframe embed
+4. Download → redirect to dl.lk21.party
+
+SERIES FLOW:
+1. Homepage → get series (check for EPS indicator)
+2. Click series → detail page with episode list
+3. Click episode → episode detail page
+4. Select player → iframe embed
+5. Download episode → dl.lk21.party/get/...
+
+========================================
+END OF SUMMARY
+========================================

@@ -1,0 +1,531 @@
+========================================
+ANIYOMI EXTENSION - ANOBOY (ANIME)
+========================================
+
+METADATA:
+---------
+Name: Anoboy
+Language: Indonesian
+Base URL: https://anoboy.be/
+Content Type: Anime
+Version: 1.0
+Author: Community
+
+IMPORTANT NOTES:
+----------------
+- Anoboy provides anime with Indonesian subtitles
+- Video player uses Blogger embed (may need extraction)
+- Single download provider: GoFile
+- Simple structure compared to LK21
+
+========================================
+1. BASE URLS & ENDPOINTS
+========================================
+
+MAIN_BASE_URL = "https://anoboy.be/"
+
+ENDPOINTS:
+- Homepage/Latest: "/"
+- Search: "/?s={query}"
+- Anime List: "/anime?status={status}&type={type}&order={order}"
+- Genre Filter: "/anime" (with POST genre[] parameters)
+- Anime Detail: "/anime/{anime-slug}/"
+- Episode: "/{anime-slug}-episode-{number}-subtitle-indonesia/"
+
+STATUS OPTIONS:
+- All
+- Ongoing
+- Completed
+
+TYPE OPTIONS:
+- All
+- TV
+- Movie
+- OVA
+- ONA
+- Special
+
+========================================
+2. LATEST ANIME (HOMEPAGE)
+========================================
+
+REQUEST:
+Method: GET
+URL: https://anoboy.be/
+
+PARSING:
+Section: <h3>Latest Release</h3>
+View All Link: <a class="vl" href="https://anoboy.be/anime/?status=&type=&order=update">View All</a>
+
+Container: <div class="listupd normal">
+Item Container: <div class="excstf">
+Article: <article class="bs" itemscope itemtype="http://schema.org/CreativeWork">
+
+For each item:
+  Container: <div class="bsx">
+  Link: <a href="{episode_url}" itemprop="url" title="{title}" class="tip" rel="{id}">
+  
+  Poster Container: <div class="limit">
+    Type Badge: <div class="typez TV">TV</div>
+    Play Icon: <div class="ply"><i class="far fa-play-circle"></i></div>
+    Info Container: <div class="bt">
+      Episode: <span class="epx">Ep {number}</span>
+      Subtitle: <span class="sb Sub">Sub</span>
+    </div>
+    Poster: <img src="{poster_url}" class="ts-post-image wp-post-image" 
+                 loading="lazy" itemprop="image" title="{title}" alt="{title}">
+  
+  Title Container: <div class="tt">
+    Anime Name: {anime_name} (text before <h2>)
+    Episode Title: <h2 itemprop="headline">{full_episode_title}</h2>
+
+EXAMPLE HTML:
+<article class="bs" itemscope itemtype="http://schema.org/CreativeWork">
+  <div class="bsx">
+    <a href="https://anoboy.be/champignon-no-majo-episode-5-subtitle-indonesia/" 
+       itemprop="url" title="Champignon no Majo Episode 5 Subtitle Indonesia" 
+       class="tip" rel="12715">
+      <div class="limit">
+        <div class="typez TV">TV</div>
+        <div class="ply"><i class="far fa-play-circle"></i></div>
+        <div class="bt">
+          <span class="epx">Ep 5</span>
+          <span class="sb Sub">Sub</span>
+        </div>
+        <img src="https://anoboy.be/wp-content/uploads/2026/01/152613.jpg" 
+             class="ts-post-image wp-post-image attachment-post-thumbnail" 
+             loading="lazy" itemprop="image" 
+             title="Champignon no Majo Episode 5 Subtitle Indonesia">
+      </div>
+      <div class="tt">
+        Champignon no Majo
+        <h2 itemprop="headline">Champignon no Majo Episode 5 Subtitle Indonesia</h2>
+      </div>
+    </a>
+  </div>
+</article>
+
+========================================
+3. SEARCH
+========================================
+
+REQUEST:
+Method: GET
+URL: https://anoboy.be/?s={query}
+
+PARSING:
+Same structure as Latest/Homepage
+Uses same container and item selectors
+
+========================================
+4. ANIME LIST & FILTERS
+========================================
+
+REQUEST:
+Method: GET
+URL: https://anoboy.be/anime?status={status}&type={type}&order={order}
+
+QUERY PARAMETERS:
+- status: "" (all), "ongoing", "completed"
+- type: "" (all), "TV", "Movie", "OVA", "ONA", "Special"
+- order: "update" (latest), "title" (alphabetical), "popular"
+
+PARSING:
+Same structure as Homepage/Latest
+
+========================================
+5. GENRE FILTER
+========================================
+
+REQUEST:
+Method: POST (or GET with genre[] array)
+URL: https://anoboy.be/anime
+Content-Type: application/x-www-form-urlencoded (for POST)
+
+FORM STRUCTURE:
+<form action="https://anoboy.be/anime" class="filters" method="GET">
+  <span class="sec1">
+    <div class="filter dropdown">
+      <button type="button" class="dropdown-toggle">Genre</button>
+      <ul class="dropdown-menu c4 scrollz">
+        <li>
+          <input type="checkbox" id="genre-action" name="genre[]" value="action">
+          <label for="genre-action">Action</label>
+        </li>
+        <li>
+          <input type="checkbox" id="genre-adult-cast" name="genre[]" value="adult-cast">
+          <label for="genre-adult-cast">Adult Cast</label>
+        </li>
+        <!-- more genres -->
+      </ul>
+    </div>
+  </span>
+</form>
+
+AVAILABLE GENRES:
+- action
+- adult-cast
+- adventure
+- anthropomorphic
+- cars
+- comedy
+- dementia
+- demons
+- drama
+- dub
+- ecchi
+- fantasy
+- game
+- harem
+- historical
+- horror
+- josei
+- kids
+- magic
+- martial-arts
+- mecha
+- military
+- music
+- mystery
+- parody
+- police
+- psychological
+- romance
+- samurai
+- school
+- sci-fi
+- seinen
+- shoujo
+- shoujo-ai
+- shounen
+- shounen-ai
+- slice-of-life
+- space
+- sports
+- super-power
+- supernatural
+- thriller
+- vampire
+- yaoi
+- yuri
+
+PARSING RESULTS:
+Same structure as Homepage/Latest
+
+========================================
+6. ANIME DETAIL PAGE (ALL EPISODES)
+========================================
+
+REQUEST:
+Method: GET
+URL: https://anoboy.be/anime/{anime-slug}/
+Example: https://anoboy.be/anime/champignon-no-majo/
+
+PARSING:
+This page shows all episodes of an anime
+
+Navigation Link (from episode page):
+<div class="nvs nvsc">
+  <a href="https://anoboy.be/anime/champignon-no-majo/" aria-label="All Episodes">
+    <i class="fas fa-th-list"></i>
+    <span class="tex">All Episodes</span>
+  </a>
+</div>
+
+Episode List Structure:
+Similar to homepage, but shows all episodes for specific anime
+
+========================================
+7. EPISODE DETAIL PAGE
+========================================
+
+REQUEST:
+Method: GET
+URL: https://anoboy.be/{anime-slug}-episode-{number}-subtitle-indonesia/
+Example: https://anoboy.be/champignon-no-majo-episode-5-subtitle-indonesia/
+
+PARSING EPISODE INFO:
+Title Container:
+<h1 class="entry-title" itemprop="name">
+  {Anime Name} Episode {Number} Subtitle Indonesia
+</h1>
+
+Anime Link:
+<span class="year">Posted by</span>
+<span class="vcard author">...</span> , series
+<a href="https://anoboy.be/anime/{anime-slug}/">{Anime Name}</a>
+
+Release Date:
+Posted by: <span class="vcard author">...</span>
+Released on: (check meta or date info)
+
+========================================
+8. VIDEO PLAYER
+========================================
+
+VIDEO CONTAINER:
+<div class="video-content">
+  <div id="embed_holder" class="lowvid">
+    <div class="player-embed" id="pembed">
+      <iframe src="{video_url}" frameborder="0" marginwidth="0" marginheight="0" 
+              scrolling="NO" width="640" height="360" allowfullscreen>
+      </iframe>
+    </div>
+  </div>
+</div>
+
+CURRENT IMPLEMENTATION (Direct Blogger Embed):
+<iframe src="https://www.blogger.com/video.g?token=AD6v5dwlANG_DorQpvmNgL0hY-qSidiOn_YGZawsqhAraE81q5O26WOzXqKexXgcoGlSQv829vNhE0xkGyiQWkLz4q9_XpaJv9c-3P8uEqiqnEK8mvgHSE_yNCYZBWI1KNtqH6EyonA" 
+        frameborder="0" marginwidth="0" marginheight="0" scrolling="NO" 
+        width="640" height="360" allowfullscreen>
+</iframe>
+
+VIDEO SERVER SELECTOR:
+<div class="item video-nav">
+  <div class="mobius">
+    <select class="mirror" name="mirror" onchange="loadMi(this);" aria-label="mirror">
+      <option value>Select Video Server</option>
+      <option value="{base64_encoded_iframe}" data-index="1">Video</option>
+    </select>
+  </div>
+</div>
+
+BASE64 IFRAME DECODING:
+The <option value="..."> contains Base64 encoded iframe HTML
+Example value: "PGlmcmFtZSBzcmM9Imh0dHBzOi8vd3d3LmJsb2dnZXIuY29tL3ZpZGVvLmc/dG9rZW49QUQ2djVkd2xBTkdfRG9yUXB2bU5nTDBoWS1xU2lkaU9uX1lHWmF3c3FoQXJhRTgxcTVPMjZXT3pYcUtleFhnY29HbFNRdjgyOXZOaEUweGtHeWlRV2tMejRxOV9YcGFKdjljLTNQOHVFcWlxbkVLOG12Z0hTRV95TkNZWkJXSTFLTnRxSDZFeW9uQSIgRlJBTUVCT1JERVI9MCBNQVJHSU5XSURUSD0wIE1BUkdJTkhFSUdIVD0wIFNDUk9MTElORz1OTyBXSURUSD02NDAgSEVJR0hUPTM2MCBhbGxvd2Z1bGxzY3JlZW4+PC9JRlJBTUU+"
+
+Decoded: <iframe src="https://www.blogger.com/video.g?token=AD6v5dwlANG_DorQpvmNgL0hY-qSidiOn_YGZawsqhAraE81q5O26WOzXqKexXgcoGlSQv829vNhE0xkGyiQWkLz4q9_XpaJv9c-3P8uEqiqnEK8mvgHSE_yNCYZBWI1KNtqH6EyonA" FRAMEBORDER=0 MARGINWIDTH=0 MARGINHEIGHT=0 SCROLLING=NO WIDTH=640 HEIGHT=360 allowfullscreen></IFRAME>
+
+VIDEO EXTRACTION STEPS:
+1. Parse episode page HTML
+2. Find <select class="mirror"> element
+3. Get <option> with data-index
+4. Decode base64 value to get iframe HTML
+5. Extract src URL from iframe
+6. Use Blogger video URL directly OR extract actual video source
+
+BLOGGER VIDEO EXTRACTION:
+The Blogger URL format: https://www.blogger.com/video.g?token={TOKEN}
+This may redirect to actual video file or require additional parsing
+
+========================================
+9. DOWNLOAD LINK
+========================================
+
+DOWNLOAD CONTAINER:
+<div class="mobius">
+  <a href="{gofile_url}" target="_blank" rel="nofollow" aria-label="Download">
+    <div class="icol">
+      <i class="fas fa-cloud-download-alt"></i>
+      <span>Download</span>
+    </div>
+  </a>
+</div>
+
+EXAMPLE:
+<a href="https://gofile.io/d/7JAJU2" target="_blank" rel="nofollow" aria-label="Download">
+  <div class="icol">
+    <i class="fas fa-cloud-download-alt"></i>
+    <span>Download</span>
+  </div>
+</a>
+
+DOWNLOAD PROVIDER:
+- GoFile only
+- Direct link to GoFile folder
+- User will be redirected to GoFile website
+
+========================================
+10. EPISODE NAVIGATION
+========================================
+
+NAVIGATION CONTAINER:
+<div class="naveps bignav">
+  <div class="nvs">
+    <a aria-label="prev" href="{prev_episode_url}" rel="prev">
+      <i class="fas fa-angle-left"></i>
+      <span class="tex">Prev</span>
+    </a>
+  </div>
+  
+  <div class="nvs nvsc">
+    <a href="https://anoboy.be/anime/{anime-slug}/" aria-label="All Episodes">
+      <i class="fas fa-th-list"></i>
+      <span class="tex">All Episodes</span>
+    </a>
+  </div>
+  
+  <div class="nvs">
+    <a aria-label="next" href="{next_episode_url}" rel="next">
+      <span class="tex">Next</span>
+      <i class="fas fa-angle-right"></i>
+    </a>
+  </div>
+</div>
+
+EXTRACTION:
+- Previous Episode: <a aria-label="prev" href="..." rel="prev">
+- All Episodes: <a href=".../anime/{slug}/" aria-label="All Episodes">
+- Next Episode: <a aria-label="next" href="..." rel="next">
+
+========================================
+11. PAGINATION
+========================================
+
+Pagination container: <div class="pagination">
+Current page: <span class="current">{page}</span>
+Next page: <a class="next" href="?page={page}">Next</a>
+Page link: <a href="?page={page}">{page}</a>
+
+========================================
+12. ADDITIONAL FEATURES
+========================================
+
+LIGHT/DARK MODE:
+Toggle button: <i class="far fa-lightbulb"></i> with "Turn Off Light" / "Turn On Light"
+
+TELEGRAM/DISCORD LINKS:
+<div class="kln">
+  <a href="https://t.me/anoboybe" target="_blank" rel="noopener">
+  <a href="https://discord.gg/pAT9wqYM3n" target="_blank" rel="noopener">
+</div>
+
+========================================
+13. IMPLEMENTATION NOTES
+========================================
+
+1. VIDEO PLAYER:
+   - Primary source: Blogger embed iframe
+   - Base64 decode option values to get iframe HTML
+   - May need to extract actual video from Blogger
+   - Consider implementing custom player extractor
+
+2. DOWNLOAD:
+   - Only GoFile available
+   - Simple direct link
+   - No quality options (GoFile handles internally)
+
+3. SERIES TRACKING:
+   - Use "All Episodes" link to get anime detail page
+   - Track episode numbers from URLs
+   - Next/Prev navigation available
+
+4. SEARCH:
+   - Simple query string search
+   - Returns episode results (not anime series)
+   - Use anime detail page for complete episode list
+
+5. GENRES:
+   - Can be combined (multiple checkboxes)
+   - Sent as genre[] array in request
+   - Both GET and POST methods supported
+
+========================================
+14. SAMPLE IMPLEMENTATION (PSEUDO-CODE)
+========================================
+
+class Anoboy {
+  private val baseUrl = "https://anoboy.be/"
+  
+  fun latestEpisodes(page: Int): List<Episode> {
+    val url = "$baseUrl?page=$page"
+    val html = httpGet(url)
+    return parseEpisodeList(html)
+  }
+  
+  fun parseEpisodeList(html: String): List<Episode> {
+    val episodes = mutableListOf<Episode>()
+    val items = selectAll(html, "article.bs")
+    
+    for (item in items) {
+      val episode = Episode(
+        url = select(item, "a[href]").attr("href"),
+        title = select(item, "h2[itemprop=headline]").text(),
+        animeName = select(item, "div.tt").text().split("\n")[0].trim(),
+        poster = select(item, "img").attr("src"),
+        episodeNumber = select(item, "span.epx").text().replace("Ep ", ""),
+        type = select(item, "div.typez").text()
+      )
+      episodes.add(episode)
+    }
+    return episodes
+  }
+  
+  fun episodeDetail(url: String): EpisodeDetail {
+    val html = httpGet(url)
+    
+    // Extract video player
+    val selectMirror = select(html, "select.mirror option[value]")
+    val base64Iframe = selectMirror.attr("value")
+    val decodedIframe = Base64.decode(base64Iframe).toString()
+    val videoUrl = extractIframeSrc(decodedIframe)
+    
+    // Extract download link
+    val downloadUrl = select(html, "a[href*=gofile]").attr("href")
+    
+    // Extract navigation
+    val prevUrl = select(html, "a[rel=prev]").attr("href")
+    val nextUrl = select(html, "a[rel=next]").attr("href")
+    val allEpisodesUrl = select(html, "a[aria-label='All Episodes']").attr("href")
+    
+    return EpisodeDetail(
+      title = select(html, "h1.entry-title").text(),
+      videoUrl = videoUrl,
+      downloadUrl = downloadUrl,
+      prevEpisode = prevUrl,
+      nextEpisode = nextUrl,
+      allEpisodesLink = allEpisodesUrl
+    )
+  }
+  
+  fun extractIframeSrc(iframeHtml: String): String {
+    val regex = Regex("""src="(.*?)"""")
+    val match = regex.find(iframeHtml)
+    return match?.groupValues?.get(1) ?: ""
+  }
+  
+  fun extractBloggerVideo(bloggerUrl: String): String {
+    // Load Blogger URL and extract actual video source
+    // This may require additional parsing depending on Blogger's response
+    val html = httpGet(bloggerUrl)
+    // Look for video source in response
+    // Return direct video URL
+  }
+  
+  fun searchAnime(query: String): List<Episode> {
+    val url = "$baseUrl?s=${encodeUrl(query)}"
+    val html = httpGet(url)
+    return parseEpisodeList(html)
+  }
+  
+  fun filterByGenre(genres: List<String>): List<Episode> {
+    val params = genres.joinToString("&") { "genre[]=$it" }
+    val url = "$baseUrl/anime?$params"
+    val html = httpGet(url)
+    return parseEpisodeList(html)
+  }
+}
+
+========================================
+15. VIDEO PLAYER ALTERNATIVES
+========================================
+
+If Blogger embed doesn't work properly, consider:
+
+1. DIRECT EXTRACTION:
+   - Parse Blogger page for <video> tag
+   - Look for MP4/HLS sources
+   - Extract from JavaScript variables
+
+2. ALTERNATIVE SERVERS:
+   - Check if site adds more mirror options over time
+   - Monitor <select class="mirror"> for new options
+
+3. EXTERNAL PLAYER:
+   - Use WebView to load Blogger URL
+   - Intercept video requests
+   - Extract actual stream URL
+
+========================================
+END OF ANOBOY EXTENSION DOCUMENTATION
+========================================

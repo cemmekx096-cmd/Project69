@@ -1,0 +1,1 @@
+ini hanyalah file²/ide untuk kedepannya 

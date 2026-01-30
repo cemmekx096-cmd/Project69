@@ -1,0 +1,246 @@
+========================================
+ANOBOY EXTENSION - DATA SUMMARY
+========================================
+
+BASE URLS:
+----------
+Main Site: https://anoboy.be/
+
+========================================
+HOMEPAGE / LATEST EPISODES
+========================================
+
+URL: https://anoboy.be/
+Method: GET
+
+SELECTORS:
+Section: <h3>Latest Release</h3>
+View All: <a class="vl" href="https://anoboy.be/anime/?status=&type=&order=update">
+
+Container: <div class="listupd normal">
+Item Container: <div class="excstf">
+Article: <article class="bs" itemscope itemtype="http://schema.org/CreativeWork">
+
+For each item:
+  Link: <a href="{episode_url}" itemprop="url" title="{title}" class="tip" rel="{id}">
+  
+  Inner Container: <div class="limit">
+    Type: <div class="typez TV">TV</div>
+    Play Icon: <div class="ply"><i class="far fa-play-circle"></i></div>
+    Info: <div class="bt">
+      Episode: <span class="epx">Ep 5</span>
+      Subtitle: <span class="sb Sub">Sub</span>
+    </div>
+    Poster: <img src="https://anoboy.be/wp-content/uploads/2026/01/152613.jpg" 
+                 class="ts-post-image wp-post-image" 
+                 loading="lazy" itemprop="image">
+  
+  Title Container: <div class="tt">
+    Anime Name: "Champignon no Majo" (text before <h2>)
+    Full Title: <h2 itemprop="headline">Champignon no Majo Episode 5 Subtitle Indonesia</h2>
+
+========================================
+SEARCH
+========================================
+
+URL: https://anoboy.be/?s={query}
+Method: GET
+Parsing: Same as homepage
+
+========================================
+ANIME LIST & FILTERS
+========================================
+
+URL: https://anoboy.be/anime?status={status}&type={type}&order={order}
+Method: GET
+
+PARAMETERS:
+- status: "" (all), "ongoing", "completed"
+- type: "" (all), "TV", "Movie", "OVA", "ONA", "Special"
+- order: "update" (latest), "title" (alphabetical), "popular"
+
+Parsing: Same as homepage
+
+========================================
+GENRE FILTER
+========================================
+
+URL: https://anoboy.be/anime
+Method: GET (with genre[] parameters)
+Example: /anime?genre[]=action&genre[]=comedy
+
+FORM STRUCTURE:
+<form action="https://anoboy.be/anime" class="filters" method="GET">
+  <div class="filter dropdown">
+    <button class="dropdown-toggle">Genre</button>
+    <ul class="dropdown-menu c4 scrollz">
+      <li>
+        <input type="checkbox" id="genre-action" name="genre[]" value="action">
+        <label for="genre-action">Action</label>
+      </li>
+    </ul>
+  </div>
+</form>
+
+AVAILABLE GENRES:
+action, adult-cast, adventure, anthropomorphic, cars, comedy, 
+dementia, demons, drama, dub, ecchi, fantasy, game, harem, 
+historical, horror, josei, kids, magic, martial-arts, mecha, 
+military, music, mystery, parody, police, psychological, romance, 
+samurai, school, sci-fi, seinen, shoujo, shoujo-ai, shounen, 
+shounen-ai, slice-of-life, space, sports, super-power, 
+supernatural, thriller, vampire, yaoi, yuri
+
+========================================
+ANIME DETAIL (ALL EPISODES)
+========================================
+
+URL: https://anoboy.be/anime/{anime-slug}/
+Example: https://anoboy.be/anime/champignon-no-majo/
+
+Shows all episodes for specific anime
+Parsing: Same list structure as homepage
+
+========================================
+EPISODE DETAIL PAGE
+========================================
+
+URL: https://anoboy.be/{anime-slug}-episode-{number}-subtitle-indonesia/
+Example: https://anoboy.be/champignon-no-majo-episode-5-subtitle-indonesia/
+
+SELECTORS:
+Title: <h1 class="entry-title" itemprop="name">
+       {Anime Name} Episode {Number} Subtitle Indonesia
+
+Anime Link: 
+<span class="year">Posted by</span>
+<a href="https://anoboy.be/anime/{anime-slug}/">{Anime Name}</a>
+
+========================================
+VIDEO PLAYER
+========================================
+
+MAIN CONTAINER:
+<div class="video-content">
+  <div id="embed_holder" class="lowvid">
+    <div class="player-embed" id="pembed">
+      <iframe src="{blogger_url}" frameborder="0" 
+              width="640" height="360" allowfullscreen></iframe>
+    </div>
+  </div>
+</div>
+
+DIRECT IFRAME:
+<iframe src="https://www.blogger.com/video.g?token={TOKEN}" 
+        frameborder="0" marginwidth="0" marginheight="0" 
+        scrolling="NO" width="640" height="360" allowfullscreen>
+</iframe>
+
+VIDEO SERVER SELECTOR:
+<div class="item video-nav">
+  <div class="mobius">
+    <select class="mirror" name="mirror" onchange="loadMi(this);">
+      <option value>Select Video Server</option>
+      <option value="{base64_iframe}" data-index="1">Video</option>
+    </select>
+  </div>
+</div>
+
+BASE64 DECODING:
+1. Get <option value="{base64_string}" data-index="1">
+2. Decode base64 string
+3. Result: <iframe src="https://www.blogger.com/video.g?token=..." ...>
+4. Extract src attribute
+5. Use Blogger URL
+
+BLOGGER URL FORMAT:
+https://www.blogger.com/video.g?token={LONG_TOKEN}
+
+========================================
+DOWNLOAD LINK
+========================================
+
+SELECTOR:
+<a href="https://gofile.io/d/{folder_id}" target="_blank" rel="nofollow" aria-label="Download">
+  <div class="icol">
+    <i class="fas fa-cloud-download-alt"></i>
+    <span>Download</span>
+  </div>
+</a>
+
+PROVIDER: GoFile only
+URL Format: https://gofile.io/d/{folder_id}
+Example: https://gofile.io/d/7JAJU2
+
+========================================
+EPISODE NAVIGATION
+========================================
+
+CONTAINER:
+<div class="naveps bignav">
+
+PREVIOUS EPISODE:
+<div class="nvs">
+  <a aria-label="prev" href="{prev_url}" rel="prev">
+    <i class="fas fa-angle-left"></i>
+    <span class="tex">Prev</span>
+  </a>
+</div>
+
+ALL EPISODES:
+<div class="nvs nvsc">
+  <a href="https://anoboy.be/anime/{anime-slug}/" aria-label="All Episodes">
+    <i class="fas fa-th-list"></i>
+    <span class="tex">All Episodes</span>
+  </a>
+</div>
+
+NEXT EPISODE:
+<div class="nvs">
+  <a aria-label="next" href="{next_url}" rel="next">
+    <span class="tex">Next</span>
+    <i class="fas fa-angle-right"></i>
+  </a>
+</div>
+
+========================================
+PAGINATION
+========================================
+
+Container: <div class="pagination">
+Current: <span class="current">{page}</span>
+Next: <a class="next" href="?page={page}">Next</a>
+Page: <a href="?page={page}">{page}</a>
+
+========================================
+QUICK REFERENCE
+========================================
+
+EPISODE FLOW:
+1. Homepage → latest episodes list
+2. Click episode → episode detail page
+3. Load video player (Blogger iframe)
+4. Decode base64 if using mirror selector
+5. Download → GoFile link
+
+VIDEO EXTRACTION:
+1. Find: <select class="mirror">
+2. Get: <option value="{base64}" data-index="1">
+3. Decode: Base64 → iframe HTML
+4. Extract: src="https://www.blogger.com/video.g?token=..."
+5. Use: Blogger URL for video
+
+NAVIGATION:
+- Previous: <a rel="prev">
+- All Episodes: <a aria-label="All Episodes">
+- Next: <a rel="next">
+
+ANIME TYPES:
+TV, Movie, OVA, ONA, Special
+
+SUBTITLE:
+Always "Sub" (Indonesian subtitle)
+
+========================================
+END OF SUMMARY
+========================================
