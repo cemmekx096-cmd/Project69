@@ -12,8 +12,8 @@ object AnoboyFilters {
             when (filter) {
                 is GenreFilter -> {
                     filter.state
-                        .filter { it.state }// Filter yang aktif
-                        .forEach { params.genres.add(it.value) }// Tambahkan genre yang dipilih
+                        .filter { it.state }
+                        .forEach { params.genres.add(it.value) }
                 }
                 else -> Unit
             }
@@ -23,7 +23,7 @@ object AnoboyFilters {
 
     // Kelas Params untuk menyimpan genre yang dipilih
     class Params {
-        val genres: MutableList<String> = mutableListOf()// List genre yang dipilih
+        val genres: MutableList<String> = mutableListOf()
     }
 
     // Genre filter untuk memilih genre tertentu
