@@ -23,7 +23,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
-class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
+class Lk21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "LK21"
 
