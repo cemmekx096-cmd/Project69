@@ -152,8 +152,8 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
             // Description
             description = buildString {
-                document.selectFirst("div.entry-content p, div.desc, div.sinopsis")?.text()?.let { 
-                    append(it.trim()) 
+                document.selectFirst("div.entry-content p, div.desc, div.sinopsis")?.text()?.let {
+                    append(it.trim())
                 }
             }
         }
@@ -237,7 +237,6 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     }
                 }
             }
-
         } catch (e: Exception) {
             android.util.Log.e("Anoboy", "Video extraction error: ${e.message}")
             e.printStackTrace()
@@ -255,7 +254,7 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     else -> 4
                 }
             }
-        )
+        ),
     }
 
     override fun videoListSelector(): String = throw UnsupportedOperationException()
