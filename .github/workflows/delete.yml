@@ -1,15 +1,20 @@
-name: Cleanup Cache
+name: Cleanup Cache and Failed Runs
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Setiap minggu
-  workflow_dispatch:  # Bisa di-trigger manual
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+# TAMBAHKAN PERMISSIONS INI
+permissions:
+  contents: read
+  actions: write  # <- Ini yang penting untuk hapus cache/runs
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Cleanup all caches
+      - name: Delete all caches
         run: |
-          gh cache delete --all --repo ${{ github.repository }}
+          gh cache delete --all --repo ${{ github.repository }} --confirm
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
