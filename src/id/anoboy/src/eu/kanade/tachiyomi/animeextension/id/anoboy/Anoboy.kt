@@ -254,7 +254,7 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     else -> 4
                 }
             }
-        )
+        ),
     }
 
     override fun videoListSelector(): String = throw UnsupportedOperationException()
