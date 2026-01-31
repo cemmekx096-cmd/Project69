@@ -9,7 +9,7 @@ object AnoboyFilters {
         val status: String = "",
         val type: String = "",
         val order: String = "update",
-        val genres: List<String> = emptyList()
+        val genres: List<String> = emptyList(),
     )
 
     // Extract parameters dari filter list
@@ -49,8 +49,8 @@ object AnoboyFilters {
         arrayOf(
             Pair("All", ""),
             Pair("Ongoing", "ongoing"),
-            Pair("Completed", "completed")
-        )
+            Pair("Completed", "completed"),
+        ),
     )
 
     class TypeFilter : UriPartFilter(
@@ -61,8 +61,8 @@ object AnoboyFilters {
             Pair("Movie", "Movie"),
             Pair("OVA", "OVA"),
             Pair("ONA", "ONA"),
-            Pair("Special", "Special")
-        )
+            Pair("Special", "Special"),
+        ),
     )
 
     class OrderFilter : UriPartFilter(
@@ -70,8 +70,8 @@ object AnoboyFilters {
         arrayOf(
             Pair("Latest Update", "update"),
             Pair("Popular", "popular"),
-            Pair("Title", "title")
-        )
+            Pair("Title", "title"),
+        ),
     )
 
     class GenreFilter : AnimeFilter.Group<GenreCheckBox>(
@@ -121,8 +121,8 @@ object AnoboyFilters {
             GenreCheckBox("Thriller", "thriller"),
             GenreCheckBox("Vampire", "vampire"),
             GenreCheckBox("Yaoi", "yaoi"),
-            GenreCheckBox("Yuri", "yuri")
-        )
+            GenreCheckBox("Yuri", "yuri"),
+        ),
     )
 
     // ============================== Helpers ===============================

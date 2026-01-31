@@ -62,14 +62,14 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             // URL dari link utama
             val linkElement = element.selectFirst("div.bsx > a")!!
             setUrlWithoutDomain(linkElement.attr("href"))
-            
+
             // Thumbnail dari poster
             thumbnail_url = element.selectFirst("div.limit img")?.attr("src")
-            
+
             // Title dari attribute title atau h2
             title = linkElement.attr("title").takeIf { it.isNotEmpty() }
                 ?: element.selectFirst("h2")?.text() ?: ""
-            
+
             // Extract anime name (remove "Episode X" part if exists)
             if (title.contains("Episode")) {
                 title = title.substringBefore("Episode").trim()
@@ -130,26 +130,26 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             title = document.selectFirst("h1.entry-title")?.text()
                 ?: document.selectFirst("meta[property=og:title]")?.attr("content")
                 ?: ""
-            
+
             // Remove "Subtitle Indonesia" from title if exists
             if (title.contains("Subtitle Indonesia")) {
                 title = title.replace("Subtitle Indonesia", "").trim()
             }
-            
+
             // Thumbnail
             thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
                 ?: document.selectFirst("meta[property=og:image]")?.attr("content")
-            
+
             // Genre
             genre = document.select("div.genxed a, span.genre a").joinToString { it.text() }
-            
+
             // Status
             status = when {
                 document.select("div.info-content, span.status").text().contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
                 document.select("div.info-content, span.status").text().contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
                 else -> SAnime.UNKNOWN
             }
-            
+
             // Description
             description = buildString {
                 document.selectFirst("div.entry-content p, div.desc, div.sinopsis")?.text()?.let { 
@@ -168,19 +168,19 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             // Get episode URL
             val episodeUrl = element.selectFirst("a")!!.attr("href")
             setUrlWithoutDomain(episodeUrl)
-            
+
             // Get episode name
             val rawName = element.selectFirst("h2, span.epcur, a")?.text() ?: "Episode"
-            
+
             name = if (rawName.length > 80) {
                 rawName.take(77) + "..."
             } else {
                 rawName
             }
-            
+
             // Extract episode number
             episode_number = rawName.replace("[^0-9]".toRegex(), "").toFloatOrNull() ?: 0f
-            
+
             date_upload = System.currentTimeMillis()
         }
     }
@@ -207,16 +207,16 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             mirrorSelect.forEach { option ->
                 val base64Value = option.attr("value")
                 val serverName = option.text().takeIf { it.isNotEmpty() } ?: "Mirror"
-                
+
                 if (base64Value.isNotEmpty() && base64Value != "Select Video Server") {
                     try {
                         // Decode base64
                         val decodedHtml = String(Base64.decode(base64Value, Base64.DEFAULT))
-                        
+
                         // Extract iframe src from decoded HTML
                         val iframeRegex = """src=["']([^"']+)["']""".toRegex()
                         val match = iframeRegex.find(decodedHtml)
-                        
+
                         if (match != null) {
                             val videoUrl = match.groupValues[1]
                             android.util.Log.d("Anoboy", "Decoded video URL: $videoUrl")
