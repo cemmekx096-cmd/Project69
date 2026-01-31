@@ -14,14 +14,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Cari yang gagal (failure) dan hapus
-          for run_id in $(gh run list --status failure --json databaseId -q '.[].databaseId'); do
-            gh run delete $run_id
+          # Hapus workflow runs yang gagal
+          gh run list --status failure --json databaseId -q '.[].databaseId' | \
+          while read run_id; do
+            echo "Deleting run: $run_id"
+            gh run delete $run_id || true
           done
 
       - name: Delete All Caches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Perhatikan: TIDAK ADA kata --confirm di sini
+          echo "Deleting all caches..."
           gh cache delete --all --succeed-on-no-caches
