@@ -97,10 +97,9 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     q.contains("360p") -> 8
                     else -> 0
                 }
-            }
+            },
         )
     }
-
 
     override fun videoListSelector() = throw UnsupportedOperationException()
     override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
