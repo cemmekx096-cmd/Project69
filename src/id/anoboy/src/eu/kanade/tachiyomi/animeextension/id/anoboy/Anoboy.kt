@@ -253,8 +253,8 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     video.quality.contains("480p") -> 3
                     else -> 4
                 }
-            }
-        ),
+            },
+        )
     }
 
     override fun videoListSelector(): String = throw UnsupportedOperationException()
