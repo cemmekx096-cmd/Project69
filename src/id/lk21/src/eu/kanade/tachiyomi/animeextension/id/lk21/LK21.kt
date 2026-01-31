@@ -440,7 +440,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
 
         } catch (e: Exception) {
-            ReportLog.reportError("LK21-Extractor", "Extraction failed for $playerUrl: ${e.message}"),
+            ReportLog.reportError("LK21-Extractor", "Extraction failed for $playerUrl: ${e.message}")
             e.printStackTrace(),
             // Add iframe as error fallback
             videoList.add(
