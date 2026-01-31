@@ -285,11 +285,11 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             android.util.Log.d("Anichin", "Following redirect: $url")
             val response = client.newCall(GET(url, headers)).execute()
             val finalUrl = response.request.url.toString()
-            
+
             if (finalUrl != url) {
                 android.util.Log.d("Anichin", "Redirected: $url → $finalUrl")
             }
-            
+
             finalUrl
         } catch (e: Exception) {
             android.util.Log.e("Anichin", "Redirect failed: ${e.message}")
@@ -301,7 +301,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         try {
             // ✨ Follow redirects for URL shorteners FIRST
             val finalUrl = if (isUrlShortener(url)) followRedirect(url) else url
-            
+
             when {
                 // ✨ Anichin VIP Stream (anichin.stream, anichinv2.icu)
                 finalUrl.contains("anichin", ignoreCase = true) -> {
@@ -335,8 +335,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
 
                 // Existing extractors (with case-insensitive)
-                finalUrl.contains("ok.ru", ignoreCase = true) || 
-                finalUrl.contains("odnoklassniki", ignoreCase = true) -> {
+                finalUrl.contains("ok.ru", ignoreCase = true)|| 
+                finalUrl.contains("odnoklassniki", ignoreCase = true)-> {
                     android.util.Log.d("Anichin", "Extracting OK.ru")
                     val videos = okruExtractor.videosFromUrl(finalUrl, "$serverName - ")
                     android.util.Log.d("Anichin", "OK.ru videos: ${videos.size}")
@@ -350,7 +350,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     videoList.addAll(videos)
                 }
 
-                finalUrl.contains("drive.google", ignoreCase = true) || 
+                finalUrl.contains("drive.google", ignoreCase = true) ||
                 finalUrl.contains("drive.usercontent.google", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Google Drive")
                     val videos = googleDriveExtractor.videosFromUrl(finalUrl, "$serverName - ")
