@@ -88,16 +88,19 @@ class Anoboy : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
 
         // Priority Sorting: 720p > 480p > 360p
-        return videoList.sortedWith(compareByDescending<Video> {
-            val q = it.quality.lowercase()
-            when {
-                q.contains("720p") -> 10
-                q.contains("480p") -> 9
-                q.contains("360p") -> 8
-                else -> 0
+        return videoList.sortedWith(
+            compareByDescending<Video> {
+                val q = it.quality.lowercase()
+                when {
+                    q.contains("720p") -> 10
+                    q.contains("480p") -> 9
+                    q.contains("360p") -> 8
+                    else -> 0
+                }
             }
-        })
+        )
     }
+
 
     override fun videoListSelector() = throw UnsupportedOperationException()
     override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
