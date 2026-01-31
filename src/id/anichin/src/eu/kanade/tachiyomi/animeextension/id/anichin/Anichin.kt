@@ -335,8 +335,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
 
                 // Existing extractors (with case-insensitive)
-            finalUrl.contains("ok.ru", ignoreCase = true) ||
-            finalUrl.contains("odnoklassniki", ignoreCase = true) -> {
+               finalUrl.contains("ok.ru", ignoreCase = true) ||
+                   finalUrl.contains("odnoklassniki", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting OK.ru")
                     val videos = okruExtractor.videosFromUrl(finalUrl, "$serverName - ")
                     android.util.Log.d("Anichin", "OK.ru videos: ${videos.size}")
@@ -350,8 +350,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     videoList.addAll(videos)
                 }
 
-                finalUrl.contains("drive.google", ignoreCase = true) ||
-                finalUrl.contains("drive.usercontent.google", ignoreCase = true) -> {
+               finalUrl.contains("drive.google", ignoreCase = true) ||
+                   finalUrl.contains("drive.usercontent.google", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Google Drive")
                     val videos = googleDriveExtractor.videosFromUrl(finalUrl, "$serverName - ")
                     android.util.Log.d("Anichin", "GDrive videos: ${videos.size}")

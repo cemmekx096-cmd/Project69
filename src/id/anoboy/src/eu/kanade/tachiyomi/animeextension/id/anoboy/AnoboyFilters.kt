@@ -5,11 +5,13 @@ import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 
 object AnoboyFilters {
 
-    // Fungsi untuk mendapatkan parameter pencarian dari filter list
     fun getSearchParameters(filters: AnimeFilterList): Params {
         val params = Params()
         filters.forEach { filter ->
             when (filter) {
+                is StatusFilter -> params.status = filter.toUriPart()
+                is TypeFilter -> params.type = filter.toUriPart()
+                is OrderFilter -> params.order = filter.toUriPart()
                 is GenreFilter -> {
                     filter.state
                         .filter { it.state }
@@ -21,12 +23,50 @@ object AnoboyFilters {
         return params
     }
 
-    // Kelas Params untuk menyimpan genre yang dipilih
     class Params {
+        var status: String = ""
+        var type: String = ""
+        var order: String = ""
         val genres: MutableList<String> = mutableListOf()
     }
 
-    // Genre filter untuk memilih genre tertentu
+    // --- Filter Class Definitions ---
+
+    open class UriPartFilter(name: String, val vals: Array<Pair<String, String>>) :
+        AnimeFilter.Select<String>(name, vals.map { it.first }.toTypedArray()) {
+        fun toUriPart() = vals[state].second
+    }
+
+    class StatusFilter : UriPartFilter(
+        "Status",
+        arrayOf(
+            Pair("All", ""),
+            Pair("Ongoing", "ongoing"),
+            Pair("Completed", "completed"),
+        ),
+    )
+
+    class TypeFilter : UriPartFilter(
+        "Type",
+        arrayOf(
+            Pair("All", ""),
+            Pair("TV Series", "tv"),
+            Pair("Movie", "movie"),
+            Pair("OVA", "ova"),
+            Pair("Special", "special"),
+        ),
+    )
+
+    class OrderFilter : UriPartFilter(
+        "Order by",
+        arrayOf(
+            Pair("Latest", "latest"),
+            Pair("Popular", "popular"),
+            Pair("Rating", "rating"),
+            Pair("A-Z", "alphabet"),
+        ),
+    )
+
     class GenreFilter : AnimeFilter.Group<GenreCheckBox>(
         "Genres",
         listOf(
