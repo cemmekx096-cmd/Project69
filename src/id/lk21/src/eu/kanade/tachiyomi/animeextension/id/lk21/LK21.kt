@@ -250,13 +250,13 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         if (episodeElements.isNotEmpty()) {
             // This is a series
             ReportLog.log("LK21-Episodes", "Found series with ${episodeElements.size} episodes", LogLevel.INFO)
-            
+
             episodeElements.forEachIndexed { index, element ->
                 episodeList.add(
                     SEpisode.create().apply {
                         val episodeUrl = element.attr("href")
                         setUrlWithoutDomain(episodeUrl)
-                        
+
                         val episodeNumber = element.text().trim()
                         name = "Episode $episodeNumber"
                         episode_number = episodeNumber.toFloatOrNull() ?: (index + 1).toFloat()
@@ -267,7 +267,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         } else {
             // This is a movie (single episode)
             ReportLog.log("LK21-Episodes", "This is a movie (single episode)", LogLevel.INFO)
-            
+
             episodeList.add(
                 SEpisode.create().apply {
                     setUrlWithoutDomain(response.request.url.toString())
@@ -294,7 +294,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         // Parse player list
         val playerItems = document.select("ul#player-list li a")
-        
+
         ReportLog.log("LK21-Video", "Found ${playerItems.size} players", LogLevel.INFO)
 
         playerItems.forEachIndexed { index, element ->
@@ -355,14 +355,14 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             m3u8Regex.findAll(html).forEach { match ->
                 val m3u8Url = match.groupValues[1]
                 ReportLog.log("LK21-Extractor", "Found M3U8: $m3u8Url", LogLevel.DEBUG)
-                
+
                 videoList.add(
                     Video(
                         url = m3u8Url,
                         quality = "$serverName - HLS",
                         videoUrl = m3u8Url,
                         headers = Headers.headersOf("Referer", playerUrl),
-                    )
+                    ),
                 )
             }
 
@@ -371,7 +371,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             mp4Regex.findAll(html).forEach { match ->
                 val mp4Url = match.groupValues[1]
                 ReportLog.log("LK21-Extractor", "Found MP4: $mp4Url", LogLevel.DEBUG)
-                
+
                 // Try to determine quality from URL
                 val quality = when {
                     mp4Url.contains("1080", ignoreCase = true) -> "$serverName - 1080p"
@@ -380,14 +380,14 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     mp4Url.contains("360", ignoreCase = true) -> "$serverName - 360p"
                     else -> "$serverName - MP4"
                 }
-                
+
                 videoList.add(
                     Video(
                         url = mp4Url,
                         quality = quality,
                         videoUrl = mp4Url,
                         headers = Headers.headersOf("Referer", playerUrl),
-                    )
+                    ),
                 )
             }
 
@@ -396,7 +396,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             sourceRegex.findAll(html).forEach { match ->
                 val sourceUrl = match.groupValues[1]
                 ReportLog.log("LK21-Extractor", "Found source tag: $sourceUrl", LogLevel.DEBUG)
-                
+
                 if (sourceUrl.contains("http")) {
                     videoList.add(
                         Video(
@@ -404,7 +404,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                             quality = "$serverName - Source",
                             videoUrl = sourceUrl,
                             headers = Headers.headersOf("Referer", playerUrl),
-                        )
+                        ),
                     )
                 }
             }
@@ -415,14 +415,14 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 val fileUrl = match.groupValues[1]
                 if (fileUrl.startsWith("http")) {
                     ReportLog.log("LK21-Extractor", "Found config file: $fileUrl", LogLevel.DEBUG)
-                    
+
                     videoList.add(
                         Video(
                             url = fileUrl,
                             quality = "$serverName - Config",
                             videoUrl = fileUrl,
                             headers = Headers.headersOf("Referer", playerUrl),
-                        )
+                        ),
                     )
                 }
             }
@@ -435,7 +435,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         url = playerUrl,
                         quality = "$serverName (Iframe)",
                         videoUrl = playerUrl,
-                    )
+                    ),
                 )
             }
 
@@ -448,7 +448,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     url = playerUrl,
                     quality = "$serverName (Error)",
                     videoUrl = playerUrl,
-                )
+                ),
             )
         }
     }
@@ -534,7 +534,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     companion object {
         private const val PREF_BASE_URL_KEY = "base_url"
         private const val PREF_BASE_URL_DEFAULT = "https://tv7.lk21official.cc"
-        
+
         private const val PREF_CACHED_DOMAIN_KEY = "cached_domain"
         private const val PREF_CACHE_TIME_KEY = "cache_time"
 
