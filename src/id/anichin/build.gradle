@@ -1,7 +1,7 @@
 ext {
     extName = 'Anichin'
     extClass = '.Anichin'
-    extVersionCode = 18
+    extVersionCode = 19
     isNsfw = false
 }
 
@@ -10,7 +10,6 @@ apply from: "$rootDir/common.gradle"
 dependencies {
     implementation(project(":lib:okru-extractor"))
     implementation(project(":lib:dailymotion-extractor"))
-    implementation(project(":lib:googledrive-extractor"))
     implementation(project(":lib:cloudflare-interceptor"))
     implementation project(':lib:doodstream-extractor')
     implementation project(':lib:gdriveplayer-extractor')
@@ -19,4 +18,5 @@ dependencies {
     implementation(project(":lib:anichin-extractor"))
     implementation(project(":lib:rubyvidhub-extractor"))
     implementation(project(":lib:rumble-extractor"))
+    implementation(project(":lib:anichin2-extractor"))
 }
