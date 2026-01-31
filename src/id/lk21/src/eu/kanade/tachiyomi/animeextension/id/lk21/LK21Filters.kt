@@ -7,9 +7,9 @@ object LK21Filters {
 
     fun getSearchParameters(filters: AnimeFilterList): Params {
         val params = Params()
-        
+
         ReportLog.reportDebug("LK21-Filters", "Processing ${filters.size} filters")
-        
+
         filters.forEach { filter ->
             when (filter) {
                 is GenreFilter -> {
@@ -29,7 +29,7 @@ object LK21Filters {
                 else -> Unit
             }
         }
-        
+
         return params
     }
 

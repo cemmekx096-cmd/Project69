@@ -414,7 +414,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             configRegex.findAll(html).forEach { match ->
                 val fileUrl = match.groupValues[1]
                 if (fileUrl.startsWith("http")) {
-                    ReportLog.log("LK21-Extractor", "Found config file: $fileUrl", LogLevel.DEBUG),
+                    ReportLog.log("LK21-Extractor", "Found config file: $fileUrl", LogLevel.DEBUG)
                     
                     videoList.add(
                         Video(
