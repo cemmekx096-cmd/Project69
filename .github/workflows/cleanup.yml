@@ -1,13 +1,10 @@
 name: System Cleanup
 
 on:
-  # Memungkinkan kamu menjalankan manual dari tab "Actions"
-  workflow_dispatch:
-  # Berjalan otomatis setiap hari Minggu jam 00:00 UTC
+  workflow_dispatch: # Bisa dijalankan manual klik tombol
   schedule:
-    - cron: '0 0 * * 0'
+    - cron: '0 0 * * 0' # Otomatis jalan setiap Minggu tengah malam
 
-# Izin yang diperlukan untuk menghapus log dan cache
 permissions:
   actions: write
   contents: read
@@ -16,39 +13,39 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # BAGIAN 1: Menghapus Workflow yang Gagal (Failure)
-      - name: Delete Failed Workflow Runs
+      # 1. HAPUS WORKFLOW GAGAL & DIBATALKAN
+      - name: Delete Failed and Cancelled Runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "Mencari riwayat workflow yang gagal..."
-          # Mengambil daftar ID workflow yang statusnya 'failure'
-          runs=$(gh run list --repo $REPO --status failure --limit 100 --json databaseId -q '.[].databaseId')
+          echo "Mencari workflow gagal dan dibatalkan..."
           
-          if [ -z "$runs" ]; then
-            echo "Tidak ada riwayat workflow gagal yang ditemukan."
-          else
-            for run_id in $runs; do
-              echo "Menghapus Run ID: $run_id"
-              gh run delete $run_id --repo $REPO
-            done
-            echo "Semua riwayat gagal telah dibersihkan."
-          fi
+          # Ambil daftar ID untuk status failure dan cancelled
+          for status in failure cancelled; do
+            echo "Mengecek status: $status"
+            run_ids=$(gh run list --repo $REPO --status $status --limit 100 --json databaseId -q '.[].databaseId')
+            
+            if [ -z "$run_ids" ]; then
+              echo "Tidak ada workflow dengan status $status."
+            else
+              for id in $run_ids; do
+                echo "Menghapus Run ID: $id"
+                gh run delete $id --repo $REPO
+              done
+            fi
+          done
 
-      ---
-
-      # BAGIAN 2: Menghapus Semua Cache
-      - name: Clear All Cache
+      # 2. HAPUS SEMUA CACHE
+      - name: Clear All Action Caches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "Memulai proses pembersihan cache..."
-          # --all: Hapus semua cache
-          # --succeed-on-no-caches: Jangan anggap error jika cache memang sudah kosong
+          echo "Membersihkan semua cache..."
+          # Menggunakan flag --succeed-on-no-caches agar tidak error jika cache kosong
           gh cache delete --all --repo $REPO --succeed-on-no-caches
-          echo "Proses pembersihan cache selesai."
+          echo "Selesai!"
