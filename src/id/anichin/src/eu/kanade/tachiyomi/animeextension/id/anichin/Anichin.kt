@@ -260,105 +260,120 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
     }
 
+    /**
+     * Check if URL is a shortener service
+     */
+    private fun isUrlShortener(url: String): Boolean {
+        val shorteners = listOf(
+            "short.icu",
+            "short.ink",
+            "bit.ly",
+            "t.ly",
+            "tinyurl",
+            "goo.gl",
+            "ow.ly",
+            "is.gd",
+        )
+        return shorteners.any { url.contains(it, ignoreCase = true) }
+    }
+
+    /**
+     * Follow URL redirects for shorteners
+     */
+    private fun followRedirect(url: String): String {
+        return try {
+            android.util.Log.d("Anichin", "Following redirect: $url")
+            val response = client.newCall(GET(url, headers)).execute()
+            val finalUrl = response.request.url.toString()
+            
+            if (finalUrl != url) {
+                android.util.Log.d("Anichin", "Redirected: $url → $finalUrl")
+            }
+            
+            finalUrl
+        } catch (e: Exception) {
+            android.util.Log.e("Anichin", "Redirect failed: ${e.message}")
+            url
+        }
+    }
+
     private fun extractVideoFromUrl(url: String, videoList: MutableList<Video>, serverName: String) {
         try {
+            // ✨ Follow redirects for URL shorteners FIRST
+            val finalUrl = if (isUrlShortener(url)) followRedirect(url) else url
+            
             when {
                 // ✨ Anichin VIP Stream (anichin.stream, anichinv2.icu)
-                url.contains("anichin", ignoreCase = true) -> {
+                finalUrl.contains("anichin", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Anichin VIP Stream")
-                    val videos = anichinVipExtractor.videosFromUrl(url, serverName)
+                    val videos = anichinVipExtractor.videosFromUrl(finalUrl, serverName)
                     android.util.Log.d("Anichin", "Anichin VIP videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
 
                 // ✨ RubyVidHub
-                url.contains("rubyvidhub", ignoreCase = true) -> {
+                finalUrl.contains("rubyvidhub", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting RubyVidHub")
-                    val videos = rubyVidExtractor.videosFromUrl(url, serverName)
+                    val videos = rubyVidExtractor.videosFromUrl(finalUrl, serverName)
                     android.util.Log.d("Anichin", "RubyVidHub videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
 
                 // ✨ Rumble (improved extractor)
-                url.contains("rumble.com") -> {
+                finalUrl.contains("rumble", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Rumble (new extractor)")
-                    val videos = rumbleExtractor.videosFromUrl(url, serverName)
+                    val videos = rumbleExtractor.videosFromUrl(finalUrl, serverName)
                     android.util.Log.d("Anichin", "Rumble videos: ${videos.size}")
 
                     // Fallback ke old method jika gagal
                     if (videos.isEmpty()) {
                         android.util.Log.d("Anichin", "Fallback to old Rumble extraction")
-                        videoList.addAll(extractRumbleLegacy(url, serverName))
+                        videoList.addAll(extractRumbleLegacy(finalUrl, serverName))
                     } else {
                         videoList.addAll(videos)
                     }
                 }
 
-                // Existing extractors
-                url.contains("ok.ru") || url.contains("odnoklassniki") -> {
+                // Existing extractors (with case-insensitive)
+                finalUrl.contains("ok.ru", ignoreCase = true) || 
+                finalUrl.contains("odnoklassniki", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting OK.ru")
-                    val videos = okruExtractor.videosFromUrl(url, "$serverName - ")
+                    val videos = okruExtractor.videosFromUrl(finalUrl, "$serverName - ")
                     android.util.Log.d("Anichin", "OK.ru videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
 
-                url.contains("dailymotion") -> {
+                finalUrl.contains("dailymotion", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Dailymotion")
-                    val videos = dailymotionExtractor.videosFromUrl(url, prefix = "$serverName - ")
+                    val videos = dailymotionExtractor.videosFromUrl(finalUrl, prefix = "$serverName - ")
                     android.util.Log.d("Anichin", "Dailymotion videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
 
-                url.contains("drive.google") || url.contains("drive.usercontent.google") -> {
+                finalUrl.contains("drive.google", ignoreCase = true) || 
+                finalUrl.contains("drive.usercontent.google", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Google Drive")
-                    val videos = googleDriveExtractor.videosFromUrl(url, "$serverName - ")
+                    val videos = googleDriveExtractor.videosFromUrl(finalUrl, "$serverName - ")
                     android.util.Log.d("Anichin", "GDrive videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
 
-                url.contains(".m3u8") -> {
+                finalUrl.contains(".m3u8", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting HLS")
-                    val videos = playlistUtils.extractFromHls(url, baseUrl)
+                    val videos = playlistUtils.extractFromHls(finalUrl, baseUrl)
                     android.util.Log.d("Anichin", "HLS videos: ${videos.size}")
                     videoList.addAll(videos)
                 }
 
-                // ✨ URL Shorteners (short.icu, dll) - follow redirect
-                url.contains("short.", ignoreCase = true) -> {
-                    android.util.Log.d("Anichin", "Following URL shortener: $url")
-                    val finalUrl = followRedirect(url)
-                    android.util.Log.d("Anichin", "Redirected to: $finalUrl")
-
-                    if (finalUrl != url) {
-                        // Recursive call dengan final URL
-                        extractVideoFromUrl(finalUrl, videoList, serverName)
-                    } else {
-                        videoList.add(Video(url, serverName, url))
-                    }
-                }
-
                 else -> {
-                    android.util.Log.d("Anichin", "Generic iframe: $url")
-                    videoList.add(Video(url, serverName, url))
+                    android.util.Log.d("Anichin", "Generic iframe: $finalUrl")
+                    videoList.add(Video(finalUrl, serverName, finalUrl))
                 }
             }
         } catch (e: Exception) {
             android.util.Log.e("Anichin", "Extraction failed for $url: ${e.message}")
             e.printStackTrace()
             videoList.add(Video(url, "$serverName (Error)", url))
-        }
-    }
-
-    /**
-     * Follow URL redirects (untuk short.icu, dll)
-     */
-    private fun followRedirect(url: String): String {
-        return try {
-            val response = client.newCall(GET(url, headers)).execute()
-            response.request.url.toString()
-        } catch (e: Exception) {
-            android.util.Log.e("Anichin", "Redirect failed: ${e.message}")
-            url
         }
     }
 
