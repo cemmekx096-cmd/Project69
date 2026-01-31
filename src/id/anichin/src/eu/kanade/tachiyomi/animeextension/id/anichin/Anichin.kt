@@ -335,8 +335,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
 
                 // Existing extractors (with case-insensitive)
-                finalUrl.contains("ok.ru", ignoreCase = true)|| 
-                finalUrl.contains("odnoklassniki", ignoreCase = true)-> {
+            finalUrl.contains("ok.ru", ignoreCase = true) ||
+            finalUrl.contains("odnoklassniki", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting OK.ru")
                     val videos = okruExtractor.videosFromUrl(finalUrl, "$serverName - ")
                     android.util.Log.d("Anichin", "OK.ru videos: ${videos.size}")
