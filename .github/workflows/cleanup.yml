@@ -13,8 +13,8 @@ jobs:
       - name: Delete Failed Workflow Runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          # Hapus workflow runs yang gagal
           gh run list --status failure --json databaseId -q '.[].databaseId' | \
           while read run_id; do
             echo "Deleting run: $run_id"
@@ -24,6 +24,7 @@ jobs:
       - name: Delete All Caches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           echo "Deleting all caches..."
           gh cache delete --all --succeed-on-no-caches
