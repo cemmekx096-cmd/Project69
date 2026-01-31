@@ -1,79 +1,32 @@
 package eu.kanade.tachiyomi.animeextension.id.anoboy
 
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
+import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 
 object AnoboyFilters {
 
-    // Data class untuk search parameters
-    data class SearchParameters(
-        val status: String = "",
-        val type: String = "",
-        val order: String = "update",
-        val genres: List<String> = emptyList(),
-    )
-
-    // Extract parameters dari filter list
-    fun getSearchParameters(filters: AnimeFilterList): SearchParameters {
-        var status = ""
-        var type = ""
-        var order = "update"
-        val genres = mutableListOf<String>()
-
+    // Fungsi untuk mendapatkan parameter pencarian dari filter list
+    fun getSearchParameters(filters: AnimeFilterList): Params {
+        val params = Params()
         filters.forEach { filter ->
             when (filter) {
-                is StatusFilter -> {
-                    status = filter.toUriPart()
-                }
-                is TypeFilter -> {
-                    type = filter.toUriPart()
-                }
-                is OrderFilter -> {
-                    order = filter.toUriPart()
-                }
                 is GenreFilter -> {
                     filter.state
-                        .filter { it.state }
-                        .forEach { genres.add(it.value) }
+                        .filter { it.state }  // Filter yang aktif
+                        .forEach { params.genres.add(it.value) }  // Tambahkan genre yang dipilih
                 }
-                else -> {}
+                else -> Unit
             }
         }
-
-        return SearchParameters(status, type, order, genres)
+        return params
     }
 
-    // ============================== Filters ===============================
+    // Kelas Params untuk menyimpan genre yang dipilih
+    class Params {
+        val genres: MutableList<String> = mutableListOf()  // List genre yang dipilih
+    }
 
-    class StatusFilter : UriPartFilter(
-        "Status",
-        arrayOf(
-            Pair("All", ""),
-            Pair("Ongoing", "ongoing"),
-            Pair("Completed", "completed"),
-        ),
-    )
-
-    class TypeFilter : UriPartFilter(
-        "Type",
-        arrayOf(
-            Pair("All", ""),
-            Pair("TV", "TV"),
-            Pair("Movie", "Movie"),
-            Pair("OVA", "OVA"),
-            Pair("ONA", "ONA"),
-            Pair("Special", "Special"),
-        ),
-    )
-
-    class OrderFilter : UriPartFilter(
-        "Order By",
-        arrayOf(
-            Pair("Latest Update", "update"),
-            Pair("Popular", "popular"),
-            Pair("Title", "title"),
-        ),
-    )
-
+    // Genre filter untuk memilih genre tertentu
     class GenreFilter : AnimeFilter.Group<GenreCheckBox>(
         "Genres",
         listOf(
@@ -121,21 +74,11 @@ object AnoboyFilters {
             GenreCheckBox("Thriller", "thriller"),
             GenreCheckBox("Vampire", "vampire"),
             GenreCheckBox("Yaoi", "yaoi"),
-            GenreCheckBox("Yuri", "yuri"),
+            GenreCheckBox("Yuri", "yuri")
         ),
     )
 
-    // ============================== Helpers ===============================
-
-    open class UriPartFilter(
-        displayName: String,
-        private val vals: Array<Pair<String, String>>,
-    ) : AnimeFilter.Select<String>(
-        displayName,
-        vals.map { it.first }.toTypedArray(),
-    ) {
-        fun toUriPart() = vals[state].second
-    }
-
+    // Kelas GenreCheckBox untuk genre yang dapat dipilih
     class GenreCheckBox(name: String, val value: String) : AnimeFilter.CheckBox(name)
+
 }
