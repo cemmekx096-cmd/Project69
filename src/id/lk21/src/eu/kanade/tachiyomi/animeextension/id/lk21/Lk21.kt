@@ -87,20 +87,24 @@ class Lk21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         if (episodeElements.isEmpty()) {
             // Jika Movie
-            episodes.add(SEpisode.create().apply {
-                name = "Movie"
-                episode_number = 1f
-                setUrlWithoutDomain(document.location())
-            })
+            episodes.add(
+                SEpisode.create().apply {
+                    name = "Movie"
+                    episode_number = 1f
+                    setUrlWithoutDomain(document.location())
+                },
+            )
         } else {
             // Jika Drama
             episodeElements.forEachIndexed { index, element ->
-                episodes.add(SEpisode.create().apply {
-                    val epText = element.text()
-                    name = if (epText.contains("Episode", true)) epText else "Episode $epText"
-                    episode_number = epText.filter { it.isDigit() }.toFloatOrNull() ?: (index + 1).toFloat()
-                    setUrlWithoutDomain(element.attr("abs:href"))
-                })
+                episodes.add(
+                    SEpisode.create().apply {
+                        val epText = element.text()
+                        name = if (epText.contains("Episode", true)) epText else "Episode $epText"
+                        episode_number = epText.filter { it.isDigit() }.toFloatOrNull() ?: (index + 1).toFloat()
+                        setUrlWithoutDomain(element.attr("abs:href"))
+                    },
+                )
             }
         }
         return episodes.reversed()
