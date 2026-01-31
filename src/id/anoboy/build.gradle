@@ -1,6 +1,6 @@
 ext {
-    extName = 'Lk21'
-    extClass = '.Lk21'
+    extName = 'Anoboy'
+    extClass = '.Anoboy'
     extVersionCode = 1
 }
 
