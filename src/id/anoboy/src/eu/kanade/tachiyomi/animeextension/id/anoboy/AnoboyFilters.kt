@@ -77,6 +77,6 @@ object AnoboyFilters {
             GenreCheckBox("Yuri", "yuri"),
         ),
     )
-    // Kelas GenreCheckBox untuk genre yang dapat dipilih
+
     class GenreCheckBox(name: String, val value: String) : AnimeFilter.CheckBox(name)
 }
