@@ -1,12 +1,13 @@
 name: System Cleanup
 
 on:
-  # Bisa dijalankan manual
+  # Memungkinkan kamu menjalankan manual dari tab "Actions"
   workflow_dispatch:
-  # Atau dijadwalkan otomatis (contoh: setiap hari Minggu jam 00:00 UTC)
+  # Berjalan otomatis setiap hari Minggu jam 00:00 UTC
   schedule:
     - cron: '0 0 * * 0'
 
+# Izin yang diperlukan untuk menghapus log dan cache
 permissions:
   actions: write
   contents: read
@@ -18,44 +19,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # BAGIAN 1: Menghapus Workflow yang Gagal
+      # BAGIAN 1: Menghapus Workflow yang Gagal (Failure)
       - name: Delete Failed Workflow Runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "Mencari workflow yang gagal..."
-          # Mengambil list ID workflow yang gagal (limit 100 terakhir agar tidak timeout)
+          echo "Mencari riwayat workflow yang gagal..."
+          # Mengambil daftar ID workflow yang statusnya 'failure'
           runs=$(gh run list --repo $REPO --status failure --limit 100 --json databaseId -q '.[].databaseId')
           
           if [ -z "$runs" ]; then
-            echo "Tidak ada workflow gagal yang ditemukan."
+            echo "Tidak ada riwayat workflow gagal yang ditemukan."
           else
             for run_id in $runs; do
               echo "Menghapus Run ID: $run_id"
               gh run delete $run_id --repo $REPO
             done
+            echo "Semua riwayat gagal telah dibersihkan."
           fi
 
-      # BAGIAN 2: Menghapus Cache
-      - name: clear-cache
+      ---
+
+      # BAGIAN 2: Menghapus Semua Cache
+      - name: Clear All Cache
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "Mengambil daftar cache..."
-          # Mengambil list cache key
-          cacheKeys=$(gh cache list --repo $REPO --limit 100 --json key -q '.[].key')
-
-          if [ -z "$cacheKeys" ]; then
-            echo "Tidak ada cache yang ditemukan."
-          else
-            # Jika ingin menghapus SEMUA cache tanpa pandang bulu:
-            # gh cache delete --all --repo $REPO --confirm
-            
-            # Jika ingin menghapus satu per satu (lebih aman untuk debugging log):
-            for key in $cacheKeys; do
-              echo "Menghapus Cache Key: $key"
-              gh cache delete "$key" --repo $REPO
-            done
-          fi
+          echo "Memulai proses pembersihan cache..."
+          # --all: Hapus semua cache
+          # --succeed-on-no-caches: Jangan anggap error jika cache memang sudah kosong
+          gh cache delete --all --repo $REPO --succeed-on-no-caches
+          echo "Proses pembersihan cache selesai."
