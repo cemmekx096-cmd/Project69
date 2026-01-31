@@ -45,6 +45,21 @@ class Lk21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         get() = getMainDomain()
 
     /**
+     * Headers KHUSUS untuk gateway request
+     * Tidak pakai baseUrl — ini yang putus the loop
+     */
+    private fun gatewayHeaders(): Headers {
+        val userAgent = preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT)!!
+
+        return Headers.Builder().apply {
+            add("User-Agent", userAgent)
+            add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            add("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7")
+            add("Referer", gatewayUrl) // ← Pakai gatewayUrl, bukan baseUrl!
+        }.build()
+    }
+
+    /**
      * Fetch main domain from gateway
      */
     private fun getMainDomain(): String {
@@ -59,9 +74,9 @@ class Lk21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 return cachedDomain
             }
 
-            // Fetch new domain
+            // Fetch new domain — pakai gatewayHeaders(), BUKAN headers
             ReportLog.log("LK21-Domain", "Fetching new domain from gateway: $gatewayUrl", LogLevel.INFO)
-            val response = client.newCall(GET(gatewayUrl, headers)).execute()
+            val response = client.newCall(GET(gatewayUrl, gatewayHeaders())).execute()
             val document = response.asJsoup()
 
             val mainDomain = document.selectFirst("a.cta-button.green-button")
