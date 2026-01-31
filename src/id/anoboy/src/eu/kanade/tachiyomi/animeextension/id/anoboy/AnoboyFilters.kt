@@ -12,8 +12,8 @@ object AnoboyFilters {
             when (filter) {
                 is GenreFilter -> {
                     filter.state
-                        .filter { it.state }  // Filter yang aktif
-                        .forEach { params.genres.add(it.value) }  // Tambahkan genre yang dipilih
+                        .filter { it.state }// Filter yang aktif
+                        .forEach { params.genres.add(it.value) }// Tambahkan genre yang dipilih
                 }
                 else -> Unit
             }
@@ -23,7 +23,7 @@ object AnoboyFilters {
 
     // Kelas Params untuk menyimpan genre yang dipilih
     class Params {
-        val genres: MutableList<String> = mutableListOf()  // List genre yang dipilih
+        val genres: MutableList<String> = mutableListOf()// List genre yang dipilih
     }
 
     // Genre filter untuk memilih genre tertentu
@@ -74,11 +74,9 @@ object AnoboyFilters {
             GenreCheckBox("Thriller", "thriller"),
             GenreCheckBox("Vampire", "vampire"),
             GenreCheckBox("Yaoi", "yaoi"),
-            GenreCheckBox("Yuri", "yuri")
+            GenreCheckBox("Yuri", "yuri"),
         ),
     )
-
     // Kelas GenreCheckBox untuk genre yang dapat dipilih
     class GenreCheckBox(name: String, val value: String) : AnimeFilter.CheckBox(name)
-
 }
