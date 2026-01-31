@@ -62,23 +62,23 @@ fun logIfDebug(tag: String, message: String, level: LogLevel = LogLevel.DEBUG) {
 
 // Helper class untuk tracking fitur
 class FeatureTracker(private val featureName: String) {
-    
+
     fun start() {
         ReportLog.reportFeature(featureName, "Feature started")
     }
-    
+
     fun success(message: String = "Feature completed successfully") {
         ReportLog.reportFeature(featureName, message)
     }
-    
+
     fun error(errorMessage: String) {
         ReportLog.reportError(featureName, "Error: $errorMessage")
     }
-    
+
     fun warn(message: String) {
         ReportLog.reportWarn(featureName, "Warning: $message")
     }
-    
+
     fun debug(message: String) {
         ReportLog.reportDebug(featureName, message)
     }
@@ -87,12 +87,12 @@ class FeatureTracker(private val featureName: String) {
 // Helper untuk tracking performance
 class PerformanceTracker(private val operationName: String) {
     private var startTime: Long = 0
-    
+
     fun start() {
         startTime = System.currentTimeMillis()
         ReportLog.reportDebug("Performance-$operationName", "Started")
     }
-    
+
     fun end() {
         val duration = System.currentTimeMillis() - startTime
         ReportLog.reportDebug("Performance-$operationName", "Completed in ${duration}ms")
