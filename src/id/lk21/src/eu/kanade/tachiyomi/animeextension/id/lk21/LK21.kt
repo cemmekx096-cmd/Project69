@@ -209,22 +209,22 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
 
             description = buildString {
-                document.selectFirst("div.synopsis")?.text()?.let { 
+                document.selectFirst("div.synopsis")?.text()?.let {
                     append("Synopsis:\n$it\n\n")
                 }
-                
+
                 document.selectFirst("span.year")?.text()?.let {
                     append("Year: $it\n")
                 }
-                
+
                 document.selectFirst("span.rating")?.text()?.let {
                     append("Rating: $it\n")
                 }
-                
+
                 document.selectFirst("span.duration")?.text()?.let {
                     append("Duration: $it\n")
                 }
-                
+
                 document.selectFirst("span.label")?.text()?.let {
                     append("Quality: $it\n")
                 }
@@ -261,7 +261,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         name = "Episode $episodeNumber"
                         episode_number = episodeNumber.toFloatOrNull() ?: (index + 1).toFloat()
                         date_upload = System.currentTimeMillis()
-                    }
+                    },
                 )
             }
         } else {
@@ -274,7 +274,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     name = "Movie"
                     episode_number = 1f
                     date_upload = System.currentTimeMillis()
-                }
+                },
             )
         }
 
@@ -361,7 +361,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         url = m3u8Url,
                         quality = "$serverName - HLS",
                         videoUrl = m3u8Url,
-                        headers = Headers.headersOf("Referer", playerUrl)
+                        headers = Headers.headersOf("Referer", playerUrl),
                     )
                 )
             }
@@ -386,7 +386,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         url = mp4Url,
                         quality = quality,
                         videoUrl = mp4Url,
-                        headers = Headers.headersOf("Referer", playerUrl)
+                        headers = Headers.headersOf("Referer", playerUrl),
                     )
                 )
             }
@@ -403,7 +403,7 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                             url = sourceUrl,
                             quality = "$serverName - Source",
                             videoUrl = sourceUrl,
-                            headers = Headers.headersOf("Referer", playerUrl)
+                            headers = Headers.headersOf("Referer", playerUrl),
                         )
                     )
                 }
@@ -414,14 +414,14 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             configRegex.findAll(html).forEach { match ->
                 val fileUrl = match.groupValues[1]
                 if (fileUrl.startsWith("http")) {
-                    ReportLog.log("LK21-Extractor", "Found config file: $fileUrl", LogLevel.DEBUG)
+                    ReportLog.log("LK21-Extractor", "Found config file: $fileUrl", LogLevel.DEBUG),
                     
                     videoList.add(
                         Video(
                             url = fileUrl,
                             quality = "$serverName - Config",
                             videoUrl = fileUrl,
-                            headers = Headers.headersOf("Referer", playerUrl)
+                            headers = Headers.headersOf("Referer", playerUrl),
                         )
                     )
                 }
@@ -434,20 +434,20 @@ class LK21 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     Video(
                         url = playerUrl,
                         quality = "$serverName (Iframe)",
-                        videoUrl = playerUrl
+                        videoUrl = playerUrl,
                     )
                 )
             }
 
         } catch (e: Exception) {
-            ReportLog.reportError("LK21-Extractor", "Extraction failed for $playerUrl: ${e.message}")
-            e.printStackTrace()
+            ReportLog.reportError("LK21-Extractor", "Extraction failed for $playerUrl: ${e.message}"),
+            e.printStackTrace(),
             // Add iframe as error fallback
             videoList.add(
                 Video(
                     url = playerUrl,
                     quality = "$serverName (Error)",
-                    videoUrl = playerUrl
+                    videoUrl = playerUrl,
                 )
             )
         }
