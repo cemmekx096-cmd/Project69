@@ -7,7 +7,7 @@ enum class LogLevel {
     INFO,
     ERROR,
     DEBUG,
-    WARN
+    WARN,
 }
 
 // Kelas untuk menangani log aplikasi
