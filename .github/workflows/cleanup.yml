@@ -1,47 +1,27 @@
-name: System Cleanup
+name: Cleanup Projects
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * 0'
 
 permissions:
   actions: write
-  contents: read
 
 jobs:
-  cleanup:
+  clean-all:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      # 1. Hapus Workflow yang Gagal & Dibatalkan
-      - name: Delete Failed and Cancelled Runs
+      - name: Delete Failed Workflow Runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
         run: |
-          echo "Mengecek workflow gagal dan dibatalkan..."
-          for status in failure cancelled; do
-            run_ids=$(gh run list --repo $REPO --status $status --limit 100 --json databaseId -q '.[].databaseId')
-            if [ -z "$run_ids" ]; then
-              echo "Tidak ada workflow $status."
-            else
-              for id in $run_ids; do
-                echo "Menghapus Run ID: $id"
-                gh run delete $id --repo $REPO
-              done
-            fi
+          # Cari yang gagal (failure) dan hapus
+          for run_id in $(gh run list --status failure --json databaseId -q '.[].databaseId'); do
+            gh run delete $run_id
           done
 
-      # 2. Hapus Semua Cache (Tanpa Flag --confirm)
-      - name: Clear All Action Caches
+      - name: Delete All Caches
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
         run: |
-          echo "Membersihkan cache..."
-          # Perintah di bawah ini sudah benar untuk versi terbaru
-          gh cache delete --all --repo $REPO --succeed-on-no-caches
-          echo "Selesai!"
+          # Perhatikan: TIDAK ADA kata --confirm di sini
+          gh cache delete --all --succeed-on-no-caches
