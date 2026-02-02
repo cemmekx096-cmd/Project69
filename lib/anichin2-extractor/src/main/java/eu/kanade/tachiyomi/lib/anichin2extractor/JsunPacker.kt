@@ -1,6 +1,11 @@
-package eu.kanade.tachiyomi.lib.anichin2extractor
+package eu.kanade.tachiyomi.lib.anichin2extractor // Pastikan package ini sesuai dengan lokasi filemu
 
 object JsUnpacker {
+    // Tambahkan fungsi ini agar eror 'detect' hilang
+    fun detect(packedJs: String): Boolean {
+        return packedJs.contains("eval(function(p,a,c,k,e,r)", ignoreCase = true)
+    }
+
     fun unpack(packedJs: String): String {
         return try {
             val payloadRegex = Regex("""}\('(.*?)',(\d+),(\d+),'(.*?)'\.split""")
