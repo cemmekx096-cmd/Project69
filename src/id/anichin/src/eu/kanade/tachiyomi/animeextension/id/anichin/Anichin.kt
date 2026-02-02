@@ -3,12 +3,9 @@ package eu.kanade.tachiyomi.animeextension.id.anichin
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.EditTextPreference
-import androidx.preference.ListPreference
-import androidx.preference.PreferenceScreen
 import androidx.preference.SwitchPreferenceCompat
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
-import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -119,7 +116,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun videoListParse(response: Response): List<Video> {
         val document = response.asJsoup()
         val videoList = mutableListOf<Video>()
-        
+
         // Memanggil Extractor Universal yang menangani Rumble, Dailymotion, VIP, dll.
         val extractor = UniversalBase64Extractor(client)
 
