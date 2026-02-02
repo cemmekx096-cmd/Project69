@@ -6,7 +6,6 @@ import eu.kanade.tachiyomi.lib.anichin2extractor.Anichin2Extractor
 import eu.kanade.tachiyomi.lib.anichinextractor.AnichinExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.network.GET
-import okhttp3.Headers
 import okhttp3.OkHttpClient
 
 class UniversalBase64Extractor(private val client: OkHttpClient) {
