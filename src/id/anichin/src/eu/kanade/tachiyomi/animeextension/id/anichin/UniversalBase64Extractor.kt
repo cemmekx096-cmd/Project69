@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.lib.anichinextractor.AnichinExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.network.GET
 import okhttp3.OkHttpClient
+import org.jsoup.Jsoup
 
 class UniversalBase64Extractor(private val client: OkHttpClient) {
 
