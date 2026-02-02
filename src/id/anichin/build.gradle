@@ -14,6 +14,7 @@ dependencies {
     implementation project(':lib:doodstream-extractor')
     implementation project(':lib:gdriveplayer-extractor')
     implementation(project(":lib:playlist-utils"))  // TAMBAH INI
+    implementation(project(":lib:googledrive-extractor"))
     // ✨ NEW EXTRACTORS
     implementation(project(":lib:anichin-extractor"))
     implementation(project(":lib:rubyvidhub-extractor"))
