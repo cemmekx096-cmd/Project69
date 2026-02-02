@@ -1,14 +1,13 @@
-package eu.kanade.tachiyomi.animeextension.id.anichin.extractors
+package eu.kanade.tachiyomi.animeextension.id.anichin
 
 import android.util.Base64
 import eu.kanade.tachiyomi.animesource.model.Video
-import eu.kanade.tachiyomi.lib.anichinextractor.AnichinExtractor
 import eu.kanade.tachiyomi.lib.anichin2extractor.Anichin2Extractor
+import eu.kanade.tachiyomi.lib.anichinextractor.AnichinExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.network.GET
 import okhttp3.Headers
 import okhttp3.OkHttpClient
-import org.jsoup.Jsoup
 
 class UniversalBase64Extractor(private val client: OkHttpClient) {
 
@@ -36,7 +35,7 @@ class UniversalBase64Extractor(private val client: OkHttpClient) {
 
     private fun routeToExtractor(url: String, label: String): List<Video> {
         val videoList = mutableListOf<Video>()
-        
+
         when {
             // Anichin VIP / Internal
             url.contains("anichin") || url.contains("animichi") -> {
@@ -87,8 +86,8 @@ class UniversalBase64Extractor(private val client: OkHttpClient) {
         return try {
             val html = client.newCall(GET(url)).execute().body.string()
             val m3u8Regex = """(https?://[^\s"'<>]+?\.m3u8[^\s"'<>]*?)""".toRegex()
-            m3u8Regex.find(html)?.groupValues?.get(1)?.let { 
-                listOf(Video(it, "$label - Player", it)) 
+            m3u8Regex.find(html)?.groupValues?.get(1)?.let {
+                listOf(Video(it, "$label - Player", it))
             } ?: emptyList()
         } catch (e: Exception) { emptyList() }
     }
