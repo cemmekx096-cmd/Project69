@@ -392,14 +392,13 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     videoList.add(Video(finalUrl, serverName, finalUrl))
                 }
             }
-            
+
             // Universal Base64 Extractor - backup/additional links
             val additionalVideos = universalBase64Extractor.extractFromUrl(finalUrl, serverName)
             if (additionalVideos.isNotEmpty()) {
                 videoList.addAll(additionalVideos)
                 android.util.Log.d("Anichin", "UniversalBase64 added ${additionalVideos.size} videos")
             }
-            
         } catch (e: Exception) {
             android.util.Log.e("Anichin", "Extraction failed for $url: ${e.message}")
             e.printStackTrace()
