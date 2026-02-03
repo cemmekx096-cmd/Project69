@@ -36,11 +36,12 @@ object AnichinPreferences {
     // ======================== Setup Preferences ===========================
 
     fun setupPreferences(screen: PreferenceScreen, preferences: SharedPreferences) {
+
         // Base URL
         EditTextPreference(screen.context).apply {
             key = PREF_BASE_URL_KEY
             title = "Base URL"
-            summary = "%s"  // Show current value only
+            summary = "%s" // Show current value only
             setDefaultValue(PREF_BASE_URL_DEFAULT)
             dialogTitle = "Base URL"
 
@@ -58,7 +59,7 @@ object AnichinPreferences {
         EditTextPreference(screen.context).apply {
             key = PREF_USER_AGENT_KEY
             title = "User Agent"
-            summary = "%s"  // Show current value only
+            summary = "%s" // Show current value only
             setDefaultValue(PREF_USER_AGENT_DEFAULT)
             dialogTitle = "User Agent"
 
@@ -71,7 +72,7 @@ object AnichinPreferences {
         SwitchPreferenceCompat(screen.context).apply {
             key = PREF_CLOUDFLARE_KEY
             title = "CloudFlare Bypass"
-            summary = null  // No summary - toggle only
+            summary = null // No summary - toggle only
             setDefaultValue(PREF_CLOUDFLARE_DEFAULT)
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -83,7 +84,7 @@ object AnichinPreferences {
         EditTextPreference(screen.context).apply {
             key = PREF_TIMEOUT_KEY
             title = "Network Timeout (seconds)"
-            summary = "%s"  // Show current value only
+            summary = "%s" // Show current value only
             setDefaultValue(PREF_TIMEOUT_DEFAULT)
             dialogTitle = "Network Timeout"
 
@@ -104,7 +105,7 @@ object AnichinPreferences {
             entries = PREF_QUALITY_ENTRIES
             entryValues = PREF_QUALITY_VALUES
             setDefaultValue(PREF_QUALITY_DEFAULT)
-            summary = "%s"  // Show current value only
+            summary = "%s" // Show current value only
 
             setOnPreferenceChangeListener { _, newValue ->
                 val selected = newValue as String
@@ -118,7 +119,7 @@ object AnichinPreferences {
         SwitchPreferenceCompat(screen.context).apply {
             key = PREF_SKIP_ADS_KEY
             title = "Skip [ADS] Servers"
-            summary = null  // No summary - toggle only
+            summary = null // No summary - toggle only
             setDefaultValue(PREF_SKIP_ADS_DEFAULT)
 
             setOnPreferenceChangeListener { _, newValue ->
