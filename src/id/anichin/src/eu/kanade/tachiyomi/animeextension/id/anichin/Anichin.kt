@@ -273,7 +273,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         video.quality.contains("360p", ignoreCase = true) -> 70
                         else -> 0
                     }
-                },
+                }
             }
         )
 
