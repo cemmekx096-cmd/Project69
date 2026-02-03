@@ -2,10 +2,10 @@ package eu.kanade.tachiyomi.animeextension.id.anichin
 
 import android.app.Application
 import android.content.SharedPreferences
-import androidx.preference.EditTextPreference
-import androidx.preference.ListPreference
+import 
+import 
 import androidx.preference.PreferenceScreen
-import androidx.preference.SwitchPreferenceCompat
+import 
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -258,8 +258,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         // Sort videos by preferred quality
         val preferredQuality = preferences.getString(
-            AnichinPreferences.PREF_QUALITY_KEY, 
-            AnichinPreferences.PREF_QUALITY_DEFAULT
+            AnichinPreferences.PREF_QUALITY_KEY,
+            AnichinPreferences.PREF_QUALITY_DEFAULT,
         )!!
 
         val sortedList = videoList.sortedWith(
@@ -276,7 +276,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                         video.quality.contains("360p", ignoreCase = true) -> 70
                         else -> 0
                     }
-                }
+                },
             }
         )
 
