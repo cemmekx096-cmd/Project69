@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0  # Mendapatkan seluruh history untuk bisa push
+          fetch-depth: 0
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -23,26 +23,31 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Run ktlintFormat
-        run: ./gradlew :src:id:anichin:ktlintFormat
+      - name: Run ktlintFormat (full project)
+        run: |
+          # Jalankan ktlintFormat untuk seluruh project
+          echo "Running ktlintFormat on entire project..."
+          ./gradlew ktlintFormat
+          
+          # Verifikasi file di folder anichin
+          echo "Checking Anichin directory..."
+          ANICHIN_DIR="src/id/anichin/src/eu/kanade/tachiyomi/animeextension/id/anichin"
+          if [ -d "$ANICHIN_DIR" ]; then
+            echo "Found Anichin directory with $(find "$ANICHIN_DIR" -name "*.kt" | wc -l) Kotlin files"
+          else
+            echo "Warning: Anichin directory not found at $ANICHIN_DIR"
+          fi
 
       - name: Auto-commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-format kode (ktlint)"
-          commit_options: '--no-verify'  # Melewati pre-commit hooks jika ada
-          file_pattern: 'src/id/anichin/**'
+          commit_options: '--no-verify'
+          # Hanya commit file dari folder anichin
+          file_pattern: |
+            src/id/anichin/**
+            !src/id/anichin/build/**
           branch: ${{ github.ref_name }}
