@@ -2,10 +2,7 @@ package eu.kanade.tachiyomi.animeextension.id.anichin
 
 import android.app.Application
 import android.content.SharedPreferences
-import 
-import 
 import androidx.preference.PreferenceScreen
-import 
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
