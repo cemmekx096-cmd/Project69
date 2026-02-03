@@ -15,6 +15,14 @@ class UniversalBase64Extractor(private val client: OkHttpClient) {
     private val anichin2Extractor by lazy { Anichin2Extractor(client) }
     private val okruExtractor by lazy { OkruExtractor(client) }
 
+    /**
+     * Extract videos from URL directly (without base64 decoding)
+     * Used by Anichin.kt after base64 is already decoded in main file
+     */
+    fun extractFromUrl(url: String, label: String): List<Video> {
+        return routeToExtractor(url, label)
+    }
+
     fun extractFromBase64(base64: String, label: String): List<Video> {
         return try {
             val decodedHtml = String(Base64.decode(base64, Base64.DEFAULT))
@@ -27,7 +35,7 @@ class UniversalBase64Extractor(private val client: OkHttpClient) {
                 else -> iframeSrc
             }
 
-            routeToExtractor(cleanUrl, label)
+            extractFromUrl(cleanUrl, label)
         } catch (e: Exception) {
             emptyList()
         }
@@ -37,19 +45,20 @@ class UniversalBase64Extractor(private val client: OkHttpClient) {
         val videoList = mutableListOf<Video>()
 
         when {
-            // Anichin VIP / Internal
+            // SKIP - Already handled in Anichin.kt to avoid duplication
             url.contains("anichin") || url.contains("animichi") -> {
-                videoList.addAll(anichinVipExtractor.videosFromUrl(url, label))
+                android.util.Log.d("UniversalBase64", "Skipping VIP - handled by main extractor")
+                return emptyList()
+            }
+
+            url.contains("ok.ru") -> {
+                android.util.Log.d("UniversalBase64", "Skipping OK.ru - handled by main extractor")
+                return emptyList()
             }
 
             // Rumble, Dailymotion, RubyVid (Gunakan logika di Anichin2Extractor)
             url.contains("rumble") || url.contains("dailymotion") || url.contains("vtube") || url.contains("rubyvid") -> {
                 videoList.addAll(anichin2Extractor.videosFromUrl(url, label))
-            }
-
-            // OK.ru
-            url.contains("ok.ru") -> {
-                videoList.addAll(okruExtractor.videosFromUrl(url, "$label - "))
             }
 
             // DoodStream

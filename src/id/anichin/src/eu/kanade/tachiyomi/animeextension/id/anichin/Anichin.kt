@@ -39,7 +39,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // ✨ Use preference for base URL
     override val baseUrl: String
-        get() = preferences.getString(PREF_BASE_URL_KEY, PREF_BASE_URL_DEFAULT)!!
+        get() = preferences.getString(AnichinPreferences.PREF_BASE_URL_KEY, AnichinPreferences.PREF_BASE_URL_DEFAULT)!!
 
     override val lang = "id"
     override val supportsLatest = true
@@ -55,7 +55,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ✨ Dynamic client with preferences
     override val client: OkHttpClient
         get() {
-            val timeoutSeconds = preferences.getString(PREF_TIMEOUT_KEY, PREF_TIMEOUT_DEFAULT)!!
+            val timeoutSeconds = preferences.getString(AnichinPreferences.PREF_TIMEOUT_KEY, AnichinPreferences.PREF_TIMEOUT_DEFAULT)!!
                 .toLongOrNull() ?: 90L
 
             val builder = network.client.newBuilder()
@@ -64,7 +64,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
 
             // Add CloudFlare interceptor if enabled
-            if (preferences.getBoolean(PREF_CLOUDFLARE_KEY, PREF_CLOUDFLARE_DEFAULT)) {
+            if (preferences.getBoolean(AnichinPreferences.PREF_CLOUDFLARE_KEY, AnichinPreferences.PREF_CLOUDFLARE_DEFAULT)) {
                 builder.addInterceptor(cloudflareInterceptor)
             }
 
@@ -73,7 +73,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // ✨ Dynamic headers with custom user agent
     override fun headersBuilder(): Headers.Builder {
-        val userAgent = preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT)!!
+        val userAgent = preferences.getString(AnichinPreferences.PREF_USER_AGENT_KEY, AnichinPreferences.PREF_USER_AGENT_DEFAULT)!!
 
         return super.headersBuilder().apply {
             add("User-Agent", userAgent)
@@ -96,6 +96,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     private val anichinVipExtractor by lazy { AnichinExtractor(client) }
     private val rubyVidExtractor by lazy { RubyVidHubExtractor(client) }
     private val rumbleExtractor by lazy { RumbleExtractor(client) }
+    private val universalBase64Extractor by lazy { UniversalBase64Extractor(client) }
 
     // ============================== Popular ===============================
 
@@ -211,7 +212,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             if (serverValue.isNotEmpty() && !serverName.contains("Select", ignoreCase = true)) {
                 try {
                     // Skip [ADS] servers if preference enabled
-                    if (preferences.getBoolean(PREF_SKIP_ADS_KEY, PREF_SKIP_ADS_DEFAULT) &&
+                    if (preferences.getBoolean(AnichinPreferences.PREF_SKIP_ADS_KEY, AnichinPreferences.PREF_SKIP_ADS_DEFAULT) &&
                         serverName.contains("ADS", ignoreCase = true)
                     ) {
                         android.util.Log.d("Anichin", "[$index] Skipping ADS server")
@@ -255,7 +256,33 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         android.util.Log.d("Anichin", "=== TOTAL VIDEOS: ${videoList.size} ===")
 
-        return videoList.ifEmpty {
+        // Sort videos by preferred quality
+        val preferredQuality = preferences.getString(
+            AnichinPreferences.PREF_QUALITY_KEY, 
+            AnichinPreferences.PREF_QUALITY_DEFAULT
+        )!!
+
+        val sortedList = videoList.sortedWith(
+            compareByDescending<Video> { video ->
+                // Priority 1: Match preferred quality (highest priority)
+                if (video.quality.contains(preferredQuality, ignoreCase = true)) {
+                    1000
+                } else {
+                    // Priority 2: Quality ranking (for non-matching videos)
+                    when {
+                        video.quality.contains("1080p", ignoreCase = true) -> 100
+                        video.quality.contains("720p", ignoreCase = true) -> 90
+                        video.quality.contains("480p", ignoreCase = true) -> 80
+                        video.quality.contains("360p", ignoreCase = true) -> 70
+                        else -> 0
+                    }
+                }
+            }
+        )
+
+        android.util.Log.d("Anichin", "Sorted by preferred quality: $preferredQuality")
+
+        return sortedList.ifEmpty {
             listOf(Video(response.request.url.toString(), "Open in WebView", response.request.url.toString()))
         }
     }
@@ -375,6 +402,19 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             e.printStackTrace()
             videoList.add(Video(url, "$serverName (Error)", url))
         }
+
+        // Universal Base64 Extractor - backup/additional links
+        // Called after all existing extractors (VIP, OK.ru, etc.) to find additional sources
+        try {
+            val additionalVideos = universalBase64Extractor.extractFromUrl(finalUrl, serverName)
+            if (additionalVideos.isNotEmpty()) {
+                videoList.addAll(additionalVideos)
+                android.util.Log.d("Anichin", "UniversalBase64 added ${additionalVideos.size} videos")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Anichin", "UniversalBase64 extraction failed: ${e.message}")
+            e.printStackTrace()
+        }
     }
 
     /**
@@ -430,121 +470,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Settings ==============================
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        // ===== Network Settings =====
-        EditTextPreference(screen.context).apply {
-            key = PREF_BASE_URL_KEY
-            title = "Base URL"
-            summary = "Default: $PREF_BASE_URL_DEFAULT\nCurrent: %s\n\nGanti jika domain berubah (misal: anichin.watch → anichin.cc)"
-            setDefaultValue(PREF_BASE_URL_DEFAULT)
-            dialogTitle = "Enter Base URL"
-            dialogMessage = "Format: https://domain.com (tanpa trailing slash)"
-
-            setOnPreferenceChangeListener { _, newValue ->
-                val newUrl = newValue as String
-                if (newUrl.isNotBlank() && newUrl.startsWith("http")) {
-                    preferences.edit().putString(key, newUrl.trimEnd('/')).commit()
-                } else {
-                    false
-                }
-            }
-        }.also(screen::addPreference)
-
-        EditTextPreference(screen.context).apply {
-            key = PREF_USER_AGENT_KEY
-            title = "User Agent"
-            summary = "Custom User Agent untuk bypass block\n\nDefault: Chrome Windows\nCurrent: %s"
-            setDefaultValue(PREF_USER_AGENT_DEFAULT)
-            dialogTitle = "Enter User Agent"
-            dialogMessage = "Gunakan User Agent dari browser yang tidak di-block"
-
-            setOnPreferenceChangeListener { _, newValue ->
-                val ua = newValue as String
-                preferences.edit().putString(key, ua).commit()
-            }
-        }.also(screen::addPreference)
-
-        SwitchPreferenceCompat(screen.context).apply {
-            key = PREF_CLOUDFLARE_KEY
-            title = "CloudFlare Bypass"
-            summary = "Enable CloudFlare interceptor (on by default)\n\nMatikan jika menyebabkan loading lambat"
-            setDefaultValue(PREF_CLOUDFLARE_DEFAULT)
-
-            setOnPreferenceChangeListener { _, newValue ->
-                preferences.edit().putBoolean(key, newValue as Boolean).commit()
-            }
-        }.also(screen::addPreference)
-
-        EditTextPreference(screen.context).apply {
-            key = PREF_TIMEOUT_KEY
-            title = "Network Timeout (seconds)"
-            summary = "Timeout untuk network requests\n\nDefault: 90 detik\nCurrent: %s detik"
-            setDefaultValue(PREF_TIMEOUT_DEFAULT)
-            dialogTitle = "Enter Timeout"
-            dialogMessage = "Dalam detik (contoh: 60, 90, 120)"
-
-            setOnPreferenceChangeListener { _, newValue ->
-                val timeout = (newValue as String).toLongOrNull()
-                if (timeout != null && timeout > 0) {
-                    preferences.edit().putString(key, newValue).commit()
-                } else {
-                    false
-                }
-            }
-        }.also(screen::addPreference)
-
-        // ===== Video Settings =====
-        ListPreference(screen.context).apply {
-            key = PREF_QUALITY_KEY
-            title = "Preferred Quality"
-            entries = PREF_QUALITY_ENTRIES
-            entryValues = PREF_QUALITY_VALUES
-            setDefaultValue(PREF_QUALITY_DEFAULT)
-            summary = "Pilih kualitas video default: %s"
-
-            setOnPreferenceChangeListener { _, newValue ->
-                val selected = newValue as String
-                val index = findIndexOfValue(selected)
-                val entry = entryValues[index] as String
-                preferences.edit().putString(key, entry).commit()
-            }
-        }.also(screen::addPreference)
-
-        SwitchPreferenceCompat(screen.context).apply {
-            key = PREF_SKIP_ADS_KEY
-            title = "Skip [ADS] Servers"
-            summary = "Otomatis skip server dengan label [ADS]"
-            setDefaultValue(PREF_SKIP_ADS_DEFAULT)
-
-            setOnPreferenceChangeListener { _, newValue ->
-                preferences.edit().putBoolean(key, newValue as Boolean).commit()
-            }
-        }.also(screen::addPreference)
+        AnichinPreferences.setupPreferences(screen, preferences)
     }
 
     // ============================= Utilities ==============================
-
-    companion object {
-        // Network Settings
-        private const val PREF_BASE_URL_KEY = "base_url"
-        private const val PREF_BASE_URL_DEFAULT = "https://anichin.watch"
-
-        private const val PREF_USER_AGENT_KEY = "user_agent"
-        private const val PREF_USER_AGENT_DEFAULT =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-
-        private const val PREF_CLOUDFLARE_KEY = "cloudflare_enabled"
-        private const val PREF_CLOUDFLARE_DEFAULT = true
-
-        private const val PREF_TIMEOUT_KEY = "network_timeout"
-        private const val PREF_TIMEOUT_DEFAULT = "90"
-
-        // Video Settings
-        private const val PREF_QUALITY_KEY = "preferred_quality"
-        private const val PREF_QUALITY_DEFAULT = "720p"
-        private val PREF_QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p")
-        private val PREF_QUALITY_VALUES = arrayOf("1080p", "720p", "480p", "360p")
-
-        private const val PREF_SKIP_ADS_KEY = "skip_ads_servers"
-        private const val PREF_SKIP_ADS_DEFAULT = true
-    }
 }
