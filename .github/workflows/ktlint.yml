@@ -3,34 +3,46 @@ name: Auto Format Kotlin (Anichin)
 on:
   push:
     paths:
-      - 'src/id/anichin/**' # Workflow ini cuma jalan kalau ada perubahan di folder Anichin
-  workflow_dispatch: # Biar bisa kamu jalankan manual dari tab "Actions" di GitHub
+      - 'src/id/anichin/**'
+  workflow_dispatch:
 
 jobs:
   ktlint-format:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout:v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Mendapatkan seluruh history untuk bisa push
 
-      - name: Set up JDK 17
+      - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Grant execute permission for gradlew
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Run ktlintFormat for Anichin
-        # Kita spesifik jalankan task untuk module anichin saja agar cepat
+      - name: Run ktlintFormat
         run: ./gradlew :src:id:anichin:ktlintFormat
 
-      - name: Commit changes
+      - name: Auto-commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: auto-format kode (ktlint)"
-          file_pattern: 'src/id/anichin/**' # Cuma commit hasil format di folder itu saja
+          commit_options: '--no-verify'  # Melewati pre-commit hooks jika ada
+          file_pattern: 'src/id/anichin/**'
+          branch: ${{ github.ref_name }}
