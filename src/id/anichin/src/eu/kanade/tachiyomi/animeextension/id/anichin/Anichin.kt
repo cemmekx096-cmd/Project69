@@ -259,23 +259,21 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             AnichinPreferences.PREF_QUALITY_DEFAULT,
         )!!
 
-        val sortedList = videoList.sortedWith(
-            compareByDescending<Video> { video ->
-                // Priority 1: Match preferred quality (highest priority)
-                if (video.quality.contains(preferredQuality, ignoreCase = true)) {
-                    1000
-                } else {
-                    // Priority 2: Quality ranking (for non-matching videos)
-                    when {
-                        video.quality.contains("1080p", ignoreCase = true) -> 100
-                        video.quality.contains("720p", ignoreCase = true) -> 90
-                        video.quality.contains("480p", ignoreCase = true) -> 80
-                        video.quality.contains("360p", ignoreCase = true) -> 70
-                        else -> 0
-                    }
+        val sortedList = videoList.sortedByDescending { video ->
+            // Priority 1: Match preferred quality (highest priority)
+            if (video.quality.contains(preferredQuality, ignoreCase = true)) {
+                1000
+            } else {
+                // Priority 2: Quality ranking (for non-matching videos)
+                when {
+                    video.quality.contains("1080p", ignoreCase = true) -> 100
+                    video.quality.contains("720p", ignoreCase = true) -> 90
+                    video.quality.contains("480p", ignoreCase = true) -> 80
+                    video.quality.contains("360p", ignoreCase = true) -> 70
+                    else -> 0
                 }
             }
-        )
+        }
 
         android.util.Log.d("Anichin", "Sorted by preferred quality: $preferredQuality")
 

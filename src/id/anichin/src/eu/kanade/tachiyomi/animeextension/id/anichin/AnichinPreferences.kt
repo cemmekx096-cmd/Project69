@@ -36,7 +36,6 @@ object AnichinPreferences {
     // ======================== Setup Preferences ===========================
 
     fun setupPreferences(screen: PreferenceScreen, preferences: SharedPreferences) {
- // Base URL
         EditTextPreference(screen.context).apply {
             key = PREF_BASE_URL_KEY
             title = "Base URL"
