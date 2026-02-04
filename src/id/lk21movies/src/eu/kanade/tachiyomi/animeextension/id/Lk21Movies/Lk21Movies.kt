@@ -262,9 +262,9 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             "no_iframe" -> videoList.filter { !it.quality.contains("Iframe", ignoreCase = true) }
             "direct_only" -> videoList.filter {
                 it.quality.contains("720p") ||
-                   it.quality.contains("1080p") ||
-                   it.quality.contains("480p") ||
-                   it.quality.contains("360p")
+                    it.quality.contains("1080p") ||
+                    it.quality.contains("480p") ||
+                    it.quality.contains("360p")
             }
             else -> videoList
         }
