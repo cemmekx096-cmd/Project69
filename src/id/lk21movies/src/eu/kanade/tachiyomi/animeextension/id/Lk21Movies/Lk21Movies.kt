@@ -54,7 +54,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun popularAnimeSelector() = "article.item-infinite, article.f-item, div.grid-archive li"
 
-    override fun popularAnimeRequest(page: Int): Request = 
+    override fun popularAnimeRequest(page: Int): Request =
         GET("$baseUrl/populer/page/$page/", headers)
 
     override fun popularAnimeFromElement(element: Element): SAnime {
@@ -104,10 +104,10 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun latestUpdatesSelector() = popularAnimeSelector()
 
-    override fun latestUpdatesRequest(page: Int): Request = 
+    override fun latestUpdatesRequest(page: Int): Request =
         GET("$baseUrl/latest/page/$page/", headers)
 
-    override fun latestUpdatesFromElement(element: Element): SAnime = 
+    override fun latestUpdatesFromElement(element: Element): SAnime =
         popularAnimeFromElement(element)
 
     override fun latestUpdatesNextPageSelector() = popularAnimeNextPageSelector()
@@ -121,7 +121,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET("$baseUrl/search/$cleanQuery/page/$page/", headers)
     }
 
-    override fun searchAnimeFromElement(element: Element): SAnime = 
+    override fun searchAnimeFromElement(element: Element): SAnime =
         popularAnimeFromElement(element)
 
     override fun searchAnimeNextPageSelector() = popularAnimeNextPageSelector()
@@ -156,7 +156,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             .map { it.text().trim() }
             .filter { it.isNotEmpty() }
             .distinct()
-        
+
         genre = if (genreList.isNotEmpty()) {
             Lk21Common.normalizeGenres(genreList.joinToString(", "))
         } else {
@@ -240,7 +240,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         document.select("ul#player-list li a, ul#player_list li a").forEach { link ->
             val url = link.attr("abs:href").ifEmpty { link.attr("data-url") }
             val serverName = link.text().trim()
-            
+
             if (url.isNotEmpty() && url.startsWith("http")) {
                 android.util.Log.d("Lk21Movies", "Found player link: $serverName -> $url")
                 videoList.addAll(lk21Extractor.videosFromUrl(url, serverName))
@@ -260,10 +260,10 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val playerFilter = Lk21Preferences.getPlayerFilter(preferences)
         val filteredList = when (playerFilter) {
             "no_iframe" -> videoList.filter { !it.quality.contains("Iframe", ignoreCase = true) }
-            "direct_only" -> videoList.filter { 
-                it.quality.contains("720p") || 
-                   it.quality.contains("1080p") || 
-                   it.quality.contains("480p") || 
+            "direct_only" -> videoList.filter {
+                it.quality.contains("720p") ||
+                   it.quality.contains("1080p") ||
+                   it.quality.contains("480p") ||
                    it.quality.contains("360p")
             }
             else -> videoList
