@@ -300,6 +300,6 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             preferences = preferences,
             defaultBaseUrl = Lk21Preferences.DEFAULT_BASE_URL_MOVIES,
             isMovieExtension = true
-        ),
+        )
     }
 }
