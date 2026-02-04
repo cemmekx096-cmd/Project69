@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.lib.anichin2extractor // Pastikan package ini sesuai dengan lokasi filemu
+package eu.kanade.tachiyomi.lib.lk21extractor // Pastikan package ini sesuai dengan lokasi filemu
 
 object JsUnpacker {
     // Tambahkan fungsi ini agar eror 'detect' hilang
