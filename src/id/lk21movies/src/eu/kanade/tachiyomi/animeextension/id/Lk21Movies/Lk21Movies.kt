@@ -271,14 +271,18 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         android.util.Log.d("Lk21Movies", "Total videos found: ${filteredList.size}")
 
-        // Sort by preferred quality
-        val preferredQuality = Lk21Preferences.getPreferredQuality(preferences)
-        return filteredList.sortedWith(
-            compareByDescending<Video> {
+// Sort videos by preferred quality
+        val preferredQuality = preferences.getString(
+            Lk21Preferences.PREF_QUALITY_KEY,
+            "720",
+        )!!
+
         val sortedList = filteredList.sortedByDescending { video ->
+            // Priority 1: Match preferred quality (highest priority)
             if (video.quality.contains("${preferredQuality}p", ignoreCase = true)) {
                 1000
             } else {
+                // Priority 2: Quality ranking (for non-matching videos)
                 when {
                     video.quality.contains("1080p", ignoreCase = true) -> 100
                     video.quality.contains("720p", ignoreCase = true) -> 90
@@ -288,6 +292,10 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
             }
         }
+
+        android.util.Log.d("Lk21Movies", "Sorted by preferred quality: $preferredQuality")
+
+        return sortedList
 
     override fun videoListSelector() = throw UnsupportedOperationException()
     override fun videoFromElement(element: Element): Video = throw UnsupportedOperationException()
