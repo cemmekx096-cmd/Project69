@@ -295,7 +295,8 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         android.util.Log.d("Lk21Movies", "Sorted by preferred quality: $preferredQuality")
 
-        return sortedList
+return sortedList
+    }
 
     override fun videoListSelector() = throw UnsupportedOperationException()
     override fun videoFromElement(element: Element): Video = throw UnsupportedOperationException()
@@ -308,8 +309,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             screen = screen,
             preferences = preferences,
             defaultBaseUrl = Lk21Preferences.DEFAULT_BASE_URL_MOVIES,
-            isMovieExtension = true
+            isMovieExtension = true,
         )
     }
- }
 }
