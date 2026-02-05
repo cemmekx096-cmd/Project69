@@ -295,7 +295,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         android.util.Log.d("Lk21Movies", "Sorted by preferred quality: $preferredQuality")
 
-return sortedList
+        return sortedList
     }
 
     override fun videoListSelector() = throw UnsupportedOperationException()
