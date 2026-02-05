@@ -275,18 +275,19 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val preferredQuality = Lk21Preferences.getPreferredQuality(preferences)
         return filteredList.sortedWith(
             compareByDescending<Video> {
-                val quality = it.quality.lowercase()
+        val sortedList = filteredList.sortedByDescending { video ->
+            if (video.quality.contains("${preferredQuality}p", ignoreCase = true)) {
+                1000
+            } else {
                 when {
-                    quality.contains("${preferredQuality}p") -> 100
-                    quality.contains("720p") -> 10
-                    quality.contains("480p") -> 9
-                    quality.contains("360p") -> 8
-                    quality.contains("1080p") -> 5
+                    video.quality.contains("1080p", ignoreCase = true) -> 100
+                    video.quality.contains("720p", ignoreCase = true) -> 90
+                    video.quality.contains("480p", ignoreCase = true) -> 80
+                    video.quality.contains("360p", ignoreCase = true) -> 70
                     else -> 0
                 }
-            },
-        )
-    }
+            }
+        }
 
     override fun videoListSelector() = throw UnsupportedOperationException()
     override fun videoFromElement(element: Element): Video = throw UnsupportedOperationException()
