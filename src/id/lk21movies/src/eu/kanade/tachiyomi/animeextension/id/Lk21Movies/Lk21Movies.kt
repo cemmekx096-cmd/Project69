@@ -311,4 +311,5 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             isMovieExtension = true
         )
     }
+ }
 }
