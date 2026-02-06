@@ -1,13 +1,13 @@
 ext {
-    extName = 'Lk21'
-    extClass = '.Lk21'
-    extVersionCode = 6
+    extName = 'Lk21p'
+    extClass = '.Lk21p'
+    extVersionCode = 1
 }
 
 apply from: "$rootDir/common.gradle"
 
 dependencies {
     implementation(project(":lib:cloudflare-interceptor"))
-    implementation(project(":lib:lk21-extractor"))
+    implementation(project(":lib:lk21-common"))
     implementation(project(":lib:playlist-utils"))
 }
