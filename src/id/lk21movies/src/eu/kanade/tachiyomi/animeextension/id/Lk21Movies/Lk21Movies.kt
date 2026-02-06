@@ -200,7 +200,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Settings ===============================
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        Lk21Preferences.addPreferencesToScreen(screen, preferences, baseUrl)
+        Lk21Preferences.setupPreferences(screen, preferences, baseUrl)
     }
 
     // ============================== Utilities ===============================
