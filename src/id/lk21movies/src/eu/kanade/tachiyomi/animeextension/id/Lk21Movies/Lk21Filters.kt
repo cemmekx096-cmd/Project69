@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.animeextension.id.lk21
+package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -39,7 +39,7 @@ object LK21Filters {
             Pair("Thriller", "thriller"),
             Pair("War", "war"),
             Pair("Western", "western"),
-        )
+        ),
     )
 
     private class YearFilter : UriPartFilter(
@@ -63,7 +63,7 @@ object LK21Filters {
             Pair("2012", "2012"),
             Pair("2011", "2011"),
             Pair("2010", "2010"),
-        )
+        ),
     )
 
     private class CountryFilter : UriPartFilter(
@@ -85,12 +85,12 @@ object LK21Filters {
             Pair("Italy", "italy"),
             Pair("Canada", "canada"),
             Pair("Australia", "australia"),
-        )
+        ),
     )
 
     private open class UriPartFilter(
         displayName: String,
-        val vals: Array<Pair<String, String>>
+        val vals: Array<Pair<String, String>>,
     ) : AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
         fun toUriPart() = vals[state].second
     }

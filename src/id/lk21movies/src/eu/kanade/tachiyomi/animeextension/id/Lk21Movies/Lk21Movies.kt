@@ -1,11 +1,11 @@
-package eu.kanade.tachiyomi.animeextension.id.lk21
+package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
-import eu.kanade.tachiyomi.animesource.model.AnimesPage
+import
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -110,7 +110,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             status = SAnime.COMPLETED // Movies are always completed
 
             description = buildString {
-                document.selectFirst("div.entry-content p")?.text()?.let { 
+                document.selectFirst("div.entry-content p")?.text()?.let {
                     append(it)
                     append("\n\n")
                 }
@@ -137,7 +137,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 name = "Movie"
                 episode_number = 1F
                 setUrlWithoutDomain(response.request.url.toString())
-            }
+            },
         )
     }
 
