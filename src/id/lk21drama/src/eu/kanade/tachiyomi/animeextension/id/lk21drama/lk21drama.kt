@@ -13,7 +13,7 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import androidx.preference.PreferenceScreen
 
-class LK21p : ParsedHttpSource(), ConfigurableAnimeSource {
+class lk21drama : ParsedHttpSource(), ConfigurableAnimeSource {
 
     override val name = "LK21 Movies"
     override val baseUrl = "https://d21.team" 
