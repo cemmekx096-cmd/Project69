@@ -3,9 +3,9 @@ package eu.kanade.tachiyomi.animeextension.id.lk21movies
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
-import eu.kanade.tachiyomi.animeextension.id.lk21.LK21Filters.CountryFilter
-import eu.kanade.tachiyomi.animeextension.id.lk21.LK21Filters.GenreFilter
-import eu.kanade.tachiyomi.animeextension.id.lk21.LK21Filters.YearFilter
+import eu.kanade.tachiyomi.animeextension.id.lk21movies.LK21Filters.CountryFilter
+import eu.kanade.tachiyomi.animeextension.id.lk21movies.LK21Filters.GenreFilter
+import eu.kanade.tachiyomi.animeextension.id.lk21movies.LK21Filters.YearFilter
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.SAnime
