@@ -64,7 +64,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     .putString(Lk21Preferences.PREF_BASE_URL_KEY, domain)
                     .putLong("domain_cache_time", System.currentTimeMillis())
                     .apply()
-                
+
                 domain
             }
         }
@@ -84,7 +84,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun popularAnimeSelector() = "article[itemscope][itemtype*='Movie']"
 
-    override fun popularAnimeRequest(page: Int): Request = 
+    override fun popularAnimeRequest(page: Int): Request =
         GET("$baseUrl/populer/page/$page/", headers)
 
     override fun popularAnimeFromElement(element: Element): SAnime {
@@ -140,10 +140,10 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun latestUpdatesSelector() = popularAnimeSelector()
 
-    override fun latestUpdatesRequest(page: Int): Request = 
+    override fun latestUpdatesRequest(page: Int): Request =
         GET("$baseUrl/latest/page/$page/", headers)
 
-    override fun latestUpdatesFromElement(element: Element): SAnime = 
+    override fun latestUpdatesFromElement(element: Element): SAnime =
         popularAnimeFromElement(element)
 
     override fun latestUpdatesNextPageSelector() = popularAnimeNextPageSelector()
@@ -194,17 +194,17 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET(url, headers)
     }
 
-    override fun searchAnimeFromElement(element: Element): SAnime = 
+    override fun searchAnimeFromElement(element: Element): SAnime =
         popularAnimeFromElement(element)
-    
+
     override fun searchAnimeNextPageSelector() = popularAnimeNextPageSelector()
-    
+
     override fun getFilterList(): AnimeFilterList {
         return Lk21Filters.getFilterList(client, baseUrl, preferences)
     }
 
     // ========================== ANIME DETAILS ==========================
-    
+
     override fun animeDetailsParse(document: Document): SAnime = SAnime.create().apply {
         // Parse title
         title = document.selectFirst("h1")?.text()?.trim() ?: ""
@@ -246,7 +246,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         // Status (movies always completed)
         status = SAnime.COMPLETED
-        
+
         Log.d(TAG, "Parsed details: $title")
     }
 
@@ -278,8 +278,8 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         // Method 1: Player options (select/dropdown)
         document.select("select#player-select option, select.mirror option").forEach { option ->
             val url = option.attr("value")
-            val serverName = option.text().trim().ifEmpty { 
-                "Server ${option.attr("data-server")}" 
+            val serverName = option.text().trim().ifEmpty {
+                "Server ${option.attr("data-server")}"
             }
 
             if (url.isNotEmpty() && url.startsWith("http")) {
@@ -349,7 +349,7 @@ class Lk21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     }
 
     // ========================== HELPER ==========================
-    
+
     private inline fun <reified T> AnimeFilterList.findInstance(): T? {
         return this.filterIsInstance<T>().firstOrNull()
     }
