@@ -7,13 +7,13 @@ import androidx.preference.PreferenceScreen
 
 object Lk21Preferences {
 
- // Preference Keys
+    // Preference Keys
     const val PREF_BASE_URL_KEY = "base_url"
     const val PREF_USER_AGENT_KEY = "user_agent"
     const val PREF_QUALITY_KEY = "preferred_quality"
     const val PREF_PLAYER_KEY = "preferred_player"
 
- // Default Values
+    // Default Values
     const val DEFAULT_BASE_URL_MOVIES = "https://tv7.lk21official.cc"
     const val DEFAULT_BASE_URL_DRAMA = "https://tv3.nontondrama.my"
     const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
