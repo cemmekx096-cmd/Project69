@@ -81,4 +81,13 @@ object Lk21Common {
             .distinct()
             .joinToString(", ")
     }
+    
+    /**
+     * Check if element is a series based on episode badge
+     * Series memiliki: <span class="episode complete">EPS<strong>12</strong></span>
+     */
+    fun hasEpisodeBadge(elementHtml: String): Boolean {
+        return elementHtml.contains("episode complete", ignoreCase = true) ||
+               elementHtml.contains("episode ongoing", ignoreCase = true)
+    }
 }
