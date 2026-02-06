@@ -8,6 +8,9 @@ import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
+import eu.kanade.tachiyomi.animeextension.id.lk21.LK21Filters.GenreFilter
+import eu.kanade.tachiyomi.animeextension.id.lk21.LK21Filters.YearFilter
+import eu.kanade.tachiyomi.animeextension.id.lk21.LK21Filters.CountryFilter
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
 import eu.kanade.tachiyomi.network.GET
