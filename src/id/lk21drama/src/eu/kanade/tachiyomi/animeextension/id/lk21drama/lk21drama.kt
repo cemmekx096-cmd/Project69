@@ -1,29 +1,29 @@
-package eu.kanade.tachiyomi.animeextension.id.lk21
+package eu.kanade.tachiyomi.animeextension.id.lk21drama
 
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.model.*
 import eu.kanade.tachiyomi.animesource.online.ParsedHttpSource
+import eu.kanade.tachiyomi.lib.lk21extractor.LK21Filters
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Preferences
-import eu.kanade.tachiyomi.lib.lk21extractor.LK21Filters
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import androidx.preference.PreferenceScreen
 
 class lk21drama : ParsedHttpSource(), ConfigurableAnimeSource {
 
     override val name = "LK21 Movies"
-    override val baseUrl = "https://d21.team" 
+    override val baseUrl = "https://d21.team"
     override val lang = "id"
     override val supportsLatest = true
 
     private val extractor by lazy { Lk21Extractor(client) }
     private val helperFilters = LK21Filters()
     private var actualBaseUrl: String? = null
-    
+
     // Penampung Filter Dinamis
     private var genresList: List<Pair<String, String>> = emptyList()
     private var countriesList: List<Pair<String, String>> = emptyList()
@@ -33,7 +33,7 @@ class lk21drama : ParsedHttpSource(), ConfigurableAnimeSource {
         val prefUrl = Lk21Preferences.getBaseUrl(preferences, Lk21Preferences.DEFAULT_BASE_URL_MOVIES)
         if (prefUrl != Lk21Preferences.DEFAULT_BASE_URL_MOVIES) return prefUrl
         if (actualBaseUrl != null) return actualBaseUrl!!
-        
+
         return try {
             val doc = client.newCall(GET(baseUrl)).execute().asJsoup()
             actualBaseUrl = doc.select("a.cta-button.green-button").attr("abs:href")
