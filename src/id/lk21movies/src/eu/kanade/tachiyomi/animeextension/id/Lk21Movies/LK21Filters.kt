@@ -13,7 +13,7 @@ object LK21Filters {
         CountryFilter(),
     )
 
-    private class GenreFilter : UriPartFilter(
+    class GenreFilter : UriPartFilter(
         "Genre",
         arrayOf(
             Pair("<Pilih>", ""),
@@ -42,7 +42,7 @@ object LK21Filters {
         ),
     )
 
-    private class YearFilter : UriPartFilter(
+    class YearFilter : UriPartFilter(
         "Tahun",
         arrayOf(
             Pair("<Pilih>", ""),
@@ -66,7 +66,7 @@ object LK21Filters {
         ),
     )
 
-    private class CountryFilter : UriPartFilter(
+    class CountryFilter : UriPartFilter(
         "Negara",
         arrayOf(
             Pair("<Pilih>", ""),
@@ -88,7 +88,7 @@ object LK21Filters {
         ),
     )
 
-    private open class UriPartFilter(
+    open class UriPartFilter(
         displayName: String,
         val vals: Array<Pair<String, String>>,
     ) : AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
