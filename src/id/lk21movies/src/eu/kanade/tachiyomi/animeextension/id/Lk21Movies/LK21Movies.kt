@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 
 class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
-    override val name = "LK21"
+    override val name = "LK21Movies"
 
     override val lang = "id"
     override val supportsLatest = true
