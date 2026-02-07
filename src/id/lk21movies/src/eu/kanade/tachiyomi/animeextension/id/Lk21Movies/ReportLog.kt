@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.animeextension.id.lk21
+package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.util.Log
 
