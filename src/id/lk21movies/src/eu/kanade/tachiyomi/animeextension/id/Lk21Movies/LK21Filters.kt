@@ -111,6 +111,7 @@ object LK21Filters {
             when (filter) {
                 is GenreFilter -> if (filter.state != 0) genre = filter.toUriPart()
                 is CountryFilter -> if (filter.state != 0) country = filter.toUriPart()
+                else -> {}
             }
         }
 
