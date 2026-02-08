@@ -83,9 +83,12 @@ class PapalahExtractor(private val client: OkHttpClient, private val headers: He
             val apiUrl = url.substringBefore("/v/") + "/api/source/$id"
 
             val response = client.newCall(
-                GET(apiUrl, headers.newBuilder()
-                    .add("X-Requested-With", "XMLHttpRequest")
-                    .build()),
+                GET(
+                    apiUrl,
+                    headers.newBuilder()
+                        .add("X-Requested-With", "XMLHttpRequest")
+                        .build(),
+                ),
             ).execute()
 
             val json = response.body.string()

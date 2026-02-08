@@ -28,7 +28,7 @@ class PapalahUrlActivity : Activity() {
             val item = pathSegments[1]
             val mainIntent = Intent().apply {
                 action = "eu.kanade.tachiyomi.ANIMESEARCH"
-                
+
                 when (pathSegments[0]) {
                     "v" -> {
                         // Video detail page
