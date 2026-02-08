@@ -41,6 +41,11 @@ class PapalahUrlActivity : Activity() {
                 // Untuk video: gunakan full URL
                 // Input: https://papalah.com/v/104576/title
                 // Output: Papalah:https://papalah.com/v/104576/title
+                if (pathSegments.size < 2) {
+                    Log.e(tag, "Invalid video URL: missing video ID")
+                    finish()
+                    return
+                }
                 "${Papalah().name}:$uri"
             }
             "tag" -> {
