@@ -114,9 +114,9 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET(url, headers)
     }
 
-    override fun popularAnimeSelector(): String = 
-        "li.slider:not(:has(span.episode)), " +  // Homepage structure
-        "article[itemscope][itemtype*='Movie']:not(:has(span.episode))"  // Genre/filter page structure
+    override fun popularAnimeSelector(): String =
+        "li.slider:not(:has(span.episode)), " + // Homepage structure
+       "article[itemscope][itemtype*='Movie']:not(:has(span.episode))" // Genre/filter page structure
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
