@@ -22,39 +22,60 @@ class PapalahUrlActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val pathSegments = intent?.data?.pathSegments
+        
+        val uri = intent?.data
+        if (uri == null) {
+            Log.e(tag, "No URI in intent")
+            finish()
+            return
+        }
 
-        if (pathSegments != null && pathSegments.size > 1) {
-            val item = pathSegments[1]
-            val mainIntent = Intent().apply {
-                action = "eu.kanade.tachiyomi.ANIMESEARCH"
+        val pathSegments = uri.pathSegments
+        if (pathSegments.isEmpty()) {
+            Log.e(tag, "Empty path segments")
+            finish()
+            return
+        }
 
-                when (pathSegments[0]) {
-                    "v" -> {
-                        // Video detail page
-                        // URL format: /v/{id}/{title}
-                        putExtra("query", "${Papalah().name}:${intent?.data?.path}")
-                        putExtra("filter", packageName)
-                    }
-                    "tag" -> {
-                        // Tag filter page
-                        // URL format: /tag/{tag-name}
-                        putExtra("query", "${Papalah().name}:tag:$item")
-                        putExtra("filter", packageName)
-                    }
+        val query = when (pathSegments[0]) {
+            "v" -> {
+                // Untuk video: gunakan full URL
+                // Input: https://papalah.com/v/104576/title
+                // Output: Papalah:https://papalah.com/v/104576/title
+                "${Papalah().name}:${uri.toString()}"
+            }
+            "tag" -> {
+                // Untuk tag: gunakan nama tag saja
+                // Input: https://papalah.com/tag/action
+                // Output: Papalah:tag:action
+                val tagName = pathSegments.getOrNull(1) ?: run {
+                    Log.e(tag, "Missing tag name")
+                    finish()
+                    return
                 }
+                "${Papalah().name}:tag:$tagName"
             }
+            else -> {
+                Log.e(tag, "Unknown path type: ${pathSegments[0]}")
+                finish()
+                return
+            }
+        }
 
-            try {
-                startActivity(mainIntent)
-            } catch (e: ActivityNotFoundException) {
-                Log.e(tag, "Could not start activity", e)
-            }
-        } else {
-            Log.e(tag, "Could not parse URI from intent: $intent")
+        Log.d(tag, "Generated query: $query")
+
+        val mainIntent = Intent().apply {
+            action = "eu.kanade.tachiyomi.ANIMESEARCH"
+            putExtra("query", query)
+            putExtra("filter", packageName)
+        }
+
+        try {
+            startActivity(mainIntent)
+        } catch (e: ActivityNotFoundException) {
+            Log.e(tag, "Could not start activity", e)
         }
 
         finish()
-        exitProcess(0)
     }
 }
