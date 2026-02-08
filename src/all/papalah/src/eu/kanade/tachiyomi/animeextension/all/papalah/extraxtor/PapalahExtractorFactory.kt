@@ -34,7 +34,7 @@ class PapalahExtractorFactory(
     // ===================== Extract from URL ==============================
 
     fun extractVideos(url: String, prefix: String = ""): List<Video> {
-        val normalizedUrl = normalizeUrl(url)  // 👈 NORMALIZE DULU
+        val normalizedUrl = normalizeUrl(url) // 👈 NORMALIZE DULU
 
         return when {
             // Direct video formats
@@ -104,14 +104,14 @@ class PapalahExtractorFactory(
         Regex("""<iframe[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
             .findAll(html)
             .forEach { match ->
-                iframes.add(normalizeUrl(match.groupValues[1]))  // 👈 FIX
+                iframes.add(normalizeUrl(match.groupValues[1])) // 👈 FIX
             }
 
         // Pattern 2: data-src for lazy loading
         Regex("""<iframe[^>]+data-src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
             .findAll(html)
             .forEach { match ->
-                iframes.add(normalizeUrl(match.groupValues[1]))  // 👈 FIX
+                iframes.add(normalizeUrl(match.groupValues[1])) // 👈 FIX
             }
 
         return iframes.filter { it.isNotBlank() }
@@ -124,14 +124,14 @@ class PapalahExtractorFactory(
         Regex("""<video[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
             .findAll(html)
             .forEach { match ->
-                videos.add(normalizeUrl(match.groupValues[1]))  // 👈 FIX
+                videos.add(normalizeUrl(match.groupValues[1])) // 👈 FIX
             }
 
         // Pattern 2: <source src="...">
         Regex("""<source[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
             .findAll(html)
             .forEach { match ->
-                videos.add(normalizeUrl(match.groupValues[1]))  // 👈 FIX
+                videos.add(normalizeUrl(match.groupValues[1])) // 👈 FIX
             }
 
         return videos.filter { it.isNotBlank() }
