@@ -99,22 +99,25 @@ object LK21Filters {
     // Data class untuk search parameters
     data class SearchParameters(
         val genre: String = "",
+        val year: String = "",
         val country: String = "",
     )
 
     // Extract search parameters dari filters
     fun getSearchParameters(filters: AnimeFilterList): SearchParameters {
         var genre = ""
+        var year = ""
         var country = ""
 
         filters.forEach { filter ->
             when (filter) {
                 is GenreFilter -> if (filter.state != 0) genre = filter.toUriPart()
+                is YearFilter -> if (filter.state != 0) year = filter.toUriPart()
                 is CountryFilter -> if (filter.state != 0) country = filter.toUriPart()
                 else -> {}
             }
         }
 
-        return SearchParameters(genre, country)
+        return SearchParameters(genre, year, country)
     }
 }

@@ -114,17 +114,26 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET(url, headers)
     }
 
-    override fun popularAnimeSelector(): String = "ul.sliders li.slider:not(:has(span.episode))"
+    override fun popularAnimeSelector(): String = 
+        "li.slider:not(:has(span.episode)), " +  // Homepage structure
+        "article[itemscope][itemtype*='Movie']:not(:has(span.episode))"  // Genre/filter page structure
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
-            val link = element.selectFirst("a")!!
-            setUrlWithoutDomain(link.attr("href"))
+            // Handle both structures: li.slider (homepage) & article (genre page)
+            val link = element.selectFirst("a[itemprop=url], figure a, a[href]") ?: return@apply
+            val href = link.attr("href")
 
-            title = element.selectFirst("h3.poster-title")?.text() ?: ""
-            thumbnail_url = element.selectFirst("img")?.attr("src") ?: ""
+            if (href.isEmpty()) return@apply
+            setUrlWithoutDomain(href)
 
-            ReportLog.log("LK21-Popular", "Parsed: $title", LogLevel.DEBUG)
+            // Title - from figcaption (genre page) or h3 (homepage)
+            title = element.selectFirst("figcaption, h3.poster-title, h3, h2")?.text()?.trim() ?: ""
+
+            // Thumbnail - from picture or img
+            thumbnail_url = element.selectFirst("picture img, img")?.attr("src") ?: ""
+
+            ReportLog.log("LK21-Popular", "Parsed: $title from ${element.tagName()}", LogLevel.DEBUG)
         }
     }
 
@@ -157,18 +166,27 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
             params.genre.isNotEmpty() -> {
                 val genreUrl = if (page == 1) {
-                    "$baseUrl/genre/${params.genre}"
+                    "$baseUrl/genre/${params.genre}/"
                 } else {
-                    "$baseUrl/genre/${params.genre}/page/$page"
+                    "$baseUrl/genre/${params.genre}/page/$page/"
                 }
                 ReportLog.log("LK21-Search", "Genre filter: ${params.genre}", LogLevel.INFO)
                 genreUrl
             }
+            params.year.isNotEmpty() -> {
+                val yearUrl = if (page == 1) {
+                    "$baseUrl/year/${params.year}/"
+                } else {
+                    "$baseUrl/year/${params.year}/page/$page/"
+                }
+                ReportLog.log("LK21-Search", "Year filter: ${params.year}", LogLevel.INFO)
+                yearUrl
+            }
             params.country.isNotEmpty() -> {
                 val countryUrl = if (page == 1) {
-                    "$baseUrl/country/${params.country}"
+                    "$baseUrl/country/${params.country}/"
                 } else {
-                    "$baseUrl/country/${params.country}/page/$page"
+                    "$baseUrl/country/${params.country}/page/$page/"
                 }
                 ReportLog.log("LK21-Search", "Country filter: ${params.country}", LogLevel.INFO)
                 countryUrl
@@ -190,10 +208,17 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun animeDetailsParse(document: Document): SAnime {
         return SAnime.create().apply {
             title = document.selectFirst("h1[itemprop=name]")?.text() ?: ""
-            thumbnail_url = document.selectFirst("picture img")?.attr("src") ?: ""
 
-            genre = document.select("div.genre a")
-                .joinToString(", ") { it.text() }
+            // DON'T parse thumbnail here - use from listing to avoid picking related movie poster
+            // thumbnail_url is already set from popularAnimeFromElement
+            // thumbnail_url = document.selectFirst("picture img")?.attr("src") ?: ""
+
+            // Genre - from meta tag (most reliable) or links
+            genre = document.select("meta[itemprop=genre]").attr("content")
+                .ifEmpty {
+                    document.select("div.genre a, a[href*='/genre/'], span.tag a")
+                        .joinToString(", ") { it.text() }
+                }
 
             // Check if series or movie
             val isSeriesElement = document.selectFirst("span.episode")
@@ -209,28 +234,59 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
 
             description = buildString {
+                // Synopsis
                 document.selectFirst("div.synopsis")?.text()?.let {
-                    append("Synopsis:\n$it\n\n")
+                    append("$it\n\n")
                 }
 
-                document.selectFirst("span.year")?.text()?.let {
-                    append("Year: $it\n")
+                // Year
+                document.selectFirst("span.year, meta[itemprop=datePublished]")?.let { yearEl ->
+                    val year = if (yearEl.tagName() == "meta") {
+                        yearEl.attr("content").take(4)
+                    } else {
+                        yearEl.text()
+                    }
+                    append("📅 Year: $year\n")
                 }
 
-                document.selectFirst("span.rating")?.text()?.let {
-                    append("Rating: $it\n")
+                // Rating
+                document.selectFirst("span.rating, meta[itemprop=ratingValue]")?.let { ratingEl ->
+                    val rating = if (ratingEl.tagName() == "meta") {
+                        ratingEl.attr("content")
+                    } else {
+                        ratingEl.text()
+                    }
+                    append("⭐ Rating: $rating\n")
                 }
 
-                document.selectFirst("span.duration")?.text()?.let {
-                    append("Duration: $it\n")
+                // Duration
+                document.selectFirst("span.duration, meta[itemprop=duration]")?.let { durationEl ->
+                    val duration = if (durationEl.tagName() == "meta") {
+                        durationEl.attr("content")
+                            .replace("PT", "")
+                            .replace("H", "h ")
+                            .replace("M", "m")
+                    } else {
+                        durationEl.text()
+                    }
+                    append("⏱️ Duration: $duration\n")
                 }
 
+                // Quality
                 document.selectFirst("span.label")?.text()?.let {
-                    append("Quality: $it\n")
+                    append("🎬 Quality: $it\n")
+                }
+
+                // Country
+                document.select("a[href*='/country/']").let { countries ->
+                    if (countries.isNotEmpty()) {
+                        val countryList = countries.joinToString(", ") { it.text() }
+                        append("🌍 Country: $countryList")
+                    }
                 }
             }
 
-            ReportLog.log("LK21-Detail", "Parsed anime: $title (Status: $status)", LogLevel.INFO)
+            ReportLog.log("LK21-Detail", "Parsed: $title | Genre: $genre | Status: $status", LogLevel.INFO)
         }
     }
 
