@@ -12,11 +12,8 @@ import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.animeextension.id.papalah.extractors.PapalahExtractorFactory
-import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
-import okhttp3.Headers
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -120,12 +117,12 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
 
             // Ambil tags sebagai genre
-            genre = document.select("div.v-keywords a").joinToString { 
-                it.text() 
+            genre = document.select("div.v-keywords a").joinToString {
+                it.text()
             }
 
             description = buildString {
-                document.selectFirst("div.v-name")?.text()?.let { 
+                document.selectFirst("div.v-name")?.text()?.let {
                     append("Title: $it\n\n")
                 }
 
@@ -157,7 +154,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 episode_number = 1F
                 date_upload = parseDate(document.selectFirst("span.timeago")?.attr("title"))
                 setUrlWithoutDomain(response.request.url.toString())
-            }
+            },
         )
     }
 
@@ -219,8 +216,8 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return sortedWith(
             compareBy(
                 { it.quality.contains(quality) },
-                { Regex("""(\d+)p""").find(it.quality)?.groupValues?.get(1)?.toIntOrNull() ?: 0 }
-            )
+                { Regex("""(\d+)p""").find(it.quality)?.groupValues?.get(1)?.toIntOrNull() ?: 0 },
+            ),
         ).reversed()
     }
 

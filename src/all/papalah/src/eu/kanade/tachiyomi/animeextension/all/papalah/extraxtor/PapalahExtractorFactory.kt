@@ -6,7 +6,7 @@ import okhttp3.OkHttpClient
 
 class PapalahExtractorFactory(
     private val client: OkHttpClient,
-    private val headers: Headers
+    private val headers: Headers,
 ) {
 
     private val extractor = PapalahExtractor(client, headers)

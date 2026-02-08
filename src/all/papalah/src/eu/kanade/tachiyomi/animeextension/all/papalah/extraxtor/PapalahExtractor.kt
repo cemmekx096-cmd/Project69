@@ -85,7 +85,7 @@ class PapalahExtractor(private val client: OkHttpClient, private val headers: He
             val response = client.newCall(
                 GET(apiUrl, headers.newBuilder()
                     .add("X-Requested-With", "XMLHttpRequest")
-                    .build())
+                    .build()),
             ).execute()
 
             val json = response.body.string()
@@ -197,7 +197,7 @@ class PapalahExtractor(private val client: OkHttpClient, private val headers: He
             playlistUtils.extractFromHls(
                 playlistUrl = url,
                 videoNameGen = { quality -> "${prefix}HLS - $quality" },
-                referer = headers["Referer"] ?: ""
+                referer = headers["Referer"] ?: "",
             )
         } catch (e: Exception) {
             emptyList()

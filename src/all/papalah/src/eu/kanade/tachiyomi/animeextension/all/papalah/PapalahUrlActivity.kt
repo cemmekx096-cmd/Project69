@@ -9,7 +9,7 @@ import kotlin.system.exitProcess
 
 /**
  * Deep link handler untuk Papalah URLs
- * 
+ *
  * Mendukung:
  * - https://papalah.com/v/{id}/{title}
  * - https://www.papalah.com/v/{id}/{title}
