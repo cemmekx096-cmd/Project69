@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
-import eu.kanade.tachiyomi.animeextension.id.papalah.extractors.PapalahExtractorFactory
+import eu.kanade.tachiyomi.animeextension.all.papalah.extractors.PapalahExtractorFactory
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -30,7 +30,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val baseUrl = "https://www.papalah.com"
 
-    override val lang = "id"
+    override val lang = "all"
 
     override val supportsLatest = true
 
