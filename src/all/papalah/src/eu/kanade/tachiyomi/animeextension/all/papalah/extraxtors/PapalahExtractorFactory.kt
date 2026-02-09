@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.animeextension.id.papalah
+package eu.kanade.tachiyomi.animeextension.all.papalah.extractors
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
