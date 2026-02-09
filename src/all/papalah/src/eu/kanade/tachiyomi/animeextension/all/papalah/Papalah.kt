@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -30,7 +31,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val baseUrl = "https://www.papalah.com"
 
-    override val lang = "id"
+    override val lang = "all"
 
     override val supportsLatest = true
 
@@ -40,18 +41,35 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
+    companion object {
+        private const val VIDEO_SLUG = "v"
+        private const val TAG_SLUG = "tag"
+        private const val HOT_SLUG = "hot"
+
+        private const val TAG_LIST_PREF = "TAG_LIST"
+
+        const val PREFIX_TAG = "$TAG_SLUG:"
+    }
+
     // ============================== Popular ===============================
 
     override fun popularAnimeRequest(page: Int): Request {
-        return GET("$baseUrl/hot?page=$page", headers)
+        fetchTagsListOnce()
+
+        return GET(
+            baseUrl.toHttpUrl().newBuilder().apply {
+                addPathSegment(HOT_SLUG)
+                addQueryParameter("page", page.toString())
+            }.build(),
+            headers,
+        )
     }
 
     override fun popularAnimeSelector(): String = "div.col-md-3.col-xs-6.item a[data-id]"
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
-            val href = element.attr("href").removePrefix(".")
-            setUrlWithoutDomain(if (href.startsWith("/")) href else "/$href")
+            setUrlWithoutDomain(element.attr("href"))
             title = element.attr("title")
 
             val thumb = element.selectFirst("img.v-thumb")
@@ -64,7 +82,14 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Latest ===============================
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/?page=$page", headers)
+        fetchTagsListOnce()
+        
+        return GET(
+            baseUrl.toHttpUrl().newBuilder().apply {
+                addQueryParameter("page", page.toString())
+            }.build(),
+            headers,
+        )
     }
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
@@ -76,9 +101,32 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Search ===============================
 
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
+        fetchTagsListOnce()
+        
+        val url = baseUrl.toHttpUrl().newBuilder()
+
         return if (query.isNotBlank()) {
-            // Search by query
-            GET("$baseUrl/?q=$query&page=$page", headers)
+            // Handle direct tag search from deep link
+            if (query.startsWith(PREFIX_TAG)) {
+                val tagValue = query.removePrefix(PREFIX_TAG)
+                GET(
+                    url.apply {
+                        addPathSegment(TAG_SLUG)
+                        addPathSegment(tagValue)
+                        addQueryParameter("page", page.toString())
+                    }.build(),
+                    headers,
+                )
+            } else {
+                // Regular search by text query
+                GET(
+                    url.apply {
+                        addQueryParameter("q", query)
+                        addQueryParameter("page", page.toString())
+                    }.build(),
+                    headers,
+                )
+            }
         } else {
             // Apply filters
             val tagFilter = filters.filterIsInstance<PapalahFilters.TagFilter>().firstOrNull()
@@ -87,15 +135,33 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             when {
                 // Filter by tag
                 tagFilter != null && !tagFilter.isEmpty() -> {
-                    GET("$baseUrl/tag/${tagFilter.toUriPart()}?page=$page", headers)
+                    GET(
+                        url.apply {
+                            addPathSegment(TAG_SLUG)
+                            addPathSegment(tagFilter.toUriPart())
+                            addQueryParameter("page", page.toString())
+                        }.build(),
+                        headers,
+                    )
                 }
                 // Sort filter (hot/latest)
                 sortFilter != null && !sortFilter.isEmpty() -> {
-                    GET("$baseUrl/${sortFilter.toUriPart()}?page=$page", headers)
+                    GET(
+                        url.apply {
+                            addPathSegment(sortFilter.toUriPart())
+                            addQueryParameter("page", page.toString())
+                        }.build(),
+                        headers,
+                    )
                 }
                 // Default: latest
                 else -> {
-                    GET("$baseUrl/?page=$page", headers)
+                    GET(
+                        url.apply {
+                            addQueryParameter("page", page.toString())
+                        }.build(),
+                        headers,
+                    )
                 }
             }
         }
@@ -117,9 +183,17 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 it.attr("data-src").ifEmpty { it.attr("src") }
             }
 
-            // Ambil tags sebagai genre
-            genre = document.select("div.v-keywords a").joinToString {
-                it.text()
+            // Extract tags and save them
+            val videoTags = document.select("div.v-keywords a")
+                .map { it.text() }
+                .filter { it.isNotBlank() }
+
+            if (videoTags.isNotEmpty()) {
+                // Save tags to preferences
+                savedTags = savedTags.plus(videoTags.map { Tag(it, it) }.toSet())
+
+                // Set genre
+                genre = videoTags.joinToString()
             }
 
             description = buildString {
@@ -154,8 +228,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 name = document.selectFirst("div.v-name")?.text() ?: "Video"
                 episode_number = 1F
                 date_upload = parseDate(document.selectFirst("span.timeago")?.attr("title"))
-                val url = response.request.url.toString()
-                setUrlWithoutDomain(url.removePrefix(baseUrl))
+                setUrlWithoutDomain(response.request.url.toString())
             },
         )
     }
@@ -184,20 +257,108 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Filters ===============================
 
     override fun getFilterList(): AnimeFilterList {
-        // Fetch tags dynamically (bisa juga pakai getPopularTags() untuk static list)
-        val tags = try {
-            PapalahFilters.fetchTagsFromPage(client, baseUrl)
-        } catch (e: Exception) {
-            PapalahFilters.getPopularTags()
-        }
-
         return AnimeFilterList(
-            AnimeFilter.Header("NOTE: Filter akan diabaikan jika search query tidak kosong!"),
+            AnimeFilter.Header("NOTE: Filter will be ignored if search query is not empty!"),
             AnimeFilter.Separator(),
-            PapalahFilters.TagFilter(tags),
+            PapalahFilters.TagFilter(
+                if (!this::tagsArray.isInitialized && savedTags.isEmpty()) {
+                    arrayOf(Tag("Reset filter to load tags", ""))
+                } else {
+                    setOf(Tag("<Select Tag>", ""))
+                        .plus(if (this::tagsArray.isInitialized) tagsArray.toSet() else emptySet())
+                        .plus(savedTags.minus(PapalahFilters.getPopularTags().toSet()))
+                        .toTypedArray()
+                },
+            ),
             PapalahFilters.SortFilter(),
         )
     }
+
+    // ===================== Auto-Fetch Tags Mechanism ======================
+
+    /**
+     * Automatically fetched tags from the source to be used in the filters.
+     */
+    private lateinit var tagsArray: Tags
+
+    /**
+     * The request to the page that have the tags list.
+     */
+    private fun tagsListRequest() = GET(baseUrl, headers)
+
+    /**
+     * Fetch the tags from the source to be used in the filters.
+     */
+    private fun fetchTagsListOnce() {
+        if (!this::tagsArray.isInitialized) {
+            runCatching {
+                client.newCall(tagsListRequest())
+                    .execute()
+                    .asJsoup()
+                    .let(::tagsListParse)
+                    .let { tags ->
+                        if (tags.isNotEmpty()) {
+                            tagsArray = tags
+                        }
+                    }
+            }.onFailure { it.printStackTrace() }
+        }
+    }
+
+    /**
+     * Parse tags from the document (from footer keywords or any tag links).
+     */
+    private fun tagsListParse(document: Document): Tags {
+        // Extract from footer keywords section
+        val footerTags = document.select("div.keywords a[href*=/$TAG_SLUG/]")
+            .mapNotNull { element ->
+                val tagName = element.text().trim()
+                val tagValue = element.attr("href")
+                    .substringAfter("/$TAG_SLUG/")
+                    .substringBefore("?")
+                    .trim()
+
+                if (tagName.isNotEmpty() && tagValue.isNotEmpty()) {
+                    Tag(tagName, tagValue)
+                } else {
+                    null
+                }
+            }
+
+        // Also try from video page keywords
+        val videoTags = document.select("div.v-keywords a")
+            .mapNotNull { element ->
+                val tagName = element.text().trim()
+                if (tagName.isNotEmpty()) Tag(tagName, tagName) else null
+            }
+
+        return (footerTags + videoTags)
+            .distinctBy { it.second }
+            .toTypedArray()
+    }
+
+    /**
+     * Saved tags from previously viewed videos.
+     */
+    private var savedTags: Set<Tag> = loadTagListFromPreferences()
+        set(value) {
+            preferences.edit().putStringSet(
+                TAG_LIST_PREF,
+                value.map { it.first }.toSet(),
+            ).apply()
+            field = value
+        }
+
+    /**
+     * Load saved tags from SharedPreferences.
+     */
+    private fun loadTagListFromPreferences(): Set<Tag> =
+        preferences.getStringSet(TAG_LIST_PREF, emptySet())
+            ?.mapNotNull { tagName -> 
+                if (tagName.isNotBlank()) Tag(tagName, tagName) else null 
+            }
+            ?.toSet()
+            ?: emptySet()
 
     // ============================= Utilities ==============================
 
@@ -243,3 +404,6 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }.also(screen::addPreference)
     }
 }
+
+typealias Tags = Array<Tag>
+typealias Tag = Pair<String, String>
