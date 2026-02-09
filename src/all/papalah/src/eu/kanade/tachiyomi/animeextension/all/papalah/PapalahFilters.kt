@@ -24,7 +24,7 @@ internal object PapalahFilters {
     )
 
     // ======================== Base Filter Class ===========================
-    
+
     open class UriPartFilter(displayName: String, private val options: Tags) :
         AnimeFilter.Select<String>(displayName, options.map { it.first }.toTypedArray()) {
         fun toUriPart() = options[state].second
@@ -87,14 +87,14 @@ internal object PapalahFilters {
             val response = client.newCall(
                 okhttp3.Request.Builder()
                     .url(baseUrl)
-                    .build()
+                    .build(),
             ).execute()
 
             val document = Jsoup.parse(response.body.string())
 
             val tags = mutableSetOf<Tag>()
             tags.add(Tag("<Select Tag>", ""))
-            
+
             // Ambil tags dari footer keywords
             document.select("div.keywords a[href*=/tag/]").forEach { element ->
                 val tagName = element.text().trim()
