@@ -7,14 +7,14 @@ import org.jsoup.Jsoup
 internal object PapalahFilters {
 
     // ========================== Tag Filter ================================
-    
+
     class TagFilter(tags: Tags) : UriPartFilter(
         "Tag",
         tags,
     )
 
     // ========================== Sort Filter ===============================
-    
+
     class SortFilter : UriPartFilter(
         "Sort By",
         arrayOf(
@@ -33,7 +33,7 @@ internal object PapalahFilters {
     }
 
     // ======================== Popular Tags ================================
-    
+
     fun getPopularTags(): Tags {
         return arrayOf(
             Tag("<Select Tag>", ""),
@@ -81,7 +81,7 @@ internal object PapalahFilters {
     }
 
     // ===================== Dynamic Tag Fetcher ============================
-    
+
     fun fetchTagsFromPage(client: OkHttpClient, baseUrl: String): Tags {
         return try {
             val response = client.newCall(
@@ -89,9 +89,9 @@ internal object PapalahFilters {
                     .url(baseUrl)
                     .build()
             ).execute()
-            
+
             val document = Jsoup.parse(response.body.string())
-            
+
             val tags = mutableSetOf<Tag>()
             tags.add(Tag("<Select Tag>", ""))
             
@@ -102,12 +102,12 @@ internal object PapalahFilters {
                     .substringAfter("/tag/")
                     .substringBefore("?")
                     .trim()
-                
+
                 if (tagName.isNotEmpty() && tagValue.isNotEmpty()) {
                     tags.add(Tag(tagName, tagValue))
                 }
             }
-            
+
             // Fallback ke popular tags jika gagal fetch
             if (tags.size <= 1) {
                 getPopularTags()
