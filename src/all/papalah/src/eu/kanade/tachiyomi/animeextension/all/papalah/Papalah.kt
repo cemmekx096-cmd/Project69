@@ -83,7 +83,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun latestUpdatesRequest(page: Int): Request {
         fetchTagsListOnce()
-        
+
         return GET(
             baseUrl.toHttpUrl().newBuilder().apply {
                 addQueryParameter("page", page.toString())
@@ -102,7 +102,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         fetchTagsListOnce()
-        
+
         val url = baseUrl.toHttpUrl().newBuilder()
 
         return if (query.isNotBlank()) {
@@ -354,8 +354,8 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
      */
     private fun loadTagListFromPreferences(): Set<Tag> =
         preferences.getStringSet(TAG_LIST_PREF, emptySet())
-            ?.mapNotNull { tagName -> 
-                if (tagName.isNotBlank()) Tag(tagName, tagName) else null 
+            ?.mapNotNull { tagName ->
+                if (tagName.isNotBlank()) Tag(tagName, tagName) else null
             }
             ?.toSet()
             ?: emptySet()

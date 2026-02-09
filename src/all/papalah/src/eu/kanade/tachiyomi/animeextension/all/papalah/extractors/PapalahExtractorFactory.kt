@@ -25,12 +25,12 @@ class PapalahExtractorFactory(
 
     /**
      * Normalize relative URLs to absolute URLs.
-     * 
+     *
      * CRITICAL RULES:
      * 1. Video paths (videos/...) MUST use media.papalah.com (streaming CDN)
      * 2. Using www.papalah.com for videos will cause DOWNLOAD instead of streaming!
      * 3. Fixes bug where "v/12345" becomes "papalah.comv/12345"
-     * 
+     *
      * Examples:
      * - "videos/18/xxx.mp4" → "https://media.papalah.com/videos/18/xxx.mp4" ✅
      * - "/videos/18/xxx.mp4" → "https://media.papalah.com/videos/18/xxx.mp4" ✅
@@ -149,7 +149,7 @@ class PapalahExtractorFactory(
         }
 
         // 4. Extract direct URLs from text
-        val directUrls = extractUrlsFromText(html).filter { 
+        val directUrls = extractUrlsFromText(html).filter {
             it.contains(".m3u8") || it.contains(".mp4") || it.contains(".webm")
         }
         Log.d(TAG, "Found ${directUrls.size} direct URL(s)")
