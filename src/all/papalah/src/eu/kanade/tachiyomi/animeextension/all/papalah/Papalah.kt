@@ -1,10 +1,10 @@
-package eu.kanade.tachiyomi.animeextension.all.papalah
+package eu.kanade.tachiyomi.animeextension.id.papalah
 
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
-import eu.kanade.tachiyomi.animeextension.all.papalah.extractors.PapalahExtractorFactory
+import eu.kanade.tachiyomi.animeextension.id.papalah.extractors.PapalahExtractorFactory
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -12,8 +12,10 @@ import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
+import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
+import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -30,7 +32,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val baseUrl = "https://www.papalah.com"
 
-    override val lang = "all"
+    override val lang = "id"
 
     override val supportsLatest = true
 
@@ -50,7 +52,8 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
-            setUrlWithoutDomain(element.attr("href"))
+            val href = element.attr("href").removePrefix(".")
+            setUrlWithoutDomain(if (href.startsWith("/")) href else "/$href")
             title = element.attr("title")
 
             val thumb = element.selectFirst("img.v-thumb")
@@ -153,7 +156,8 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 name = document.selectFirst("div.v-name")?.text() ?: "Video"
                 episode_number = 1F
                 date_upload = parseDate(document.selectFirst("span.timeago")?.attr("title"))
-                setUrlWithoutDomain(response.request.url.toString())
+                val url = response.request.url.toString()
+                setUrlWithoutDomain(url.removePrefix(baseUrl))
             },
         )
     }
