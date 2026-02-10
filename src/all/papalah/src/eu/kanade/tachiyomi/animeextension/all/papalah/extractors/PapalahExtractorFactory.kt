@@ -25,11 +25,11 @@ class PapalahExtractorFactory(
 
     fun extractFromHtml(html: String, referer: String = ""): List<Video> {
         val videos = mutableListOf<Video>()
-        
+
         Log.d(TAG, "=== START EXTRACTION ===")
         Log.d(TAG, "HTML length: ${html.length} chars")
         Log.d(TAG, "Referer: $referer")
-        
+
         // METHOD 1: Video tag langsung
         Log.d(TAG, "🔍 Searching for <video src> tags...")
         val videoSrcPattern = """<video[^>]+src\s*=\s*["']([^"']+\.mp4)["']"""
@@ -40,7 +40,7 @@ class PapalahExtractorFactory(
                 Log.d(TAG, "  ✅ Found video #${index + 1}: $url")
                 videos.add(createVideo(url, "Direct Video"))
             }
-        
+
         // METHOD 2: Source tags
         Log.d(TAG, "🔍 Searching for <source> tags...")
         val sourcePattern = """<source[^>]+src\s*=\s*["']([^"']+\.mp4)["'][^>]+type\s*=\s*["']video/mp4["']"""
@@ -51,16 +51,16 @@ class PapalahExtractorFactory(
                 Log.d(TAG, "  ✅ Found source #${index + 1}: $url")
                 videos.add(createVideo(url, "Source Tag"))
             }
-        
+
         // METHOD 3: Debug - simpan snippet HTML untuk analisis
         if (videos.isEmpty()) {
             Log.e(TAG, "❌ NO VIDEOS FOUND!")
-            
+
             // Simpan HTML snippet untuk debugging
             val videoSection = extractVideoSection(html)
             Log.d(TAG, "📄 HTML Video Section (500 chars):")
             Log.d(TAG, videoSection)
-            
+
             // Coba cari semua .mp4 di HTML
             Log.d(TAG, "🔍 Trying fallback - all .mp4 URLs...")
             val allMp4Pattern = """https?://[^\s"'<>]+\.mp4"""
@@ -75,25 +75,25 @@ class PapalahExtractorFactory(
                     }
                 }
         }
-        
+
         val uniqueVideos = videos.distinctBy { it.url }
-        
+
         Log.d(TAG, "=== EXTRACTION COMPLETE ===")
         Log.d(TAG, "📊 Total videos found: ${videos.size}")
         Log.d(TAG, "📊 Unique videos: ${uniqueVideos.size}")
-        
+
         uniqueVideos.forEachIndexed { index, video ->
             Log.d(TAG, "  ${index + 1}. ${video.quality} - ${video.url}")
         }
-        
+
         return uniqueVideos
     }
-    
+ 
     private fun extractVideoSection(html: String): String {
         // Cari section dengan video player
         val videoIndex = html.indexOf("<video")
         if (videoIndex == -1) return "No <video> tag found"
-        
+
         val start = max(0, videoIndex - 100)
         val end = min(html.length, videoIndex + 400)
         return html.substring(start, end)
