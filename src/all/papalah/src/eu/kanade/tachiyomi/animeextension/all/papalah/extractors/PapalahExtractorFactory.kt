@@ -22,7 +22,7 @@ class PapalahExtractorFactory(
             "https://media.papalah.com",
             "https://media.aalah.me",
         )
-        private const val VIDEO_CDN_PRIMARY = "https://media.sslah.com"  // Default fallback
+        private const val VIDEO_CDN_PRIMARY = "https://media.sslah.com" // Default fallback
     }
 
     // ==================== URL Normalizer ====================
@@ -102,7 +102,7 @@ class PapalahExtractorFactory(
                 Log.d(TAG, "  ✅ Found <source src>: $videoUrl")
                 videos.add(Video(videoUrl, "Papalah - Source", videoUrl, headers))
             }
-  
+
         // METHOD 3: Reverse pattern - type first, src second
         Regex("""<source[^>]*\s+type\s*=\s*["']video/mp4["'][^>]*\s+src\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
             .findAll(html)

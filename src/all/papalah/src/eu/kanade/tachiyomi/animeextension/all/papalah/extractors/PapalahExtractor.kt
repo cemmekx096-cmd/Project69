@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.animeextension.all.papalah.extractors
 
-import eu.kanade.tachiyomi.animesource.model.Video
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 

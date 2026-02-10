@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.animeextension.all.papalah
 
 import android.app.Application
 import android.content.SharedPreferences
-import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animeextension.all.papalah.extractors.PapalahExtractorFactory
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
@@ -48,7 +47,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET(url, headers)
     }
 
-    override fun popularAnimeSelector(): String = 
+    override fun popularAnimeSelector(): String =
         "div.row:not(:has(div.sponsor-outer)) div.col-md-3.col-xs-6.item"
 
     override fun popularAnimeFromElement(element: Element): SAnime {
