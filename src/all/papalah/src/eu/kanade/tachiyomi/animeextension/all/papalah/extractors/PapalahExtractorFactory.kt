@@ -198,7 +198,7 @@ class PapalahExtractorFactory(
             Log.d(TAG, "🔓 Decoded URL: $decodedUrl")
 
             // Remove suffix (_626001, _123456, etc)
-            val cleanUrl = decodedUrl.replace(Regex("""_\d+$"""), "")
+            val cleanUrl = decodedUrl.replace(Regex("""_[a-f0-9]+$"""), "")
             Log.d(TAG, "🧹 Clean URL: $cleanUrl")
 
             // Validate URL format
