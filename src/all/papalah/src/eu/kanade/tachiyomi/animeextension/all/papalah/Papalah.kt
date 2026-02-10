@@ -57,7 +57,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             val href = link.attr("href").removePrefix(".")
             setUrlWithoutDomain(if (href.startsWith("/")) href else "/$href")
 
-            title = link.attr("title").ifEmpty {
+            title = (link.attr("title") ?: "").ifEmpty {
                 element.selectFirst("div.v-name")?.text() ?: ""
             }
 
