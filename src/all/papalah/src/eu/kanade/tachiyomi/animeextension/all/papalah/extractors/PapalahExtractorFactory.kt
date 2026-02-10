@@ -17,11 +17,11 @@ class PapalahExtractorFactory(
     companion object {
         // Semua CDN domains yang digunakan - URUTAN PRIORITAS
         private val VIDEO_CDN_DOMAINS = listOf(
-            "media.sslah.com",      // Primary (paling aktif)
-            "media.papalah.com",    // Secondary
-            "media.aiailah.com",    // Original dari JS
-            "media.aalah.me:8443",  // Port specific
-            "media.aalah.me",       // Fallback
+            "media.sslah.com", // Primary (paling aktif)
+            "media.papalah.com", // Secondary
+            "media.aiailah.com", // Original dari JS
+            "media.aalah.me:8443", // Port specific
+            "media.aalah.me", // Fallback
         )
 
         // Video file extensions yang didukung
@@ -46,7 +46,7 @@ class PapalahExtractorFactory(
             VIDEO_CDN_DOMAINS.forEach { targetDomain ->
                 val transformedUrl = transformDomain(jsDecodedUrl, targetDomain)
                 val qualityLabel = getDomainLabel(targetDomain)
-                
+
                 Log.d(TAG, "  🔄 $targetDomain: $transformedUrl")
                 videos.add(createVideo(transformedUrl, qualityLabel))
             }
@@ -200,7 +200,7 @@ class PapalahExtractorFactory(
             // Remove suffix (_626001, _123456, etc)
             val cleanUrl = decodedUrl.replace(Regex("""_\d+$"""), "")
             Log.d(TAG, "🧹 Clean URL: $cleanUrl")
-            
+
             // Validate URL format
             return if (cleanUrl.matches(Regex("""https?://[^/]+/videos/[^/]+/.+\.mp4"""))) {
                 cleanUrl
@@ -208,7 +208,6 @@ class PapalahExtractorFactory(
                 Log.d(TAG, "❌ Invalid URL format: $cleanUrl")
                 null
             }
-
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error decoding JS: ${e.message}")
             return null
@@ -224,7 +223,7 @@ class PapalahExtractorFactory(
         return try {
             val urlRegex = Regex("""https?://([^/]+)(/.*)""")
             val match = urlRegex.find(originalUrl)
-            
+
             if (match != null) {
                 val path = match.groupValues[2]
                 "https://$targetDomain$path"
