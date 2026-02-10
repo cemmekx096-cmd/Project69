@@ -25,89 +25,78 @@ class PapalahExtractorFactory(
 
     fun extractFromHtml(html: String, referer: String = ""): List<Video> {
         val videos = mutableListOf<Video>()
-
-        Log.d(TAG, "🔍 Starting video extraction...")
-
-        // PATTERN 1: <video> tag dengan src attribute
-        // Contoh: <video ... src="https://media.aiailah.com/videos/d/f/df7bfa09b43d8ac68d9e89e6a63e4176.mp4">
+        
+        Log.d(TAG, "=== START EXTRACTION ===")
+        Log.d(TAG, "HTML length: ${html.length} chars")
+        Log.d(TAG, "Referer: $referer")
+        
+        // METHOD 1: Video tag langsung
+        Log.d(TAG, "🔍 Searching for <video src> tags...")
         val videoSrcPattern = """<video[^>]+src\s*=\s*["']([^"']+\.mp4)["']"""
         Regex(videoSrcPattern, RegexOption.IGNORE_CASE)
             .findAll(html)
-            .forEach { match ->
+            .forEachIndexed { index, match ->
                 val url = match.groupValues[1].trim()
-                if (isValidVideoUrl(url)) {
-                    Log.d(TAG, "✅ Found video src: $url")
-                    videos.add(createVideo(url, "Direct Video"))
-                }
+                Log.d(TAG, "  ✅ Found video #${index + 1}: $url")
+                videos.add(createVideo(url, "Direct Video"))
             }
-
-        // PATTERN 2: <source> tag dengan src attribute
-        // Contoh: <source src="https://media.aiailah.com/videos/d/f/df7bfa09b43d8ac68d9e89e6a63e4176.mp4" type="video/mp4">
+        
+        // METHOD 2: Source tags
+        Log.d(TAG, "🔍 Searching for <source> tags...")
         val sourcePattern = """<source[^>]+src\s*=\s*["']([^"']+\.mp4)["'][^>]+type\s*=\s*["']video/mp4["']"""
         Regex(sourcePattern, RegexOption.IGNORE_CASE)
             .findAll(html)
-            .forEach { match ->
+            .forEachIndexed { index, match ->
                 val url = match.groupValues[1].trim()
-                if (isValidVideoUrl(url)) {
-                    Log.d(TAG, "✅ Found source: $url")
-                    videos.add(createVideo(url, "Source Tag"))
-                }
+                Log.d(TAG, "  ✅ Found source #${index + 1}: $url")
+                videos.add(createVideo(url, "Source Tag"))
             }
-
-        // PATTERN 3: Fallback - cari semua URL mp4 dari CDN domains
+        
+        // METHOD 3: Debug - simpan snippet HTML untuk analisis
         if (videos.isEmpty()) {
-            Log.d(TAG, "⚠️ No videos found with patterns, trying fallback...")
-
-            // Buat pattern untuk semua CDN domains
-            val cdnPatterns = VIDEO_CDN_DOMAINS.joinToString("|") { it.replace(".", "\\.") }
-            val fallbackPattern = """(https?://(?:$cdnPatterns)/[^\s"'<>]+\.mp4)"""
-
-            Regex(fallbackPattern, RegexOption.IGNORE_CASE)
+            Log.e(TAG, "❌ NO VIDEOS FOUND!")
+            
+            // Simpan HTML snippet untuk debugging
+            val videoSection = extractVideoSection(html)
+            Log.d(TAG, "📄 HTML Video Section (500 chars):")
+            Log.d(TAG, videoSection)
+            
+            // Coba cari semua .mp4 di HTML
+            Log.d(TAG, "🔍 Trying fallback - all .mp4 URLs...")
+            val allMp4Pattern = """https?://[^\s"'<>]+\.mp4"""
+            Regex(allMp4Pattern, RegexOption.IGNORE_CASE)
                 .findAll(html)
-                .forEach { match ->
-                    val url = match.groupValues[1].trim()
-                    if (!videos.any { it.url == url }) {
-                        Log.d(TAG, "✅ Found via fallback: $url")
+                .forEachIndexed { index, match ->
+                    val url = match.value.trim()
+                    Log.d(TAG, "  🟡 Found mp4 #${index + 1}: $url")
+                    if (isValidVideoUrl(url)) {
+                        Log.d(TAG, "  ✅ Valid video: $url")
                         videos.add(createVideo(url, "Fallback"))
                     }
                 }
         }
-
-        // Remove duplicates
+        
         val uniqueVideos = videos.distinctBy { it.url }
-
-        Log.d(TAG, "📊 Total unique videos found: ${uniqueVideos.size}")
+        
+        Log.d(TAG, "=== EXTRACTION COMPLETE ===")
+        Log.d(TAG, "📊 Total videos found: ${videos.size}")
+        Log.d(TAG, "📊 Unique videos: ${uniqueVideos.size}")
+        
         uniqueVideos.forEachIndexed { index, video ->
-            Log.d(TAG, "  ${index + 1}. ${video.url}")
+            Log.d(TAG, "  ${index + 1}. ${video.quality} - ${video.url}")
         }
-
+        
         return uniqueVideos
     }
-
-    private fun isValidVideoUrl(url: String): Boolean {
-        if (url.isBlank()) return false
-
-        // Harus berakhiran .mp4
-        if (!url.lowercase().endsWith(".mp4")) return false
-
-        // Harus dari salah satu CDN domain yang dikenal
-        val isValidDomain = VIDEO_CDN_DOMAINS.any { domain ->
-            url.contains(domain)
-        }
-
-        if (!isValidDomain) {
-            Log.d(TAG, "❌ Invalid domain for URL: $url")
-        }
-
-        return isValidDomain
-    }
-
-    private fun createVideo(url: String, source: String): Video {
-        // Coba detect quality dari URL (jika ada pattern)
-        val quality = detectQualityFromUrl(url)
-        val label = "Papalah" + if (quality.isNotEmpty()) " - $quality" else ""
-
-        return Video(url, label, url, headers)
+    
+    private fun extractVideoSection(html: String): String {
+        // Cari section dengan video player
+        val videoIndex = html.indexOf("<video")
+        if (videoIndex == -1) return "No <video> tag found"
+        
+        val start = max(0, videoIndex - 100)
+        val end = min(html.length, videoIndex + 400)
+        return html.substring(start, end)
     }
 
     private fun detectQualityFromUrl(url: String): String {
