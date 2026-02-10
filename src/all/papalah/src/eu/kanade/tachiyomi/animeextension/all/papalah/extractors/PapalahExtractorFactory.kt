@@ -16,9 +16,14 @@ class PapalahExtractorFactory(
     companion object {
         private const val DEFAULT_BASE_URL = "https://www.papalah.com"
 
-        // Video CDN domains - CRITICAL for streaming (not download)!
-        private const val VIDEO_CDN_PRIMARY = "https://media.papalah.com"
-        private const val VIDEO_CDN_FALLBACK = "https://media.sslah.com"
+        // Video CDN domains - Multiple CDNs support
+        private val VIDEO_CDN_DOMAINS = listOf(
+            "https://media.sslah.com",
+            "https://media.aiailah.com",
+            "https://media.papalah.com",
+            "https://media.aalah.me"
+        )
+        private const val VIDEO_CDN_PRIMARY = "https://media.sslah.com"  // Default fallback
     }
 
     // ==================== URL Normalizer (FIX untuk .comv/ bug) ====================

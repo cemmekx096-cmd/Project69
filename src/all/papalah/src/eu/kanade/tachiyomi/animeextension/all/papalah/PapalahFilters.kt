@@ -86,7 +86,7 @@ internal object PapalahFilters {
         return try {
             val response = client.newCall(
                 okhttp3.Request.Builder()
-                    .url(baseUrl)
+                    .url("$baseUrl/tag-list")  // ← Changed: Fetch from /tag-list page
                     .build(),
             ).execute()
 
@@ -95,12 +95,25 @@ internal object PapalahFilters {
             val tags = mutableSetOf<Tag>()
             tags.add(Tag("<Select Tag>", ""))
 
-            // Ambil tags dari footer keywords
-            document.select("div.keywords a[href*=/tag/]").forEach { element ->
+            // Method 1: Dari popular_keywords section
+            document.select("div.popular_keywords a[href*=/tag/]").forEach { element ->
                 val tagName = element.text().trim()
                 val tagValue = element.attr("href")
                     .substringAfter("/tag/")
-                    .substringBefore("?")
+                    .substringBefore("/")
+                    .trim()
+
+                if (tagName.isNotEmpty() && tagValue.isNotEmpty()) {
+                    tags.add(Tag(tagName, tagValue))
+                }
+            }
+
+            // Method 2: Dari tag-list dengan class tag-item
+            document.select("div.tag-list a.tag-item[href*=/tag/]").forEach { element ->
+                val tagName = element.text().trim()
+                val tagValue = element.attr("href")
+                    .substringAfter("/tag/")
+                    .substringBefore("/")
                     .trim()
 
                 if (tagName.isNotEmpty() && tagValue.isNotEmpty()) {
@@ -110,12 +123,15 @@ internal object PapalahFilters {
 
             // Fallback ke popular tags jika gagal fetch
             if (tags.size <= 1) {
+                android.util.Log.w("PapalahFilters", "No tags found from /tag-list, using popular tags")
                 getPopularTags()
             } else {
+                android.util.Log.d("PapalahFilters", "Fetched ${tags.size - 1} tags from /tag-list")
                 tags.toTypedArray()
             }
         } catch (e: Exception) {
             // Return popular tags as fallback
+            android.util.Log.e("PapalahFilters", "Error fetching tags: ${e.message}")
             getPopularTags()
         }
     }

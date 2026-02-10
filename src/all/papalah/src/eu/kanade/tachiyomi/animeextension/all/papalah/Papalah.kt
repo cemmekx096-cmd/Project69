@@ -30,7 +30,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val baseUrl = "https://www.papalah.com"
 
-    override val lang = "id"
+    override val lang = "all"
 
     override val supportsLatest = true
 
@@ -46,13 +46,20 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET("$baseUrl/hot?page=$page", headers)
     }
 
-    override fun popularAnimeSelector(): String = "div.col-md-3.col-xs-6.item a[data-id]"
+    override fun popularAnimeSelector(): String = 
+        "div.row:not(:has(div.sponsor-outer)) div.col-md-3.col-xs-6.item"
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
-            val href = element.attr("href").removePrefix(".")
+            // Ambil HANYA <a> pertama untuk avoid duplikasi
+            val link = element.selectFirst("a[data-id]") ?: return@apply
+
+            val href = link.attr("href").removePrefix(".")
             setUrlWithoutDomain(if (href.startsWith("/")) href else "/$href")
-            title = element.attr("title")
+
+            title = link.attr("title").ifEmpty {
+                element.selectFirst("div.v-name")?.text() ?: ""
+            }
 
             val thumb = element.selectFirst("img.v-thumb")
             thumbnail_url = thumb?.attr("data-src") ?: thumb?.attr("src")
@@ -122,21 +129,36 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 it.text()
             }
 
+            // Extract video URL untuk tambahkan ke description (debug purpose)
+            val videoUrl = document.selectFirst("video#my-video_html5_api")?.attr("src")
+                ?: document.selectFirst("video source")?.attr("src")
+                ?: ""
+
             description = buildString {
                 document.selectFirst("div.v-name")?.text()?.let {
-                    append("Title: $it\n\n")
+                    append("📹 $it\n\n")
                 }
 
                 document.selectFirst("span.timeago")?.attr("title")?.let {
-                    append("Upload: $it\n")
+                    append("📅 Upload: $it\n")
                 }
 
                 document.selectFirst("span.views-text")?.text()?.let {
-                    append("Views: $it\n")
+                    append("👁️ Views: $it\n")
                 }
 
                 document.selectFirst("div.v-duration")?.text()?.let {
-                    append("Duration: $it")
+                    append("⏱️ Duration: $it\n")
+                }
+
+                // Tambahkan tags jika ada
+                if (genre.isNotEmpty()) {
+                    append("\n🏷️ Tags: $genre\n")
+                }
+
+                // Tambahkan video URL untuk debug
+                if (videoUrl.isNotEmpty()) {
+                    append("\n🎬 Source: $videoUrl")
                 }
             }
 
