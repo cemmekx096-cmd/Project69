@@ -121,7 +121,7 @@ internal object PapalahFilters {
                     val displayName = element.text().trim()
                         .ifEmpty { element.attr("title").substringBefore("A片").trim() }
                         .ifEmpty { tagName }
-                    
+
                     tags.add(Tag(displayName, tagName))
                 }
             }
@@ -165,7 +165,6 @@ internal object PapalahFilters {
 
             android.util.Log.d("PapalahFilters", "✅ Fetched ${sortedTags.size - 1} tags from /tag-list")
             return sortedTags.toTypedArray()
-            
         } catch (e: Exception) {
             android.util.Log.e("PapalahFilters", "❌ Error fetching tags: ${e.message}")
             return getPopularTags()

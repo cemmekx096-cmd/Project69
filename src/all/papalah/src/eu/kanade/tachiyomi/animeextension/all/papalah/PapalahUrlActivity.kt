@@ -11,28 +11,28 @@ import kotlin.system.exitProcess
  * Deep link handler untuk Papalah URLs
  *
  * Format URL yang didukung:
- * 
+ *
  * 1. VIDEO DETAIL:
  * - https://papalah.com/v/{id}/{title}/
  * - https://www.papalah.com/v/{id}/{title}/
  * - https://papalah.com/v/{id}/
  * - https://www.papalah.com/v/{id}/
- * 
+ *
  * 2. TAG/BROWSE:
  * - https://papalah.com/tag/{tag-name}/
  * - https://www.papalah.com/tag/{tag-name}/
  * - https://papalah.com/tag/{tag-name}/page/{page}/
- * 
+ *
  * 3. TRENDING/HOT:
  * - https://papalah.com/hot/
  * - https://www.papalah.com/hot/
  * - https://papalah.com/hot/page/{page}/
- * 
+ *
  * 4. HOME/LATEST:
  * - https://papalah.com/
  * - https://www.papalah.com/
  * - https://papalah.com/page/{page}/
- * 
+ *
  * 5. DIRECT TAG LINKS (tanpa /tag/):
  * - https://papalah.com/{tag-name}/
  * - https://www.papalah.com/{tag-name}/
@@ -136,7 +136,6 @@ class PapalahUrlActivity : Activity() {
                     Log.e(tag, "Tachiyomi not found or doesn't support ANIMESEARCH action", e)
                 }
             }
-
         } catch (e: Exception) {
             Log.e(tag, "Error processing URL", e)
         }

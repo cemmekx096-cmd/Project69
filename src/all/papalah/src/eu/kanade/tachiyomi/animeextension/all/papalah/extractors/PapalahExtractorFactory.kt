@@ -16,10 +16,10 @@ class PapalahExtractorFactory(
         // Semua CDN domains yang digunakan
         private val VIDEO_CDN_DOMAINS = listOf(
             "media.aiailah.com",
-            "media.sslah.com", 
+            "media.sslah.com",
             "media.aalah.me:8443",
             "media.papalah.com",
-            "media.aalah.me"
+            "media.aalah.me",
         )
     }
 
@@ -41,7 +41,7 @@ class PapalahExtractorFactory(
                 }
             }
 
-        // PATTERN 2: <source> tag dengan src attribute  
+        // PATTERN 2: <source> tag dengan src attribute
         // Contoh: <source src="https://media.aiailah.com/videos/d/f/df7bfa09b43d8ac68d9e89e6a63e4176.mp4" type="video/mp4">
         val sourcePattern = """<source[^>]+src\s*=\s*["']([^"']+\.mp4)["'][^>]+type\s*=\s*["']video/mp4["']"""
         Regex(sourcePattern, RegexOption.IGNORE_CASE)
