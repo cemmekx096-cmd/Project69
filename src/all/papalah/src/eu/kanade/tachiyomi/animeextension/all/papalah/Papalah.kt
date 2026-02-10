@@ -46,7 +46,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET("$baseUrl/hot?page=$page", headers)
     }
 
-    override fun popularAnimeSelector(): String = 
+    override fun popularAnimeSelector(): String =
         "div.row:not(:has(div.sponsor-outer)) div.col-md-3.col-xs-6.item"
 
     override fun popularAnimeFromElement(element: Element): SAnime {

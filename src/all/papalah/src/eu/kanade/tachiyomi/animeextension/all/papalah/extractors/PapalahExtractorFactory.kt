@@ -21,9 +21,9 @@ class PapalahExtractorFactory(
             "https://media.sslah.com",
             "https://media.aiailah.com",
             "https://media.papalah.com",
-            "https://media.aalah.me"
+            "https://media.aalah.me",
         )
-        private const val VIDEO_CDN_PRIMARY = "https://media.sslah.com"  // Default fallback
+        private const val VIDEO_CDN_PRIMARY = "https://media.sslah.com" // Default fallback
     }
 
     // ==================== URL Normalizer (FIX untuk .comv/ bug) ====================
