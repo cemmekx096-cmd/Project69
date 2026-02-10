@@ -86,7 +86,7 @@ internal object PapalahFilters {
         return try {
             val response = client.newCall(
                 okhttp3.Request.Builder()
-                    .url("$baseUrl/tag-list") // ← Changed: Fetch from /tag-list page
+                    .url("$baseUrl/tag-list")  // ← Changed: Fetch from /tag-list page
                     .build(),
             ).execute()
 

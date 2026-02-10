@@ -43,10 +43,12 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Popular ===============================
 
     override fun popularAnimeRequest(page: Int): Request {
-        return GET("$baseUrl/hot?page=$page", headers)
+        // Popular URL pattern: /hot?&sort=2&duration=3&page=2
+        val url = "$baseUrl/hot?&sort=2&duration=3&page=$page"
+        return GET(url, headers)
     }
 
-    override fun popularAnimeSelector(): String =
+    override fun popularAnimeSelector(): String = 
         "div.row:not(:has(div.sponsor-outer)) div.col-md-3.col-xs-6.item"
 
     override fun popularAnimeFromElement(element: Element): SAnime {
@@ -54,7 +56,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             // Ambil HANYA <a> pertama untuk avoid duplikasi
             val link = element.selectFirst("a[data-id]") ?: return@apply
 
-            val href = link.attr("href").removePrefix(".")
+            val href = (link.attr("href") ?: "").removePrefix(".")
             setUrlWithoutDomain(if (href.startsWith("/")) href else "/$href")
 
             title = (link.attr("title") ?: "").ifEmpty {
@@ -71,7 +73,9 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Latest ===============================
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/?page=$page", headers)
+        // Latest URL pattern: /?&page=3
+        val url = "$baseUrl/?&page=$page"
+        return GET(url, headers)
     }
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
@@ -84,25 +88,31 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         return if (query.isNotBlank()) {
-            // Search by query
-            GET("$baseUrl/?q=$query&page=$page", headers)
+            // Search by query: /?q=test&page=2
+            val searchUrl = "$baseUrl/?q=$query&page=$page"
+            GET(searchUrl, headers)
         } else {
             // Apply filters
             val tagFilter = filters.filterIsInstance<PapalahFilters.TagFilter>().firstOrNull()
             val sortFilter = filters.filterIsInstance<PapalahFilters.SortFilter>().firstOrNull()
 
             when {
-                // Filter by tag
+                // Filter by tag: /tag/巨乳?page=2
                 tagFilter != null && !tagFilter.isEmpty() -> {
-                    GET("$baseUrl/tag/${tagFilter.toUriPart()}?page=$page", headers)
+                    val tagUrl = "$baseUrl/tag/${tagFilter.toUriPart()}?page=$page"
+                    GET(tagUrl, headers)
                 }
                 // Sort filter (hot/latest)
                 sortFilter != null && !sortFilter.isEmpty() -> {
-                    GET("$baseUrl/${sortFilter.toUriPart()}?page=$page", headers)
+                    if (sortFilter.toUriPart() == "hot") {
+                        popularAnimeRequest(page)
+                    } else {
+                        latestUpdatesRequest(page)
+                    }
                 }
                 // Default: latest
                 else -> {
-                    GET("$baseUrl/?page=$page", headers)
+                    latestUpdatesRequest(page)
                 }
             }
         }
@@ -152,7 +162,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
 
                 // Tambahkan tags jika ada
-                if (genre?.isNotEmpty() == true) {
+                if (genre.isNotEmpty()) {
                     append("\n🏷️ Tags: $genre\n")
                 }
 
@@ -206,7 +216,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Filters ===============================
 
     override fun getFilterList(): AnimeFilterList {
-        // Fetch tags dynamically (bisa juga pakai getPopularTags() untuk static list)
+        // Fetch tags dynamically dari /tag-list
         val tags = try {
             PapalahFilters.fetchTagsFromPage(client, baseUrl)
         } catch (e: Exception) {
@@ -221,47 +231,21 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         )
     }
 
-    // ============================= Utilities ==============================
-
-    private fun parseDate(dateStr: String?): Long {
-        if (dateStr.isNullOrEmpty()) return 0L
-
-        return try {
-            val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-            format.parse(dateStr)?.time ?: 0L
-        } catch (e: Exception) {
-            0L
-        }
-    }
-
-    override fun List<Video>.sort(): List<Video> {
-        val quality = preferences.getString("preferred_quality", "1080")!!
-
-        return sortedWith(
-            compareBy(
-                { it.quality.contains(quality) },
-                { Regex("""(\d+)p""").find(it.quality)?.groupValues?.get(1)?.toIntOrNull() ?: 0 },
-            ),
-        ).reversed()
-    }
-
     // ============================== Settings ==============================
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        ListPreference(screen.context).apply {
-            key = "preferred_quality"
-            title = "Preferred quality"
-            entries = arrayOf("1080p", "720p", "480p", "360p")
-            entryValues = arrayOf("1080", "720", "480", "360")
-            setDefaultValue("1080")
-            summary = "%s"
+        // No preferences needed for now
+    }
 
-            setOnPreferenceChangeListener { _, newValue ->
-                val selected = newValue as String
-                val index = findIndexOfValue(selected)
-                val entry = entryValues[index] as String
-                preferences.edit().putString(key, entry).commit()
-            }
-        }.also(screen::addPreference)
+    // ============================= Utilities ==============================
+
+    private fun parseDate(dateStr: String?): Long {
+        return try {
+            dateStr?.let {
+                SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH).parse(it)?.time
+            } ?: 0L
+        } catch (e: Exception) {
+            0L
+        }
     }
 }
