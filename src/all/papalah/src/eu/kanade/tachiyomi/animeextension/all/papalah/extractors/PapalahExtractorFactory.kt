@@ -88,7 +88,7 @@ class PapalahExtractorFactory(
 
         return uniqueVideos
     }
- 
+
     private fun extractVideoSection(html: String): String {
         // Cari section dengan video player
         val videoIndex = html.indexOf("<video")
