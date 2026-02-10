@@ -18,10 +18,10 @@ class PapalahExtractorFactory(
         // Semua CDN domains yang digunakan
         private val VIDEO_CDN_DOMAINS = listOf(
             "media.aiailah.com",
-            "media.sslah.com", 
+            "media.sslah.com",
             "media.aalah.me:8443",
             "media.papalah.com",
-            "media.aalah.me"
+            "media.aalah.me",
         )
 
         // Video file extensions yang didukung
