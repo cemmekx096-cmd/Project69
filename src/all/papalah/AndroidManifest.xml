@@ -2,22 +2,30 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:icon="@mipmap/ic_launcher">
         <activity
-            android:name=".id.papalah.PapalahUrlActivity"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:theme="@android:style/Theme.NoDisplay">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="https"/>
-                <data android:host="www.papalah.com"/>
-                <data android:host="papalah.com"/>
-                <data android:pathPattern="/v/.*"/>
-                <data android:pathPattern="/tag/.*"/>
-            </intent-filter>
-        </activity>
+                    android:name=".PapalahUrlActivity"
+                    android:exported="true"
+                    android:theme="@android:style/Theme.Translucent.NoTitleBar">
+                    
+                    <intent-filter>
+                        <action android:name="android.intent.action.VIEW" />
+                        <category android:name="android.intent.category.DEFAULT" />
+                        <category android:name="android.intent.category.BROWSABLE" />
+                        
+                        <!-- Semua domain Papalah -->
+                        <data android:host="papalah.com" />
+                        <data android:host="www.papalah.com" />
+                        <data android:host="aalah.me" />
+                        <data android:host="www.aalah.me" />
+                        <data android:scheme="http" />
+                        <data android:scheme="https" />
+                        
+                        <!-- Semua path patterns -->
+                        <data android:pathPrefix="/v/" />
+                        <data android:pathPrefix="/tag/" />
+                        <data android:pathPrefix="/hot" />
+                        <data android:pathPattern="/page/.*" />
+                        <data android:pathPattern="/[^/]+/" /> <!-- Untuk direct tag -->
+    </intent-filter>
+</activity>
     </application>
 </manifest>
