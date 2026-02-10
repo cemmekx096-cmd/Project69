@@ -152,7 +152,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
 
                 // Tambahkan tags jika ada
-                if (genre.isNotEmpty()) {
+                if (genre?.isNotEmpty() == true) {
                     append("\n🏷️ Tags: $genre\n")
                 }
 
