@@ -79,11 +79,12 @@ object Lk21Preferences {
 
         // Link Kontribusi / Developer
         androidx.preference.Preference(screen.context).apply {
+            key = "dev_github_link"
             title = "Developer GitHub / Report Bug"
             summary = "https://github.com/Usermongkay/Usermongkay"
-            key = "dev_link" // Tambahkan key agar tidak eror
-
+            
             setOnPreferenceClickListener {
+                // Return true agar klik terdaftar
                 true
             }
         }.also(screen::addPreference)

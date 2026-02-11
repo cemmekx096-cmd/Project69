@@ -27,7 +27,10 @@ class LK21Movies : ParsedAnimeHttpSource() {
     override val supportsLatest = true
 
     private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_$id", Application.MODE_PRIVATE)
+        Injekt.get<Application>().getSharedPreferences(
+            "source_$id",
+            android.content.Context.MODE_PRIVATE,
+        )
     }
 
     // 1. Logika Self-Healing: Mengambil data dari API GitHub
@@ -118,13 +121,11 @@ class LK21Movies : ParsedAnimeHttpSource() {
 
         // 6. Video Extraction: Memanggil lib/lk21-extractor
         override fun videoListParse(response: Response): List<Video> {
-            // Baris 121 (12 spasi di awal)
             val document = response.asJsoup()
             val videoList = mutableListOf<Video>()
             val url = response.request.url.toString()
 
             if (url.contains("youtube.com")) {
-                // Baris 126 (16 spasi di awal)
                 return YoutubeExtractor(client).videoFromUrl(url)
             }
 
@@ -150,9 +151,8 @@ class LK21Movies : ParsedAnimeHttpSource() {
             }
 
             return videoList.sortVideos()
-        } // Tutup fungsi (8 spasi)
+        } // Menutup videoListParse
 
-        // Fungsi pembantu (8 spasi)
         private fun List<Video>.sortVideos(): List<Video> {
             val quality = Lk21Preferences.getPreferredQuality(preferences)
             return this.sortedWith(
@@ -160,12 +160,11 @@ class LK21Movies : ParsedAnimeHttpSource() {
             )
         }
 
-        override fun popularAnimeNextPageSelector() = "a.next"
+        override fun popularAnimeNextPageSelector(): String = "a.next"
 
-        override fun videoListSelector() = throw Exception("Not used")
+        override fun videoListSelector(): String = throw Exception("Not used")
 
-        override fun videoFromElement(element: Element) = throw Exception("Not used")
+        override fun videoFromElement(element: Element): Video = throw Exception("Not used")
 
-        override fun videoUrlParse(document: Document) = throw Exception("Not used")
-    }
-}
+        override fun videoUrlParse(document: Document): String = throw Exception("Not used")
+} // Menutup Class LK21Movies (HANYA SATU KURUNG DI SINI)
