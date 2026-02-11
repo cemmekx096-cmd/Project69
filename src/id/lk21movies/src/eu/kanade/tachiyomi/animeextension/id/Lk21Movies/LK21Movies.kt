@@ -95,21 +95,24 @@ class LK21Movies : ParsedAnimeHttpSource() {
         val episodes = mutableListOf<SEpisode>()
 
         // Episode 1: Full Movie
-        episodes.add(SEpisode.create().apply {
-            name = "Nonton Film Utama"
-            episode_number = 1f
-            setUrlWithoutDomain(response.request.url.toString())
-        })
+        episodes.add(
+            SEpisode.create().apply {
+                name = "Nonton Film Utama"
+                episode_number = 1f
+                setUrlWithoutDomain(response.request.url.toString())
+            },
+        )
 
         // Episode 2: Trailer (Jika ada link YouTube)
         val trailerLink = document.select("a.yt-lightbox").attr("href")
         if (trailerLink.isNotEmpty()) {
-            episodes.add(SEpisode.create().apply {
+        episodes.add(
+            SEpisode.create().apply {
                 name = "Video Trailer"
                 episode_number = 2f
-                url = trailerLink // Simpan URL YouTube langsung
-            })
-        }
+                url = trailerLink
+            },
+        )
         return episodes
     }
 

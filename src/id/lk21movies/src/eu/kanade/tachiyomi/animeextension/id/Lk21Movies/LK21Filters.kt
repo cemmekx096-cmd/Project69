@@ -23,7 +23,7 @@ class SortFilter : AnimeFilter.Select<String>(
         "Rating 7+",
         "Web-DL",
         "Bluray",
-    )
+    ),
 )
 
 // Objek Helper untuk menampung hasil Live Scraping
