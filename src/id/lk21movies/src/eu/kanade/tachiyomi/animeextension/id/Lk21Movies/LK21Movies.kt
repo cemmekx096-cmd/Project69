@@ -167,4 +167,4 @@ class LK21Movies : ParsedAnimeHttpSource() {
         override fun videoFromElement(element: Element): Video = throw Exception("Not used")
 
         override fun videoUrlParse(document: Document): String = throw Exception("Not used")
-} // Menutup Class LK21Movies (HANYA SATU KURUNG DI SINI)
+}
