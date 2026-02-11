@@ -26,12 +26,12 @@ class LK21Movies : ParsedAnimeHttpSource() {
     override val lang = "id"
     override val supportsLatest = true
 
-    private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences(
-            "source_$id",
-            android.content.Context.MODE_PRIVATE,
-        )
-    }
+        private val preferences: SharedPreferences by lazy {
+            Injekt.get<Application>().getSharedPreferences(
+                "source_$id",
+                android.content.Context.MODE_PRIVATE,
+            )
+        }
 
     // 1. Logika Self-Healing: Mengambil data dari API GitHub
     private fun fetchApiConfig() {
@@ -76,9 +76,17 @@ class LK21Movies : ParsedAnimeHttpSource() {
 
     // 3. Search & 5 Kolom Filter
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        // Logika penggabungan filter Genre 1, Genre 2, Tahun, Negara, dan Rating
-        return GET("$baseUrl/search?s=$query") //
+        // Logika penggabungan filter akan kita buat di sini nanti
+        return GET("$baseUrl/search?s=$query") 
     }
+
+    // --- TARUH DI SINI ---
+    override fun searchAnimeSelector() = popularAnimeSelector()
+
+    override fun searchAnimeFromElement(element: Element): SAnime = popularAnimeFromElement(element)
+
+    override fun searchAnimeNextPageSelector(): String? = popularAnimeNextPageSelector()
+    // ---------------------
 
     // 4. Detail Film (Sinopsis, Cast, Trailer)
     override fun animeDetailsParse(document: Document): SAnime {
@@ -155,12 +163,14 @@ class LK21Movies : ParsedAnimeHttpSource() {
         return videoList.sortVideos()
     }
 
-    private fun List<Video>.sortVideos(): List<Video> {
-        val quality = Lk21Preferences.getPreferredQuality(preferences)
-        return this.sortedWith(
-            compareByDescending { it.quality.contains(quality, ignoreCase = true) },
-        )
-    }
+        private fun List<Video>.sortVideos(): List<Video> {
+            // Pastikan memanggil fungsi dari Lk21Preferences
+            val preferredQuality = Lk21Preferences.getPreferredQuality(preferences)
+            
+            return this.sortedWith(
+                compareByDescending { it.quality.contains(preferredQuality) },
+            )
+        }
 
     override fun popularAnimeNextPageSelector(): String = "a.next"
 
