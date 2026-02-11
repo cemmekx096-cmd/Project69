@@ -1,0 +1,28 @@
+​📜 Master Blueprint: lk21movies (Aniyomi Extension)
+​1. Fondasi API & Sinkronisasi
+​Sumber Data: File config.json yang di-hosting di GitHub (Raw Link).
+​Trigger Call:
+​Startup: Dipanggil saat pertama kali ekstensi dibuka.
+​Error Recovery: Dipanggil otomatis jika terjadi error 404 (domain mati) untuk mengambil URL cadangan terbaru.
+​Data yang Disimpan: baseUrl, userAgent, selectors (CSS), dan filterData (Genre, Negara, Tahun).
+​2. Logika Konten (Scraping & Cleaning)
+​Movie-Only: Menghapus semua konten Drama/Series dari daftar (berdasarkan filter URL atau label episode).
+​Global Search: Memindai seluruh kontener di homepage (Populer, Terbaru, Rekomendasi).
+​Deduplikasi: Menggunakan fungsi .distinctBy { it.url } agar tidak ada judul film yang ganda di layar user.
+​3. Sistem Video & Trailer
+​Format Episode:
+​Episode 1: Video utama (Full Movie).
+​Episode 2: Video Trailer (Mengambil link YouTube dari iframe web).
+​Trailer Handling: Menggunakan YoutubeExtractor di dalam kode Kotlin agar trailer bisa diputar langsung di player Aniyomi.
+​Quality Selector: Fitur "Auto" (HLS/m3u8) dan pilihan manual (360p - 1080p).
+​4. Menu Preferences (Pengaturan User)
+​Base URL Override: Input manual jika GitHub telat update.
+​User-Agent Switcher: Input manual untuk bypass bot-detection.
+​Quality Preference: Setting kualitas default.
+​Developer Link: Tombol langsung menuju akun GitHub untuk lapor bug/kontribusi.
+​5. Filter Dinamis (5 Kolom)
+​Genre 1: Genre utama.
+​Genre 2: Genre tambahan (kombinasi).
+​Negara: Filter asal film.
+​Tahun: Filter tahun rilis.
+​Berdasarkan: Berisi pilihan Rating (1-10), Rating Tertinggi, Populer, serta Kualitas (Web-DL, Bluray).
