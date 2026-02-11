@@ -82,7 +82,7 @@ object Lk21Preferences {
             key = "dev_github_link"
             title = "Developer GitHub / Report Bug"
             summary = "https://github.com/Usermongkay/Usermongkay"
-            
+
             setOnPreferenceClickListener {
                 // Return true agar klik terdaftar
                 true
