@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
-import
 
 // 1 & 2. Filter Genre (Digunakan untuk Genre 1 dan Genre 2)
 class GenreFilter(name: String, genres: Array<String>) : AnimeFilter.Select<String>(name, genres)
