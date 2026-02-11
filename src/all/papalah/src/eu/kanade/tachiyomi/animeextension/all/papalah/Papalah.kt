@@ -67,7 +67,7 @@ class Papalah : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
     }
 
-    override fun popularAnimeNextPageSelector(): String = "a.page-link[rel=next]"
+    override fun popularAnimeNextPageSelector(): String = "ul.pagination li a:has(i.fa-angle-right)"
 
     // =============================== Latest ===============================
 
