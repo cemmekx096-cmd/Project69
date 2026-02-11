@@ -26,12 +26,12 @@ class LK21Movies : ParsedAnimeHttpSource() {
     override val lang = "id"
     override val supportsLatest = true
 
-        private val preferences: SharedPreferences by lazy {
-            Injekt.get<Application>().getSharedPreferences(
-                "source_$id",
-                android.content.Context.MODE_PRIVATE,
-            )
-        }
+    private val preferences: SharedPreferences by lazy {
+        Injekt.get<Application>().getSharedPreferences(
+            "source_$id",
+            android.content.Context.MODE_PRIVATE,
+        )
+    }
 
     // 1. Logika Self-Healing: Mengambil data dari API GitHub
     private fun fetchApiConfig() {
@@ -46,11 +46,11 @@ class LK21Movies : ParsedAnimeHttpSource() {
     }
 
     // 2. Populasi Konten (Home/Latest) - Global Scraping & Anti-Duplikat
-    override fun popularAnimeSelector() = ".widget li.slider" //
+    override fun popularAnimeSelector() = ".widget li.slider"
     override fun popularAnimeRequest(page: Int): Request = GET("$baseUrl/populer/page/$page")
 
     override fun latestUpdatesSelector() = popularAnimeSelector()
-    override fun latestUpdatesRequest(page: Int): Request = GET("$baseUrl/latest/page/$page") //
+    override fun latestUpdatesRequest(page: Int): Request = GET("$baseUrl/latest/page/$page")
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
@@ -58,7 +58,7 @@ class LK21Movies : ParsedAnimeHttpSource() {
             val isDrama = element.select(".episode").isNotEmpty()
             title = element.select("article figure a").attr("itemprop", "url").attr("title")
             setUrlWithoutDomain(element.select("article figure a").attr("href"))
-            thumbnail_url = element.select("picture img").attr("src") //
+            thumbnail_url = element.select("picture img").attr("src")
         }
     }
 
@@ -70,14 +70,14 @@ class LK21Movies : ParsedAnimeHttpSource() {
             .map { popularAnimeFromElement(it) }
             .distinctBy { it.url } // Anti-Duplikat
 
-        val hasNextPage = document.select("a.next").isNotEmpty() //
+        val hasNextPage = document.select("a.next").isNotEmpty()
         return AnimesPage(animeList, hasNextPage)
     }
 
     // 3. Search & 5 Kolom Filter
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         // Logika penggabungan filter akan kita buat di sini nanti
-        return GET("$baseUrl/search?s=$query") 
+        return GET("$baseUrl/search?s=$query")
     }
 
     // --- TARUH DI SINI ---
@@ -91,10 +91,10 @@ class LK21Movies : ParsedAnimeHttpSource() {
     // 4. Detail Film (Sinopsis, Cast, Trailer)
     override fun animeDetailsParse(document: Document): SAnime {
         return SAnime.create().apply {
-            description = document.select("div.meta-info div.synopsis.expanded").text() //
-            genre = document.select("div.tag-list span.tag a[href*='/genre/']").joinToString { it.text() } //
-            author = document.select("div.detail p a[href*='/director/']").text() //
-            artist = document.select("div.detail p a[href*='/artist/']").joinToString { it.text() } //
+            description = document.select("div.meta-info div.synopsis.expanded").text()
+            genre = document.select("div.tag-list span.tag a[href*='/genre/']").joinToString { it.text() }
+            author = document.select("div.detail p a[href*='/director/']").text()
+            artist = document.select("div.detail p a[href*='/artist/']").joinToString { it.text() }
             status = SAnime.COMPLETED
         }
     }
@@ -127,7 +127,7 @@ class LK21Movies : ParsedAnimeHttpSource() {
             )
         }
         return episodes
-    } // <--- KURUNG TUTUP UNTUK episodeListParse
+    }
 
     // 6. Video Extraction: Memanggil lib/lk21-extractor
     override fun videoListParse(response: Response): List<Video> {
@@ -163,14 +163,14 @@ class LK21Movies : ParsedAnimeHttpSource() {
         return videoList.sortVideos()
     }
 
-        private fun List<Video>.sortVideos(): List<Video> {
-            // Pastikan memanggil fungsi dari Lk21Preferences
-            val preferredQuality = Lk21Preferences.getPreferredQuality(preferences)
-            
-            return this.sortedWith(
-                compareByDescending { it.quality.contains(preferredQuality) },
-            )
-        }
+    private fun List<Video>.sortVideos(): List<Video> {
+        // Pastikan memanggil fungsi dari Lk21Preferences
+        val preferredQuality = Lk21Preferences.getPreferredQuality(preferences)
+
+        return this.sortedWith(
+            compareByDescending { it.quality.contains(preferredQuality) },
+        )
+    }
 
     override fun popularAnimeNextPageSelector(): String = "a.next"
 
