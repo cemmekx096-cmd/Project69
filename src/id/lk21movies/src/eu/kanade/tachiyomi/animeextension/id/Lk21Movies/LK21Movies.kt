@@ -152,5 +152,5 @@ class LK21Movies : ParsedAnimeHttpSource() {
     override fun videoListSelector() = throw Exception("Not used")
     override fun videoFromElement(element: Element) = throw Exception("Not used")
     override fun videoUrlParse(document: Document) = throw Exception("Not used")
-  }
+ }
 }
