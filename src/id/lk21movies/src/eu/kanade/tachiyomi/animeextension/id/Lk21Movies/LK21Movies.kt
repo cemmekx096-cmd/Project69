@@ -93,6 +93,7 @@ class LK21Movies : ParsedAnimeHttpSource() {
 
     // 5. Episode Logic: Episode 1 = Film, Episode 2 = Trailer
     override fun episodeListSelector() = "html"
+
     override fun episodeListParse(response: Response): List<SEpisode> {
         val document = response.asJsoup()
         val episodes = mutableListOf<SEpisode>()
@@ -116,55 +117,56 @@ class LK21Movies : ParsedAnimeHttpSource() {
                     url = trailerLink
                 },
             )
-            return episodes
+        }
+        return episodes
+    } // <--- KURUNG TUTUP UNTUK episodeListParse
+
+    // 6. Video Extraction: Memanggil lib/lk21-extractor
+    override fun videoListParse(response: Response): List<Video> {
+        val document = response.asJsoup()
+        val videoList = mutableListOf<Video>()
+        val url = response.request.url.toString()
+
+        if (url.contains("youtube.com")) {
+            return YoutubeExtractor(client).videoFromUrl(url)
         }
 
-        // 6. Video Extraction: Memanggil lib/lk21-extractor
-        override fun videoListParse(response: Response): List<Video> {
-            val document = response.asJsoup()
-            val videoList = mutableListOf<Video>()
-            val url = response.request.url.toString()
-
-            if (url.contains("youtube.com")) {
-                return YoutubeExtractor(client).videoFromUrl(url)
-            }
-
-            val mainIframe = document.select("iframe#main-player").attr("src")
-            if (mainIframe.isNotEmpty()) {
-                videoList.addAll(
-                    Lk21Extractor(client, headers).videosFromUrl(
-                        mainIframe,
-                        "P2P",
-                    ),
-                )
-            }
-
-            document.select("ul#player-list li a").forEach { server ->
-                val serverName = server.attr("data-server")
-                val iframeUrl = server.attr("data-url")
-                videoList.addAll(
-                    Lk21Extractor(client, headers).videosFromUrl(
-                        iframeUrl,
-                        serverName,
-                    ),
-                )
-            }
-
-            return videoList.sortVideos()
-        } // Menutup videoListParse
-
-        private fun List<Video>.sortVideos(): List<Video> {
-            val quality = Lk21Preferences.getPreferredQuality(preferences)
-            return this.sortedWith(
-                compareByDescending { it.quality.contains(quality, ignoreCase = true) },
+        val mainIframe = document.select("iframe#main-player").attr("src")
+        if (mainIframe.isNotEmpty()) {
+            videoList.addAll(
+                Lk21Extractor(client, headers).videosFromUrl(
+                    mainIframe,
+                    "P2P",
+                ),
             )
         }
 
-        override fun popularAnimeNextPageSelector(): String = "a.next"
+        document.select("ul#player-list li a").forEach { server ->
+            val serverName = server.attr("data-server")
+            val iframeUrl = server.attr("data-url")
+            videoList.addAll(
+                Lk21Extractor(client, headers).videosFromUrl(
+                    iframeUrl,
+                    serverName,
+                ),
+            )
+        }
 
-        override fun videoListSelector(): String = throw Exception("Not used")
+        return videoList.sortVideos()
+    }
 
-        override fun videoFromElement(element: Element): Video = throw Exception("Not used")
+    private fun List<Video>.sortVideos(): List<Video> {
+        val quality = Lk21Preferences.getPreferredQuality(preferences)
+        return this.sortedWith(
+            compareByDescending { it.quality.contains(quality, ignoreCase = true) },
+        )
+    }
 
-        override fun videoUrlParse(document: Document): String = throw Exception("Not used")
+    override fun popularAnimeNextPageSelector(): String = "a.next"
+
+    override fun videoListSelector(): String = throw Exception("Not used")
+
+    override fun videoFromElement(element: Element): Video = throw Exception("Not used")
+
+    override fun videoUrlParse(document: Document): String = throw Exception("Not used")
 }
