@@ -115,40 +115,40 @@ class LK21Movies : ParsedAnimeHttpSource() {
             )
             return episodes
         }
-    
+
         // 6. Video Extraction: Memanggil lib/lk21-extractor
         override fun videoListParse(response: Response): List<Video> {
             val document = response.asJsoup()
             val videoList = mutableListOf<Video>()
             val url = response.request.url.toString()
-    
+
             if (url.contains("youtube.com")) {
                 // Gunakan YoutubeExtractor untuk Trailer
                 return YoutubeExtractor(client).videoFromUrl(url)
             }
-    
+
             // Ambil link iframe player utama
             val mainIframe = document.select("iframe#main-player").attr("src")
             if (mainIframe.isNotEmpty()) {
                 videoList.addAll(Lk21Extractor(client, headers).videosFromUrl(mainIframe, "P2P")) //
             }
-    
+
             // Ambil dari server alternatif (Multi-Server)
             document.select("ul#player-list li a").forEach { server ->
                 val serverName = server.attr("data-server")
                 val iframeUrl = server.attr("data-url")
                 videoList.addAll(Lk21Extractor(client, headers).videosFromUrl(iframeUrl, serverName)) //
             }
-    
+
             return videoList.sortVideos()
         }
-    
+
         // Helper untuk sorting kualitas berdasarkan preferensi user
         private fun List<Video>.sortVideos(): List<Video> {
             val quality = Lk21Preferences.getPreferredQuality(preferences)
             return this.sortedWith(compareByDescending { it.quality.contains(quality) })
         }
-    
+
         override fun videoListSelector() = throw Exception("Not used")
         override fun videoFromElement(element: Element) = throw Exception("Not used")
         override fun videoUrlParse(document: Document) = throw Exception("Not used")
