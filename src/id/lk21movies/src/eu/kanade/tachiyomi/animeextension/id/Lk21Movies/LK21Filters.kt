@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
-import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import
 
 // 1 & 2. Filter Genre (Digunakan untuk Genre 1 dan Genre 2)
 class GenreFilter(name: String, genres: Array<String>) : AnimeFilter.Select<String>(name, genres)
@@ -23,7 +23,7 @@ class SortFilter : AnimeFilter.Select<String>(
         "Rating 8+",
         "Rating 7+",
         "Web-DL",
-        "Bluray"
+        "Bluray",
     )
 )
 

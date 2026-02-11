@@ -76,7 +76,7 @@ object Lk21Preferences {
             setDefaultValue("720")
             summary = "Prioritas kualitas: %s"
         }.also(screen::addPreference)
-        
+
         // Link Kontribusi / Developer
         androidx.preference.Preference(screen.context).apply {
             title = "Developer GitHub / Report Bug"
@@ -89,12 +89,12 @@ object Lk21Preferences {
     }
 
     // Helper Functions untuk mempermudah pengambilan data di file Main (.kt)
-    fun getApiUrl(preferences: SharedPreferences): String = 
+    fun getApiUrl(preferences: SharedPreferences): String =
         preferences.getString(PREF_API_URL_KEY, DEFAULT_API_URL) ?: DEFAULT_API_URL
 
-    fun getBaseUrl(preferences: SharedPreferences): String = 
+    fun getBaseUrl(preferences: SharedPreferences): String =
         preferences.getString(PREF_BASE_URL_KEY, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
 
-    fun getUserAgent(preferences: SharedPreferences): String = 
+    fun getUserAgent(preferences: SharedPreferences): String =
         preferences.getString(PREF_USER_AGENT_KEY, DEFAULT_USER_AGENT) ?: DEFAULT_USER_AGENT
 }
