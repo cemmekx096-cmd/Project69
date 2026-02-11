@@ -82,7 +82,7 @@ object Lk21Preferences {
             title = "Developer GitHub / Report Bug"
             summary = "https://github.com/Usermongkay/Usermongkay"
             key = "dev_link" // Tambahkan key agar tidak eror
-            
+
             setOnPreferenceClickListener {
                 true
             }

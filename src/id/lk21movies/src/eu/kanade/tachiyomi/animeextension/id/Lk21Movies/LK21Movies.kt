@@ -117,52 +117,55 @@ class LK21Movies : ParsedAnimeHttpSource() {
         }
 
         // 6. Video Extraction: Memanggil lib/lk21-extractor
-    override fun videoListParse(response: Response): List<Video> {
-        val document = response.asJsoup()
-        val videoList = mutableListOf<Video>()
-        val url = response.request.url.toString()
+        override fun videoListParse(response: Response): List<Video> {
+            // Baris 121 (12 spasi di awal)
+            val document = response.asJsoup()
+            val videoList = mutableListOf<Video>()
+            val url = response.request.url.toString()
 
-        if (url.contains("youtube.com")) {
-            return YoutubeExtractor(client).videoFromUrl(url)
-        }
+            if (url.contains("youtube.com")) {
+                // Baris 126 (16 spasi di awal)
+                return YoutubeExtractor(client).videoFromUrl(url)
+            }
 
-        val mainIframe = document.select("iframe#main-player").attr("src")
-        if (mainIframe.isNotEmpty()) {
-            videoList.addAll(
-                Lk21Extractor(client, headers).videosFromUrl(
-                    mainIframe,
-                    "P2P",
-                ),
+            val mainIframe = document.select("iframe#main-player").attr("src")
+            if (mainIframe.isNotEmpty()) {
+                videoList.addAll(
+                    Lk21Extractor(client, headers).videosFromUrl(
+                        mainIframe,
+                        "P2P",
+                    ),
+                )
+            }
+
+            document.select("ul#player-list li a").forEach { server ->
+                val serverName = server.attr("data-server")
+                val iframeUrl = server.attr("data-url")
+                videoList.addAll(
+                    Lk21Extractor(client, headers).videosFromUrl(
+                        iframeUrl,
+                        serverName,
+                    ),
+                )
+            }
+
+            return videoList.sortVideos()
+        } // Tutup fungsi (8 spasi)
+
+        // Fungsi pembantu (8 spasi)
+        private fun List<Video>.sortVideos(): List<Video> {
+            val quality = Lk21Preferences.getPreferredQuality(preferences)
+            return this.sortedWith(
+                compareByDescending { it.quality.contains(quality, ignoreCase = true) },
             )
         }
 
-        document.select("ul#player-list li a").forEach { server ->
-            val serverName = server.attr("data-server")
-            val iframeUrl = server.attr("data-url")
-            videoList.addAll(
-                Lk21Extractor(client, headers).videosFromUrl(
-                    iframeUrl,
-                    serverName,
-                ),
-            )
-        }
+        override fun popularAnimeNextPageSelector() = "a.next"
 
-        return videoList.sortVideos()
-    } // <--- PASTIKAN ADA KURUNG TUTUP INI DI SINI
+        override fun videoListSelector() = throw Exception("Not used")
 
-    private fun List<Video>.sortVideos(): List<Video> {
-        val quality = Lk21Preferences.getPreferredQuality(preferences)
-        return this.sortedWith(
-            compareByDescending { it.quality.contains(quality) },
-        )
-    }
+        override fun videoFromElement(element: Element) = throw Exception("Not used")
 
-    override fun popularAnimeNextPageSelector() = "a.next"
-
-    override fun videoListSelector() = throw Exception("Not used")
-
-    override fun videoFromElement(element: Element) = throw Exception("Not used")
-
-    override fun videoUrlParse(document: Document) = throw Exception("Not used")
+        override fun videoUrlParse(document: Document) = throw Exception("Not used")
     }
 }
