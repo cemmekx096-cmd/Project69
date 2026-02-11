@@ -81,8 +81,9 @@ object Lk21Preferences {
         androidx.preference.Preference(screen.context).apply {
             title = "Developer GitHub / Report Bug"
             summary = "https://github.com/Usermongkay/Usermongkay"
+            key = "dev_link" // Tambahkan key agar tidak eror
+            
             setOnPreferenceClickListener {
-                // Logika buka browser bisa ditaruh di sini
                 true
             }
         }.also(screen::addPreference)
