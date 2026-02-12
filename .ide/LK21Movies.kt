@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.app.Application
-import android.content.Context
 import android.content.SharedPreferences
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
@@ -30,7 +29,7 @@ class LK21Movies : ParsedAnimeHttpSource() {
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences(
             "source_$id",
-            Context.MODE_PRIVATE,
+            android.content.Context.MODE_PRIVATE,
         )
     }
 
@@ -62,8 +61,6 @@ class LK21Movies : ParsedAnimeHttpSource() {
             thumbnail_url = element.select("picture img").attr("src")
         }
     }
-
-    override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
     // Filter Drama & Deduplikasi
     override fun popularAnimeParse(response: Response): AnimesPage {
@@ -171,7 +168,7 @@ class LK21Movies : ParsedAnimeHttpSource() {
         val preferredQuality = Lk21Preferences.getPreferredQuality(preferences)
 
         return this.sortedWith(
-            compareByDescending { it.quality.contains(preferredQuality, ignoreCase = true) },
+            compareByDescending { it.quality.contains(preferredQuality) },
         )
     }
 

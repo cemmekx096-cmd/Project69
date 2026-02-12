@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.animeextension.id.lk21movies
 import android.content.SharedPreferences
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
-import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
 
 object Lk21Preferences {
@@ -79,7 +78,7 @@ object Lk21Preferences {
         }.also(screen::addPreference)
 
         // Link Kontribusi / Developer
-        Preference(screen.context).apply {
+        androidx.preference.Preference(screen.context).apply {
             key = "dev_github_link"
             title = "Developer GitHub / Report Bug"
             summary = "https://github.com/Usermongkay/Usermongkay"
@@ -100,7 +99,4 @@ object Lk21Preferences {
 
     fun getUserAgent(preferences: SharedPreferences): String =
         preferences.getString(PREF_USER_AGENT_KEY, DEFAULT_USER_AGENT) ?: DEFAULT_USER_AGENT
-
-    fun getPreferredQuality(preferences: SharedPreferences): String =
-        preferences.getString(PREF_QUALITY_KEY, "720") ?: "720"
 }
