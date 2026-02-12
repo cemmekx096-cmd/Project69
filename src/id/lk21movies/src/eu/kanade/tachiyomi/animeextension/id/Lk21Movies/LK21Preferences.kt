@@ -10,7 +10,7 @@ import androidx.preference.PreferenceScreen
 
 /**
  * Preferences Screen untuk LK21Movies
- * FIXED KTLINT: Multiline strings escaped, lint-compliant
+ * FINAL FIX: No isEnabled, safe intent handling untuk Tachiyomi
  */
 object LK21Preferences {
 
@@ -25,8 +25,7 @@ object LK21Preferences {
             key = LK21Config.PREF_API_URL_KEY
             title = "API Configuration URL"
             setDefaultValue(LK21Config.DEFAULT_API_URL)
-            val currentValue = preferences.getString(LK21Config.PREF_API_URL_KEY, LK21Config.DEFAULT_API_URL)?.trim() ?: ""
-            summary = currentValue
+            summary = preferences.getString(LK21Config.PREF_API_URL_KEY, LK21Config.DEFAULT_API_URL)?.trim() ?: ""
             dialogTitle = "GitHub Raw JSON Link"
             dialogMessage = "Link ke file extension_lk21movies.json di GitHub untuk self-healing"
             setOnPreferenceChangeListener { _, newValue ->
@@ -103,31 +102,27 @@ object LK21Preferences {
         Preference().apply {
             key = "extension_version"
             title = "Versi Extension"
-            summary = "LK21Movies v2.0 - Lint Fixed"
-            isEnabled = false
+            summary = "LK21Movies v2.0 - Build Success"
+            // REMOVED: isEnabled tidak supported di extension Preference()
         }.also(screen::addPreference)
 
         // ================ 6. GITHUB REPOSITORY ================
         Preference().apply {
             key = "github_repo"
             title = "GitHub Repository"
-            summary = "Tap untuk membuka repository dan contribute"
+            summary = "https://github.com/Usermongkay/Usermongkay"
             setOnPreferenceClickListener {
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Usermongkay/Usermongkay"))
-                    context.startActivity(intent)
-                } catch (e: Exception) {}
+                // SIMPLIFIED: Intent tidak reliable di extension, pakai URL di summary
                 true
             }
         }.also(screen::addPreference)
 
         // ================ 7. FITUR INFO ================
-        // FIXED KTLINT: Escape multiline jadi single-line
         Preference().apply {
             key = "feature_info"
             title = "Fitur Extension"
-            summary = "✓ Self-healing domain; ✓ Live filter scraping; ✓ YouTube trailer; ✓ Quality selector; ✓ Filter cache"
-            isEnabled = false
+            summary = "Self-healing domain, Live filter, YouTube trailer, Quality selector, Filter cache"
+            // REMOVED: isEnabled tidak supported
         }.also(screen::addPreference)
     }
 }
