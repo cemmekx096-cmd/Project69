@@ -10,7 +10,7 @@ import androidx.preference.PreferenceScreen
 
 /**
  * Preferences Screen untuk LK21Movies
- * FIXED 100%: Constructor, isEnabled, startActivity resolved per Tachiyomi docs
+ * FIXED KTLINT: Multiline strings escaped, lint-compliant
  */
 object LK21Preferences {
 
@@ -40,8 +40,7 @@ object LK21Preferences {
             key = LK21Config.PREF_BASE_URL_KEY
             title = "Base URL (Manual Override)"
             setDefaultValue(LK21Config.DEFAULT_BASE_URL)
-            val currentValue2 = preferences.getString(LK21Config.PREF_BASE_URL_KEY, LK21Config.DEFAULT_BASE_URL) ?: ""
-            summary = currentValue2
+            summary = preferences.getString(LK21Config.PREF_BASE_URL_KEY, LK21Config.DEFAULT_BASE_URL) ?: ""
             dialogTitle = "Domain LK21 Aktif"
             dialogMessage = "Kosongkan untuk menggunakan self-healing otomatis"
             setOnPreferenceChangeListener { _, newValue ->
@@ -59,12 +58,11 @@ object LK21Preferences {
                 "720p (HD)",
                 "480p (SD)",
                 "360p (Low)",
-                "Auto (Otomatis)",
+                "Auto (Otomatis)"
             )
             entryValues = arrayOf("1080", "720", "480", "360", "auto")
             setDefaultValue("720")
             
-            // Init summary dengan nilai current
             val currentQuality = preferences.getString(LK21Config.PREF_QUALITY_KEY, "720") ?: "720"
             val qualityLabel = when (currentQuality) {
                 "1080" -> "1080p (Full HD)"
@@ -95,9 +93,7 @@ object LK21Preferences {
             summary = "Refresh daftar Genre, Negara, dan Tahun (tap untuk reset)"
             setOnPreferenceClickListener {
                 LK21Filters.clearCache(preferences)
-                preferences.edit()
-                    .putLong(LK21Config.PREF_LAST_UPDATE_KEY, 0L)
-                    .apply()
+                preferences.edit().putLong(LK21Config.PREF_LAST_UPDATE_KEY, 0L).apply()
                 summary = "Cache berhasil dihapus! Restart extension untuk refresh."
                 true
             }
@@ -107,8 +103,8 @@ object LK21Preferences {
         Preference().apply {
             key = "extension_version"
             title = "Versi Extension"
-            summary = "LK21Movies v2.0 - Fixed & Optimized"
-            isEnabled = false  // FIXED: Gunakan setEnabled(false)
+            summary = "LK21Movies v2.0 - Lint Fixed"
+            isEnabled = false
         }.also(screen::addPreference)
 
         // ================ 6. GITHUB REPOSITORY ================
@@ -119,24 +115,19 @@ object LK21Preferences {
             setOnPreferenceClickListener {
                 try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Usermongkay/Usermongkay"))
-                    context.startActivity(intent)  // FIXED: Gunakan context dari screen
-                } catch (e: Exception) {
-                    // Silent fail jika no browser
-                }
+                    context.startActivity(intent)
+                } catch (e: Exception) {}
                 true
             }
         }.also(screen::addPreference)
 
         // ================ 7. FITUR INFO ================
+        // FIXED KTLINT: Escape multiline jadi single-line
         Preference().apply {
             key = "feature_info"
             title = "Fitur Extension"
-            summary = "✓ Self-healing domain
-✓ Live filter scraping
-✓ YouTube trailer
-✓ Quality selector
-✓ Filter cache"
-            isEnabled = false  // FIXED: Gunakan setEnabled(false)
+            summary = "✓ Self-healing domain; ✓ Live filter scraping; ✓ YouTube trailer; ✓ Quality selector; ✓ Filter cache"
+            isEnabled = false
         }.also(screen::addPreference)
     }
 }
