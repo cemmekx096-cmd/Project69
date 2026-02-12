@@ -15,7 +15,6 @@ object LK21Preferences {
         screen: PreferenceScreen,
         preferences: SharedPreferences,
     ) {
-
         // API GitHub URL
         EditTextPreference(screen.context).apply {
             key = LK21Config.PREF_API_URL_KEY
