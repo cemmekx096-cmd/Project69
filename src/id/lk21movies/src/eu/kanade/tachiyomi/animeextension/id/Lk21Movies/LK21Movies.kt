@@ -51,6 +51,20 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
      * Fetch main domain from gateway, dengan cache 6 jam.
      * Fallback ke PREF_BASE_URL_KEY jika gagal.
      */
+    /**
+     * Headers khusus untuk fetch gateway — dibuat manual tanpa menyentuh
+     * [headers] / [headersBuilder] agar tidak terjadi circular dependency.
+     * (headersBuilder → baseUrl → getMainDomain → headers → headersBuilder → ♾️)
+     */
+    private val gatewayHeaders: Headers by lazy {
+        val userAgent = preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT)!!
+        Headers.Builder()
+            .add("User-Agent", userAgent)
+            .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .add("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7")
+            .build()
+    }
+
     private fun getMainDomain(): String {
         return try {
             val cachedDomain = preferences.getString(PREF_CACHED_DOMAIN_KEY, null)
@@ -62,8 +76,8 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 return cachedDomain
             }
 
-            // Fetch domain baru dari gateway
-            val response = network.client.newCall(GET(gatewayUrl, headers)).execute()
+            // Fetch domain baru — pakai gatewayHeaders, BUKAN headers (mencegah circular)
+            val response = network.client.newCall(GET(gatewayUrl, gatewayHeaders)).execute()
             val document = response.asJsoup()
 
             val mainDomain = document.selectFirst("a.cta-button.green-button")
@@ -99,11 +113,12 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun headersBuilder(): Headers.Builder {
         val userAgent = preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT)!!
 
+        // Referer TIDAK diset di sini karena memanggil baseUrl akan trigger
+        // getMainDomain() → butuh headers → headersBuilder() → circular StackOverflow.
         return super.headersBuilder().apply {
             add("User-Agent", userAgent)
             add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
             add("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7")
-            add("Referer", baseUrl)
         }
     }
 
