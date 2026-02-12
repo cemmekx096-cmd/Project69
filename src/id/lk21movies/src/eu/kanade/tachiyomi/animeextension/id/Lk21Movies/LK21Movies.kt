@@ -231,8 +231,13 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         // Sort by preferred quality
         return videoList
             .distinctBy { it.url }
-            .sortedWith(compareByDescending {
-                it.quality.contains(LK21Config.getPreferredQuality(preferences), ignoreCase = true)
-            },)
+            .sortedWith(
+                compareByDescending { 
+                    it.quality.contains(
+                        LK21Config.getPreferredQuality(preferences),
+                        ignoreCase = true
+                    ) 
+                }
+            )
     }
 }
