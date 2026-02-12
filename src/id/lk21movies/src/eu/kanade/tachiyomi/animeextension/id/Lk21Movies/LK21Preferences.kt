@@ -78,6 +78,7 @@ object LK21Preferences {
 
         // Clear Filter Cache
         Preference(context).apply {
+            key = "clear_filter_cache"
             title = "Hapus Cache Filter"
             summary = "Refresh daftar Genre, Negara, dan Tahun (tap untuk reset)"
 
@@ -94,6 +95,7 @@ object LK21Preferences {
 
         // Extension Version
         Preference(context).apply {
+            key = "extension_version"
             title = "Versi Extension"
             summary = "LK21Movies v2.0 - Clean Rebuild"
             isEnabled = false
@@ -101,6 +103,7 @@ object LK21Preferences {
 
         // GitHub Repository
         Preference(context).apply {
+            key = "github_repo"
             title = "GitHub Repository"
             summary = "Tap untuk membuka repository dan contribute"
 
@@ -116,6 +119,7 @@ object LK21Preferences {
 
         // Fitur Info
         Preference(context).apply {
+            key = "feature_info"
             title = "Fitur Extension"
             summary = "✓ Self-healing domain\n✓ Live filter scraping\n✓ YouTube trailer\n✓ Quality selector\n✓ Filter cache"
             isEnabled = false
