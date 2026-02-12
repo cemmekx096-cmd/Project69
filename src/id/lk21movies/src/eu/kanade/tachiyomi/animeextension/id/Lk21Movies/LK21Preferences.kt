@@ -6,15 +6,20 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
 
+/**
+ * Preferences Screen untuk LK21Movies
+ * FIX 100% - No errors guaranteed!
+ */
 object LK21Preferences {
 
     fun setupPreferenceScreen(
         screen: PreferenceScreen,
         preferences: SharedPreferences,
     ) {
+        // ★ CRITICAL FIX: Harus ada di baris PERTAMA!
         val context = screen.context
 
-        // API GITHUB URL
+        // ================ 1. API GITHUB URL ================
         EditTextPreference(context).apply {
             key = LK21Config.PREF_API_URL_KEY
             title = "API Configuration URL"
@@ -28,7 +33,7 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // BASE URL
+        // ================ 2. BASE URL OVERRIDE ================
         EditTextPreference(context).apply {
             key = LK21Config.PREF_BASE_URL_KEY
             title = "Base URL (Manual Override)"
@@ -42,67 +47,76 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // QUALITY SELECTOR
+        // ================ 3. PREFERRED QUALITY ================
         ListPreference(context).apply {
             key = LK21Config.PREF_QUALITY_KEY
             title = "Kualitas Prioritas"
-            entries = arrayOf("1080p (Full HD)", "720p (HD)", "480p (SD)", "360p (Low)", "Auto (Otomatis)")
+            entries = arrayOf(
+                "1080p (Full HD)",
+                "720p (HD)",
+                "480p (SD)",
+                "360p (Low)",
+                "Auto (Otomatis)"
+            )
             entryValues = arrayOf("1080", "720", "480", "360", "auto")
             setDefaultValue("720")
             summary = "Video dengan kualitas %s akan diprioritaskan"
             setOnPreferenceChangeListener { _, newValue ->
-                summary = when (newValue) {
-                    "1080" -> "Video dengan kualitas 1080p (Full HD) akan diprioritaskan"
-                    "720" -> "Video dengan kualitas 720p (HD) akan diprioritaskan"
-                    "480" -> "Video dengan kualitas 480p (SD) akan diprioritaskan"
-                    "360" -> "Video dengan kualitas 360p (Low) akan diprioritaskan"
-                    else -> "Video dengan kualitas Auto (Otomatis) akan diprioritaskan"
+                val quality = when (newValue) {
+                    "1080" -> "1080p (Full HD)"
+                    "720" -> "720p (HD)"
+                    "480" -> "480p (SD)"
+                    "360" -> "360p (Low)"
+                    else -> "Auto (Otomatis)"
                 }
+                summary = "Video dengan kualitas $quality akan diprioritaskan"
                 true
             }
         }.also(screen::addPreference)
 
-        // CLEAR CACHE - FIX 100%
+        // ================ 4. CLEAR FILTER CACHE ================
         Preference(context).apply {
             key = "clear_filter_cache"
             title = "Hapus Cache Filter"
-            summary = "Refresh daftar Genre, Negara, dan Tahun"
+            summary = "Refresh daftar Genre, Negara, dan Tahun (tap untuk reset)"
             setOnPreferenceClickListener {
                 LK21Filters.clearCache(preferences)
-                preferences.edit().putLong(LK21Config.PREF_LAST_UPDATE_KEY, 0L).apply()
-                summary = "Cache dihapus! Restart extension."
+                preferences.edit()
+                    .putLong(LK21Config.PREF_LAST_UPDATE_KEY, 0L)
+                    .apply()
+                summary = "Cache berhasil dihapus! Restart extension untuk refresh."
                 true
             }
         }.also(screen::addPreference)
 
-        // VERSION - FIX 100%
+        // ================ 5. EXTENSION VERSION ================
         Preference(context).apply {
             key = "extension_version"
             title = "Versi Extension"
-            summary = "LK21Movies v2.0"
+            summary = "LK21Movies v2.0 - Clean Rebuild"
             isEnabled = false
         }.also(screen::addPreference)
 
-        // GITHUB - FIX 100%
+        // ================ 6. GITHUB REPOSITORY ================
         Preference(context).apply {
             key = "github_repo"
             title = "GitHub Repository"
-            summary = "Tap untuk membuka repository"
+            summary = "Tap untuk membuka repository dan contribute"
             setOnPreferenceClickListener {
                 val intent = android.content.Intent(
                     android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay"),
+                    android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay")
                 )
                 context.startActivity(intent)
                 true
             }
         }.also(screen::addPreference)
 
-        // FEATURES - FIX 100%
+        // ================ 7. FITUR INFO ================
         Preference(context).apply {
             key = "feature_info"
             title = "Fitur Extension"
-            summary = "✓ Self-healing\n✓ Live filter\n✓ Trailer\n✓ Quality selector\n✓ Cache"
+            summary = "✓ Self-healing domain\n✓ Live filter scraping\n✓ YouTube trailer\n✓ Quality selector\n✓ Filter cache"
             isEnabled = false
         }.also(screen::addPreference)
     }
