@@ -1,7 +1,10 @@
 package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.app.Application
+import android.content.Context
 import android.content.SharedPreferences
+import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
@@ -19,7 +22,7 @@ import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class LK21Movies : ParsedAnimeHttpSource() {
+class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "Lk21Movies"
     override val baseUrl by lazy { Lk21Preferences.getBaseUrl(preferences) }
@@ -31,6 +34,51 @@ class LK21Movies : ParsedAnimeHttpSource() {
             "source_$id",
             0x0000,
         )
+    }
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        Lk21Preferences.setupPreferences(screen, preferences)
+    }
+
+    // Live Scraping untuk Filter (Genre, Country, Year)
+    init {
+        try {
+            // Scrape filter dari homepage
+            val response = client.newCall(GET(baseUrl)).execute()
+            val document = response.asJsoup()
+
+            // Scrape Genres
+            val genresList = mutableListOf("Semua Genre")
+            document.select("ul.genre-list li a").forEach {
+                genresList.add(it.text())
+            }
+            if (genresList.size > 1) {
+                Lk21Filters.genres = genresList.toTypedArray()
+            }
+
+            // Scrape Countries
+            val countriesList = mutableListOf("Semua Negara")
+            document.select("ul.country-list li a").forEach {
+                countriesList.add(it.text())
+            }
+            if (countriesList.size > 1) {
+                Lk21Filters.countries = countriesList.toTypedArray()
+            }
+
+            // Scrape Years
+            val yearsList = mutableListOf("Semua Tahun")
+            document.select("ul.year-list li a").forEach {
+                yearsList.add(it.text())
+            }
+            if (yearsList.size > 1) {
+                Lk21Filters.years = yearsList.toTypedArray()
+            }
+        } catch (e: Exception) {
+            // Jika gagal, gunakan default
+            Lk21Filters.genres = arrayOf("Semua Genre", "Action", "Comedy", "Drama", "Horror", "Romance", "Sci-Fi", "Thriller")
+            Lk21Filters.countries = arrayOf("Semua Negara", "USA", "Indonesia", "Korea", "Japan", "China", "India")
+            Lk21Filters.years = arrayOf("Semua Tahun", "2024", "2023", "2022", "2021", "2020")
+        }
     }
 
     // 1. Logika Self-Healing: Mengambil data dari API GitHub
@@ -79,9 +127,63 @@ class LK21Movies : ParsedAnimeHttpSource() {
     }
 
     // 3. Search & 5 Kolom Filter
+    override fun getFilterList(): AnimeFilterList {
+        val filters = mutableListOf<AnimeFilter<*>>(
+            AnimeFilter.Header("Gunakan filter untuk pencarian lebih spesifik"),
+            GenreFilter("Genre 1", Lk21Filters.genres),
+            GenreFilter("Genre 2", Lk21Filters.genres),
+            YearFilter(Lk21Filters.years),
+            CountryFilter(Lk21Filters.countries),
+            Lk21Filters.staticFilter,
+        )
+        return AnimeFilterList(filters)
+    }
+
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        // Logika penggabungan filter akan kita buat di sini nanti
-        return GET("$baseUrl/search?s=$query")
+        val url = if (query.isNotEmpty()) {
+            "$baseUrl/search?s=$query"
+        } else {
+            var filterUrl = "$baseUrl/page/$page"
+
+            filters.forEach { filter ->
+                when (filter) {
+                    is GenreFilter -> {
+                        if (filter.state > 0) {
+                            val genre = Lk21Filters.genres[filter.state].lowercase().replace(" ", "-")
+                            filterUrl = "$baseUrl/genre/$genre/page/$page"
+                        }
+                    }
+                    is YearFilter -> {
+                        if (filter.state > 0) {
+                            val year = Lk21Filters.years[filter.state]
+                            filterUrl = "$baseUrl/year/$year/page/$page"
+                        }
+                    }
+                    is CountryFilter -> {
+                        if (filter.state > 0) {
+                            val country = Lk21Filters.countries[filter.state].lowercase().replace(" ", "-")
+                            filterUrl = "$baseUrl/country/$country/page/$page"
+                        }
+                    }
+                    is SortFilter -> {
+                        when (filter.state) {
+                            1 -> filterUrl = "$baseUrl/rating/page/$page"
+                            2 -> filterUrl = "$baseUrl/most-viewed/page/$page"
+                            3 -> filterUrl = "$baseUrl/imdb-rating-9/page/$page"
+                            4 -> filterUrl = "$baseUrl/imdb-rating-8/page/$page"
+                            5 -> filterUrl = "$baseUrl/imdb-rating-7/page/$page"
+                            6 -> filterUrl = "$baseUrl/quality/web-dl/page/$page"
+                            7 -> filterUrl = "$baseUrl/quality/bluray/page/$page"
+                        }
+                    }
+                    else -> {}
+                }
+            }
+
+            filterUrl
+        }
+
+        return GET(url)
     }
 
     // --- TARUH DI SINI ---

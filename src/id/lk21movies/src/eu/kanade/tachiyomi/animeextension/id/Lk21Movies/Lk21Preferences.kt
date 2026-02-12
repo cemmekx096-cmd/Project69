@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.animeextension.id.lk21movies
 import android.content.SharedPreferences
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
 
 object Lk21Preferences {
@@ -77,23 +78,23 @@ object Lk21Preferences {
             summary = "Prioritas kualitas: %s"
         }.also(screen::addPreference)
 
-        // Contribute - Link ke GitHub
-        EditTextPreference(screen.context).apply {
-            key = "contribute_link"
-            title = "Contribute"
-            summary = "Tap to visit GitHub repository"
-            isEnabled = true
-            isSelectable = true
+        // Contribute - Link ke GitHub  
+        screen.addPreference(
+            object : Preference(screen.context) {}.apply {
+                key = "contribute_link"
+                title = "Contribute"
+                summary = "Tap to visit GitHub repository"
 
-            setOnPreferenceClickListener {
-                val intent = android.content.Intent(
-                    android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay"),
-                )
-                screen.context.startActivity(intent)
-                true
-            }
-        }.also(screen::addPreference)
+                setOnPreferenceClickListener {
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay"),
+                    )
+                    screen.context.startActivity(intent)
+                    true
+                }
+            },
+        )
     }
 
     // Helper Functions untuk mempermudah pengambilan data di file Main (.kt)
