@@ -15,8 +15,10 @@ object LK21Preferences {
         screen: PreferenceScreen,
         preferences: SharedPreferences,
     ) {
+        val context = screen.context
+
         // API GitHub URL
-        EditTextPreference(screen.context).apply {
+        EditTextPreference(context).apply {
             key = LK21Config.PREF_API_URL_KEY
             title = "API Configuration URL"
             setDefaultValue(LK21Config.DEFAULT_API_URL)
@@ -32,7 +34,7 @@ object LK21Preferences {
         }.also(screen::addPreference)
 
         // Base URL Override
-        EditTextPreference(screen.context).apply {
+        EditTextPreference(context).apply {
             key = LK21Config.PREF_BASE_URL_KEY
             title = "Base URL (Manual Override)"
             setDefaultValue(LK21Config.DEFAULT_BASE_URL)
@@ -47,7 +49,7 @@ object LK21Preferences {
         }.also(screen::addPreference)
 
         // Preferred Quality Selector
-        ListPreference(screen.context).apply {
+        ListPreference(context).apply {
             key = LK21Config.PREF_QUALITY_KEY
             title = "Kualitas Prioritas"
             entries = arrayOf(
@@ -75,7 +77,7 @@ object LK21Preferences {
         }.also(screen::addPreference)
 
         // Clear Filter Cache
-        Preference(screen.context).apply {
+        Preference(context).apply {
             title = "Hapus Cache Filter"
             summary = "Refresh daftar Genre, Negara, dan Tahun (tap untuk reset)"
 
@@ -91,14 +93,14 @@ object LK21Preferences {
         }.also(screen::addPreference)
 
         // Extension Version
-        Preference(screen.context).apply {
+        Preference(context).apply {
             title = "Versi Extension"
             summary = "LK21Movies v2.0 - Clean Rebuild"
             isEnabled = false
         }.also(screen::addPreference)
 
         // GitHub Repository
-        Preference(screen.context).apply {
+        Preference(context).apply {
             title = "GitHub Repository"
             summary = "Tap untuk membuka repository dan contribute"
 
@@ -113,7 +115,7 @@ object LK21Preferences {
         }.also(screen::addPreference)
 
         // Fitur Info
-        Preference(screen.context).apply {
+        Preference(context).apply {
             title = "Fitur Extension"
             summary = "✓ Self-healing domain\n✓ Live filter scraping\n✓ YouTube trailer\n✓ Quality selector\n✓ Filter cache"
             isEnabled = false
