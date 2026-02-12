@@ -16,9 +16,9 @@ class LK21MoviesExtractorFactory(
     companion object {
         // Known video servers/embedders
         private val KNOWN_SERVERS = listOf(
-            "p2p", "turbovip", "cast", "hydrax", 
+            "p2p", "turbovip", "cast", "hydrax",
             "gdriveplayer", "streamtape", "mixdrop",
-            "doodstream", "upstream", "fembed"
+            "doodstream", "upstream", "fembed",
         )
     }
 
@@ -100,7 +100,6 @@ class LK21MoviesExtractorFactory(
                         }
                     }
             }
-
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error extracting from $serverName: ${e.message}")
             e.printStackTrace()
@@ -155,7 +154,6 @@ class LK21MoviesExtractorFactory(
                         Log.d(TAG, "✅ Found from JSON url: $videoUrl")
                     }
                 }
-
         } catch (e: Exception) {
             Log.e(TAG, "Error extracting from JavaScript: ${e.message}")
         }
@@ -174,10 +172,10 @@ class LK21MoviesExtractorFactory(
 
         // Harus berakhiran video extension atau m3u8
         val lowerUrl = url.lowercase()
-        return lowerUrl.endsWith(".mp4") || 
-               lowerUrl.endsWith(".m3u8") ||
-               lowerUrl.contains(".mp4?") ||
-               lowerUrl.contains(".m3u8?")
+        return lowerUrl.endsWith(".mp4") ||
+            lowerUrl.endsWith(".m3u8") ||
+            lowerUrl.contains(".mp4?") ||
+            lowerUrl.contains(".m3u8?")
     }
 
     /**
