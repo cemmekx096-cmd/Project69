@@ -232,12 +232,12 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return videoList
             .distinctBy { it.url }
             .sortedWith(
-                compareByDescending { 
+                compareByDescending {
                     it.quality.contains(
                         LK21Config.getPreferredQuality(preferences),
-                        ignoreCase = true
-                    ) 
-                }
+                        ignoreCase = true,
+                    )
+                },
             )
     }
 }
