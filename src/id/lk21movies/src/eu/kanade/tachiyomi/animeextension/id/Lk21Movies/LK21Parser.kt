@@ -33,9 +33,10 @@ object LK21Parser {
 
     /**
      * Parse anime item dari element (untuk Popular/Latest/Search)
+     * @param baseUrl untuk normalisasi relative URL
      * @return SAnime or null jika element invalid
      */
-    fun parseAnimeFromElement(element: Element): SAnime? {
+    fun parseAnimeFromElement(element: Element, baseUrl: String): SAnime? {
         // Filter out Drama/Series (hanya Movie)
         if (element.select(EPISODE_BADGE_SELECTOR).isNotEmpty()) {
             return null
@@ -49,16 +50,28 @@ object LK21Parser {
                     linkElement.text()
                 }
 
+                // Normalize URL
                 url = linkElement.attr("href").let { href ->
                     when {
-                        href.startsWith("http") -> href.substringAfter(linkElement.baseUri())
-                        else -> href
+                        href.startsWith("http") -> {
+                            // Absolute URL, extract path only
+                            href.substringAfter(baseUrl).removePrefix("/")
+                        }
+                        href.startsWith("/") -> {
+                            // Relative URL dengan leading slash
+                            href.removePrefix("/")
+                        }
+                        else -> {
+                            // Already relative
+                            href
+                        }
                     }
                 }
 
                 thumbnail_url = element.select(THUMBNAIL_SELECTOR).attr("src").let { src ->
                     when {
                         src.startsWith("data:") -> element.select(THUMBNAIL_SELECTOR).attr("data-src")
+                        src.isBlank() -> element.select(THUMBNAIL_SELECTOR).attr("data-lazy-src")
                         else -> src
                     }
                 }
@@ -148,7 +161,8 @@ object LK21Parser {
         countryState: Int,
         sortState: Int,
     ): String {
-        var url = "$baseUrl/page/$page"
+        val cleanBaseUrl = baseUrl.removeSuffix("/")
+        var url = "$cleanBaseUrl/page/$page"
 
         // Priority: Genre > Year > Country
         when {
@@ -156,27 +170,27 @@ object LK21Parser {
                 val genre = LK21Filters.genres[genreState]
                     .lowercase()
                     .replace(" ", "-")
-                url = "$baseUrl/genre/$genre/page/$page"
+                url = "$cleanBaseUrl/genre/$genre/page/$page"
             }
             yearState > 0 -> {
                 val year = LK21Filters.years[yearState]
-                url = "$baseUrl/year/$year/page/$page"
+                url = "$cleanBaseUrl/year/$year/page/$page"
             }
             countryState > 0 -> {
                 val country = LK21Filters.countries[countryState]
                     .lowercase()
                     .replace(" ", "-")
-                url = "$baseUrl/country/$country/page/$page"
+                url = "$cleanBaseUrl/country/$country/page/$page"
             }
         }
 
         // Apply sort filter
         when (sortState) {
-            1 -> url = "$baseUrl/rating/page/$page"
-            2 -> url = "$baseUrl/most-viewed/page/$page"
-            3 -> url = "$baseUrl/imdb-rating-9/page/$page"
-            4 -> url = "$baseUrl/imdb-rating-8/page/$page"
-            5 -> url = "$baseUrl/imdb-rating-7/page/$page"
+            1 -> url = "$cleanBaseUrl/rating/page/$page"
+            2 -> url = "$cleanBaseUrl/most-viewed/page/$page"
+            3 -> url = "$cleanBaseUrl/imdb-rating-9/page/$page"
+            4 -> url = "$cleanBaseUrl/imdb-rating-8/page/$page"
+            5 -> url = "$cleanBaseUrl/imdb-rating-7/page/$page"
         }
 
         return url
