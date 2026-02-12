@@ -79,16 +79,18 @@ object Lk21Preferences {
         }.also(screen::addPreference)
 
         // Link Kontribusi / Developer
-        Preference(screen.context).apply {
-            key = "dev_github_link"
-            title = "Developer GitHub / Report Bug"
-            summary = "https://github.com/Usermongkay/Usermongkay"
+        screen.addPreference(
+            Preference(screen.context).apply {
+                key = "dev_github_link"
+                title = "Developer GitHub / Report Bug"
+                summary = "https://github.com/Usermongkay/Usermongkay"
 
-            setOnPreferenceClickListener {
-                // Return true agar klik terdaftar
-                true
-            }
-        }.also(screen::addPreference)
+                setOnPreferenceClickListener {
+                    // Return true agar klik terdaftar
+                    true
+                }
+            },
+        )
     }
 
     // Helper Functions untuk mempermudah pengambilan data di file Main (.kt)

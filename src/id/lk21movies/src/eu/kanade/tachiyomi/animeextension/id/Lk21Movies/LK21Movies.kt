@@ -30,7 +30,7 @@ class LK21Movies : ParsedAnimeHttpSource() {
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences(
             "source_$id",
-            Context.MODE_PRIVATE,
+            0x0000,
         )
     }
 
@@ -64,6 +64,8 @@ class LK21Movies : ParsedAnimeHttpSource() {
     }
 
     override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
+
+    override fun latestUpdatesNextPageSelector(): String? = popularAnimeNextPageSelector()
 
     // Filter Drama & Deduplikasi
     override fun popularAnimeParse(response: Response): AnimesPage {
