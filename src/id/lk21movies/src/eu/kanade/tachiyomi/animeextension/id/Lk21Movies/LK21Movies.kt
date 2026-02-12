@@ -140,7 +140,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
 
         val url = LK21Parser.buildFilterUrl(
-            baseUrl, page, genreState, yearState, countryState, sortState
+            baseUrl, page, genreState, yearState, countryState, sortState,
         )
 
         return GET(url, headers)
@@ -151,10 +151,10 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             GenreFilter("Genre"),
             YearFilter(),
             CountryFilter(),
-            SortFilter()
+            SortFilter(),
         )
     }
-    
+
     // === ANIME DETAILS ===
 
     override fun animeDetailsParse(document: Document): SAnime {
@@ -164,7 +164,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // === EPISODE LIST ===
 
     override fun episodeListSelector() = "html"
-    
+
     override fun episodeFromElement(element: Element): SEpisode {
         throw Exception("Not used")
     }
@@ -231,8 +231,8 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         // Sort by preferred quality
         return videoList
             .distinctBy { it.url }
-            .sortedWith(compareByDescending { 
-                it.quality.contains(LK21Config.getPreferredQuality(preferences), ignoreCase = true) 
-            })
+            .sortedWith(compareByDescending {
+                it.quality.contains(LK21Config.getPreferredQuality(preferences), ignoreCase = true)
+            },)
     }
 }

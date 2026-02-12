@@ -26,20 +26,20 @@ object LK21Filters {
 
     // Default values jika scraping gagal
     private val DEFAULT_GENRES = arrayOf(
-        "Semua Genre", "Action", "Adventure", "Animation", "Biography", 
+        "Semua Genre", "Action", "Adventure", "Animation", "Biography",
         "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy",
         "History", "Horror", "Music", "Mystery", "Romance", "Sci-Fi",
-        "Sport", "Thriller", "War", "Western"
+        "Sport", "Thriller", "War", "Western",
     )
 
     private val DEFAULT_COUNTRIES = arrayOf(
         "Semua Negara", "USA", "Indonesia", "Korea", "Japan", "China",
-        "India", "Thailand", "United Kingdom", "France", "Germany"
+        "India", "Thailand", "United Kingdom", "France", "Germany",
     )
 
     private val DEFAULT_YEARS = arrayOf(
-        "Semua Tahun", "2025", "2024", "2023", "2022", "2021", 
-        "2020", "2019", "2018", "2017", "2016", "2015"
+        "Semua Tahun", "2025", "2024", "2023", "2022", "2021",
+        "2020", "2019", "2018", "2017", "2016", "2015",
     )
 
     // Runtime variables
@@ -56,7 +56,7 @@ object LK21Filters {
     fun initialize(
         client: OkHttpClient,
         baseUrl: String,
-        preferences: SharedPreferences
+        preferences: SharedPreferences,
     ) {
         val lastUpdate = preferences.getLong(CACHE_TIMESTAMP_KEY, 0L)
         val currentTime = System.currentTimeMillis()
@@ -99,7 +99,7 @@ object LK21Filters {
     private fun scrapeFilters(
         client: OkHttpClient,
         baseUrl: String,
-        preferences: SharedPreferences
+        preferences: SharedPreferences,
     ) {
         try {
             Log.d(TAG, "Scraping filters from: $baseUrl")
@@ -173,7 +173,6 @@ object LK21Filters {
                 .apply()
 
             Log.d(TAG, "Scraped ${genres.size} genres, ${countries.size} countries, ${years.size} years")
-
         } catch (e: Exception) {
             Log.e(TAG, "Error scraping filters", e)
             useDefaults()
@@ -224,6 +223,6 @@ class SortFilter : AnimeFilter.Select<String>(
         "Paling Populer",
         "IMDB 9+",
         "IMDB 8+",
-        "IMDB 7+"
-    )
+        "IMDB 7+",
+    ),
 )

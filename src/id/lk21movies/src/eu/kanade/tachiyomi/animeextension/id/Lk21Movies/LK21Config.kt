@@ -9,20 +9,19 @@ import androidx.preference.PreferenceScreen
 /**
  * Preferences Screen untuk LK21Movies
  */
-object LK21Preferences {
+object LK21Config {
 
     fun setupPreferenceScreen(
         screen: PreferenceScreen,
-        preferences: SharedPreferences
+        preferences: SharedPreferences,
     ) {
-
         // === SECTION 1: Configuration ===
         screen.addPreference(
             Preference(screen.context).apply {
                 title = "⚙️ Konfigurasi"
                 summary = "Self-healing dan pengaturan domain"
                 isEnabled = false
-            }
+            },
         )
 
         // API GitHub URL
@@ -61,7 +60,7 @@ object LK21Preferences {
             Preference(screen.context).apply {
                 title = "🎬 Kualitas Video"
                 isEnabled = false
-            }
+            },
         )
 
         // Preferred Quality Selector
@@ -73,7 +72,7 @@ object LK21Preferences {
                 "720p (HD)",
                 "480p (SD)",
                 "360p (Low)",
-                "Auto (Otomatis)"
+                "Auto (Otomatis)",
             )
             entryValues = arrayOf("1080", "720", "480", "360", "auto")
             setDefaultValue("720")
@@ -97,7 +96,7 @@ object LK21Preferences {
             Preference(screen.context).apply {
                 title = "🚀 Cache & Performa"
                 isEnabled = false
-            }
+            },
         )
 
         // Clear Filter Cache
@@ -121,7 +120,7 @@ object LK21Preferences {
             Preference(screen.context).apply {
                 title = "ℹ️ Informasi"
                 isEnabled = false
-            }
+            },
         )
 
         // Extension Version
@@ -139,7 +138,7 @@ object LK21Preferences {
             setOnPreferenceClickListener {
                 val intent = android.content.Intent(
                     android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay")
+                    android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay"),
                 )
                 screen.context.startActivity(intent)
                 true

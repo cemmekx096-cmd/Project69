@@ -79,16 +79,16 @@ object LK21Parser {
             }
 
             // Genre
-            genre = document.select(GENRE_SELECTOR).joinToString(", ") { 
-                it.text().trim() 
+            genre = document.select(GENRE_SELECTOR).joinToString(", ") {
+                it.text().trim()
             }.ifBlank { "Unknown" }
 
             // Director
             author = document.select(DIRECTOR_SELECTOR).first()?.text()?.trim()
 
             // Cast
-            artist = document.select(CAST_SELECTOR).joinToString(", ") { 
-                it.text().trim() 
+            artist = document.select(CAST_SELECTOR).joinToString(", ") {
+                it.text().trim()
             }
 
             // Status (Movies are completed)
@@ -111,7 +111,7 @@ object LK21Parser {
                 episode_number = 1f
                 this.url = url
                 date_upload = System.currentTimeMillis()
-            }
+            },
         )
 
         // Episode 2: Trailer (jika ada YouTube link)
@@ -123,7 +123,7 @@ object LK21Parser {
                     episode_number = 2f
                     this.url = trailerLink
                     date_upload = System.currentTimeMillis()
-                }
+                },
             )
         }
 
@@ -146,7 +146,7 @@ object LK21Parser {
         genreState: Int,
         yearState: Int,
         countryState: Int,
-        sortState: Int
+        sortState: Int,
     ): String {
         var url = "$baseUrl/page/$page"
 
