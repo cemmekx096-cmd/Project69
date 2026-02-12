@@ -102,7 +102,7 @@ object LK21Preferences {
             key = "extension_version" // FIX: Tambah key!
             title = "Versi Extension"
             summary = "LK21Movies v2.0 - Clean Rebuild"
-            isEnabled = false  // FIX: isEnabled valid karena di dalam apply block Preference(context)
+            isEnabled = false // FIX: isEnabled valid karena di dalam apply block Preference(context)
         }.also(screen::addPreference)
 
         // ================ GITHUB REPOSITORY ================
