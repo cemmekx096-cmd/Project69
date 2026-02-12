@@ -15,14 +15,6 @@ object LK21Preferences {
         screen: PreferenceScreen,
         preferences: SharedPreferences,
     ) {
-        // === SECTION 1: Configuration ===
-        screen.addPreference(
-            Preference(screen.context).apply {
-                title = "⚙️ Konfigurasi"
-                summary = "Self-healing dan pengaturan domain"
-                isEnabled = false
-            },
-        )
 
         // API GitHub URL
         EditTextPreference(screen.context).apply {
@@ -55,14 +47,6 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // === SECTION 2: Video Quality ===
-        screen.addPreference(
-            Preference(screen.context).apply {
-                title = "🎬 Kualitas Video"
-                isEnabled = false
-            },
-        )
-
         // Preferred Quality Selector
         ListPreference(screen.context).apply {
             key = LK21Config.PREF_QUALITY_KEY
@@ -91,14 +75,6 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // === SECTION 3: Cache & Performance ===
-        screen.addPreference(
-            Preference(screen.context).apply {
-                title = "🚀 Cache & Performa"
-                isEnabled = false
-            },
-        )
-
         // Clear Filter Cache
         Preference(screen.context).apply {
             title = "Hapus Cache Filter"
@@ -114,14 +90,6 @@ object LK21Preferences {
                 true
             }
         }.also(screen::addPreference)
-
-        // === SECTION 4: Info & Support ===
-        screen.addPreference(
-            Preference(screen.context).apply {
-                title = "ℹ️ Informasi"
-                isEnabled = false
-            },
-        )
 
         // Extension Version
         Preference(screen.context).apply {
@@ -140,7 +108,7 @@ object LK21Preferences {
                     android.content.Intent.ACTION_VIEW,
                     android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay"),
                 )
-                screen.context.startActivity(intent)
+                context.startActivity(intent)
                 true
             }
         }.also(screen::addPreference)

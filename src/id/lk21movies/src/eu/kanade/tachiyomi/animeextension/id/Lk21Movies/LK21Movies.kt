@@ -136,6 +136,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 is YearFilter -> yearState = filter.state
                 is CountryFilter -> countryState = filter.state
                 is SortFilter -> sortState = filter.state
+                else -> {}
             }
         }
 
