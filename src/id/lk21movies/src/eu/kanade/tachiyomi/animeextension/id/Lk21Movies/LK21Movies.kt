@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.app.Application
+import android.content.Context
 import android.content.SharedPreferences
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
@@ -105,6 +106,8 @@ class LK21Movies : ParsedAnimeHttpSource() {
 
     // 5. Episode Logic: Episode 1 = Film, Episode 2 = Trailer
     override fun episodeListSelector() = "html"
+
+    override fun episodeFromElement(element: Element): SEpisode = throw Exception("Not used")
 
     override fun episodeListParse(response: Response): List<SEpisode> {
         val document = response.asJsoup()
