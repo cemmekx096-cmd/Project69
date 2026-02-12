@@ -23,10 +23,9 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * LK21Movies Extension v2.0 - Clean Rebuild
+ * LK21Movies Extension - Clean Version
  *
  * Features:
- * - Self-healing domain via GitHub JSON
  * - Live filter scraping dengan cache (24h)
  * - YouTube trailer support
  * - Quality selector
@@ -42,9 +41,9 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
-    // Base URL dengan self-healing
+    // Base URL langsung dari config
     override val baseUrl: String
-        get() = LK21Config.fetchAndUpdateConfig(client, preferences)
+        get() = LK21Config.getBaseUrl(preferences)
 
     companion object {
         private const val TAG = "LK21Movies"

@@ -8,7 +8,7 @@ import androidx.preference.PreferenceScreen
 
 /**
  * Preferences Screen untuk LK21Movies
- * FINAL FIX: No isEnabled, safe intent handling untuk Tachiyomi
+ * Clean version tanpa GitHub API
  */
 object LK21Preferences {
 
@@ -18,35 +18,21 @@ object LK21Preferences {
     ) {
         val context = screen.context
 
-        // ================ 1. API GITHUB URL ================
-        EditTextPreference(context).apply {
-            key = LK21Config.PREF_API_URL_KEY
-            title = "API Configuration URL"
-            setDefaultValue(LK21Config.DEFAULT_API_URL)
-            summary = preferences.getString(LK21Config.PREF_API_URL_KEY, LK21Config.DEFAULT_API_URL)?.trim() ?: ""
-            dialogTitle = "GitHub Raw JSON Link"
-            dialogMessage = "Link ke file extension_lk21movies.json di GitHub untuk self-healing"
-            setOnPreferenceChangeListener { _, newValue ->
-                summary = (newValue as String).trim()
-                true
-            }
-        }.also(screen::addPreference)
-
-        // ================ 2. BASE URL OVERRIDE ================
+        // ================ 1. BASE URL ================
         EditTextPreference(context).apply {
             key = LK21Config.PREF_BASE_URL_KEY
-            title = "Base URL (Manual Override)"
+            title = "Base URL"
             setDefaultValue(LK21Config.DEFAULT_BASE_URL)
             summary = preferences.getString(LK21Config.PREF_BASE_URL_KEY, LK21Config.DEFAULT_BASE_URL) ?: ""
-            dialogTitle = "Domain LK21 Aktif"
-            dialogMessage = "Kosongkan untuk menggunakan self-healing otomatis"
+            dialogTitle = "Domain LK21"
+            dialogMessage = "Masukkan base URL aktif untuk LK21Movies"
             setOnPreferenceChangeListener { _, newValue ->
                 summary = newValue as String
                 true
             }
         }.also(screen::addPreference)
 
-        // ================ 3. PREFERRED QUALITY ================
+        // ================ 2. PREFERRED QUALITY ================
         ListPreference(context).apply {
             key = LK21Config.PREF_QUALITY_KEY
             title = "Kualitas Prioritas"
@@ -83,44 +69,30 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // ================ 4. CLEAR FILTER CACHE ================
+        // ================ 3. CLEAR FILTER CACHE ================
         Preference().apply {
             key = "clear_filter_cache"
             title = "Hapus Cache Filter"
             summary = "Refresh daftar Genre, Negara, dan Tahun (tap untuk reset)"
             setOnPreferenceClickListener {
                 LK21Filters.clearCache(preferences)
-                preferences.edit().putLong(LK21Config.PREF_LAST_UPDATE_KEY, 0L).apply()
                 summary = "Cache berhasil dihapus! Restart extension untuk refresh."
                 true
             }
         }.also(screen::addPreference)
 
-        // ================ 5. EXTENSION VERSION ================
+        // ================ 4. EXTENSION VERSION ================
         Preference().apply {
             key = "extension_version"
             title = "Versi Extension"
-            summary = "LK21Movies v2.0 - Build Success"
-            // REMOVED: isEnabled tidak supported di extension Preference()
+            summary = "LK21Movies - Clean Build (No GitHub API)"
         }.also(screen::addPreference)
 
-        // ================ 6. GITHUB REPOSITORY ================
-        Preference().apply {
-            key = "github_repo"
-            title = "GitHub Repository"
-            summary = "https://github.com/Usermongkay/Usermongkay"
-            setOnPreferenceClickListener {
-                // SIMPLIFIED: Intent tidak reliable di extension, pakai URL di summary
-                true
-            }
-        }.also(screen::addPreference)
-
-        // ================ 7. FITUR INFO ================
+        // ================ 5. FITUR INFO ================
         Preference().apply {
             key = "feature_info"
             title = "Fitur Extension"
-            summary = "Self-healing domain, Live filter, YouTube trailer, Quality selector, Filter cache"
-            // REMOVED: isEnabled tidak supported
+            summary = "Live filter scraping, YouTube trailer, Quality selector, Filter cache"
         }.also(screen::addPreference)
     }
 }
