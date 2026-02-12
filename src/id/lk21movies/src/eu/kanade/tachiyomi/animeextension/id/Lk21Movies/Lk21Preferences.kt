@@ -76,6 +76,24 @@ object Lk21Preferences {
             setDefaultValue("720")
             summary = "Prioritas kualitas: %s"
         }.also(screen::addPreference)
+
+        // Contribute - Link ke GitHub
+        EditTextPreference(screen.context).apply {
+            key = "contribute_link"
+            title = "Contribute"
+            summary = "Tap to visit GitHub repository"
+            isEnabled = true
+            isSelectable = true
+
+            setOnPreferenceClickListener {
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay"),
+                )
+                screen.context.startActivity(intent)
+                true
+            }
+        }.also(screen::addPreference)
     }
 
     // Helper Functions untuk mempermudah pengambilan data di file Main (.kt)
