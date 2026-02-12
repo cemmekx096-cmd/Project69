@@ -77,20 +77,6 @@ object Lk21Preferences {
             setDefaultValue("720")
             summary = "Prioritas kualitas: %s"
         }.also(screen::addPreference)
-
-        // Link Kontribusi / Developer
-        object : Preference(screen.context) {
-            init {
-                key = "dev_github_link"
-                title = "Developer GitHub / Report Bug"
-                summary = "https://github.com/Usermongkay/Usermongkay"
-
-                setOnPreferenceClickListener {
-                    // Return true agar klik terdaftar
-                    true
-                }
-            }
-        }.also(screen::addPreference)
     }
 
     // Helper Functions untuk mempermudah pengambilan data di file Main (.kt)
