@@ -58,11 +58,11 @@ object LK21Preferences {
                 "720p (HD)",
                 "480p (SD)",
                 "360p (Low)",
-                "Auto (Otomatis)"
+                "Auto (Otomatis)",
             )
             entryValues = arrayOf("1080", "720", "480", "360", "auto")
             setDefaultValue("720")
-            
+
             val currentQuality = preferences.getString(LK21Config.PREF_QUALITY_KEY, "720") ?: "720"
             val qualityLabel = when (currentQuality) {
                 "1080" -> "1080p (Full HD)"
@@ -72,7 +72,7 @@ object LK21Preferences {
                 else -> "Auto (Otomatis)"
             }
             summary = "Video dengan kualitas $qualityLabel akan diprioritaskan"
-            
+
             setOnPreferenceChangeListener { preference, newValue ->
                 val quality = when (newValue) {
                     "1080" -> "1080p (Full HD)"
