@@ -2,6 +2,8 @@ package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.app.Application
 import android.content.SharedPreferences
+import androidx.preference.EditTextPreference
+import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animeextension.id.lk21movies.extractors.LK21MoviesExtractorFactory
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
@@ -13,6 +15,7 @@ import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
+import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -20,21 +23,88 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.concurrent.TimeUnit
 
 class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "LK21 Movies"
 
-    override val baseUrl = "https://tv8.lk21official.cc"
-
     override val lang = "id"
 
     override val supportsLatest = true
 
-    override val client: OkHttpClient = network.cloudflareClient
-
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    }
+
+    // ============================= Gateway & Domain =============================
+
+    private val gatewayUrl = "https://d21.team/"
+    private val downloadBase = "https://dl.lk21.party/"
+    private val playerBase = "https://playeriframe.sbs/iframe/"
+    private val posterBase = "https://poster.lk21.party/"
+
+    override val baseUrl: String
+        get() = getMainDomain()
+
+    /**
+     * Fetch main domain from gateway, dengan cache 6 jam.
+     * Fallback ke PREF_BASE_URL_KEY jika gagal.
+     */
+    private fun getMainDomain(): String {
+        return try {
+            val cachedDomain = preferences.getString(PREF_CACHED_DOMAIN_KEY, null)
+            val cacheTime = preferences.getLong(PREF_CACHE_TIME_KEY, 0)
+            val currentTime = System.currentTimeMillis()
+
+            // Cache valid selama 6 jam
+            if (cachedDomain != null && (currentTime - cacheTime) < 6 * 60 * 60 * 1000) {
+                return cachedDomain
+            }
+
+            // Fetch domain baru dari gateway
+            val response = network.client.newCall(GET(gatewayUrl, headers)).execute()
+            val document = response.asJsoup()
+
+            val mainDomain = document.selectFirst("a.cta-button.green-button")
+                ?.attr("href")
+                ?.trimEnd('/')
+                ?: preferences.getString(PREF_BASE_URL_KEY, PREF_BASE_URL_DEFAULT)!!
+
+            // Simpan ke cache
+            preferences.edit()
+                .putString(PREF_CACHED_DOMAIN_KEY, mainDomain)
+                .putLong(PREF_CACHE_TIME_KEY, currentTime)
+                .apply()
+
+            mainDomain
+        } catch (e: Exception) {
+            // Fallback: gunakan URL custom user atau default
+            preferences.getString(PREF_BASE_URL_KEY, PREF_BASE_URL_DEFAULT)!!
+        }
+    }
+
+    override val client: OkHttpClient
+        get() {
+            val timeoutSeconds = preferences.getString(PREF_TIMEOUT_KEY, PREF_TIMEOUT_DEFAULT)!!
+                .toLongOrNull() ?: 90L
+
+            return network.cloudflareClient.newBuilder()
+                .connectTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .build()
+        }
+
+    override fun headersBuilder(): Headers.Builder {
+        val userAgent = preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT)!!
+
+        return super.headersBuilder().apply {
+            add("User-Agent", userAgent)
+            add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+            add("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7")
+            add("Referer", baseUrl)
+        }
     }
 
     // ============================== Popular ===============================
@@ -336,10 +406,81 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Settings ==============================
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        // Bisa ditambahkan preference untuk quality priority, dll
+        // --- Fallback Base URL ---
+        EditTextPreference(screen.context).apply {
+            key = PREF_BASE_URL_KEY
+            title = "Fallback Base URL"
+            summary = "Digunakan jika gateway gagal mengambil domain.\nDefault: $PREF_BASE_URL_DEFAULT\nCurrent: %s"
+            setDefaultValue(PREF_BASE_URL_DEFAULT)
+            dialogTitle = "Masukkan Base URL"
+            dialogMessage = "Contoh: https://tv8.lk21official.cc"
+            setOnPreferenceChangeListener { _, newValue ->
+                // Reset domain cache agar domain baru langsung dipakai
+                preferences.edit()
+                    .remove(PREF_CACHED_DOMAIN_KEY)
+                    .remove(PREF_CACHE_TIME_KEY)
+                    .apply()
+                true
+            }
+        }.also(screen::addPreference)
+
+        // --- User Agent ---
+        EditTextPreference(screen.context).apply {
+            key = PREF_USER_AGENT_KEY
+            title = "User Agent"
+            summary = "Custom User Agent untuk request.\nDefault: Chrome Windows\nCurrent: %s"
+            setDefaultValue(PREF_USER_AGENT_DEFAULT)
+            dialogTitle = "Masukkan User Agent"
+            dialogMessage = "Kosongkan untuk menggunakan default."
+            setOnPreferenceChangeListener { _, _ -> true }
+        }.also(screen::addPreference)
+
+        // --- Network Timeout ---
+        EditTextPreference(screen.context).apply {
+            key = PREF_TIMEOUT_KEY
+            title = "Network Timeout (detik)"
+            summary = "Batas waktu untuk setiap network request.\nDefault: $PREF_TIMEOUT_DEFAULT detik\nCurrent: %s"
+            setDefaultValue(PREF_TIMEOUT_DEFAULT)
+            dialogTitle = "Masukkan Timeout (detik)"
+            dialogMessage = "Angka bulat, contoh: 60 atau 120."
+            setOnPreferenceChangeListener { _, newValue ->
+                newValue.toString().toLongOrNull() != null
+            }
+        }.also(screen::addPreference)
+
+        // --- Preferred Quality ---
+        ListPreference(screen.context).apply {
+            key = PREF_QUALITY_KEY
+            title = "Preferred Quality"
+            summary = "Pilih kualitas video yang diutamakan.\nCurrent: %s"
+            entries = PREF_QUALITY_ENTRIES
+            entryValues = PREF_QUALITY_VALUES
+            setDefaultValue(PREF_QUALITY_DEFAULT)
+            setOnPreferenceChangeListener { _, _ -> true }
+        }.also(screen::addPreference)
     }
 
     companion object {
         const val PREFIX_SEARCH = "id:"
+
+        // --- Preference Keys ---
+        const val PREF_BASE_URL_KEY = "pref_base_url"
+        const val PREF_BASE_URL_DEFAULT = "https://tv8.lk21official.cc"
+
+        const val PREF_USER_AGENT_KEY = "pref_user_agent"
+        const val PREF_USER_AGENT_DEFAULT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+        const val PREF_TIMEOUT_KEY = "pref_timeout"
+        const val PREF_TIMEOUT_DEFAULT = "90"
+
+        const val PREF_QUALITY_KEY = "pref_quality"
+        const val PREF_QUALITY_DEFAULT = "720p"
+        val PREF_QUALITY_ENTRIES = arrayOf("Auto", "1080p", "720p", "480p", "360p")
+        val PREF_QUALITY_VALUES = arrayOf("auto", "1080", "720", "480", "360")
+
+        // --- Cache Keys (internal, tidak ditampilkan di UI) ---
+        const val PREF_CACHED_DOMAIN_KEY = "pref_cached_domain"
+        const val PREF_CACHE_TIME_KEY = "pref_cache_time"
     }
 }
