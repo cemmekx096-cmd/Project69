@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.app.Application
-import android.content.Context
 import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource

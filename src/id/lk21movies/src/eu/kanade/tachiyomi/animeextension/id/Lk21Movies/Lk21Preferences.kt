@@ -78,7 +78,7 @@ object Lk21Preferences {
             summary = "Prioritas kualitas: %s"
         }.also(screen::addPreference)
 
-        // Contribute - Link ke GitHub  
+        // Contribute - Link ke GitHub
         screen.addPreference(
             object : Preference(screen.context) {}.apply {
                 key = "contribute_link"
