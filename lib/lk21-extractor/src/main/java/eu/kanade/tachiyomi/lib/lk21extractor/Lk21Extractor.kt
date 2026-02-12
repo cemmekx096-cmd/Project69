@@ -1,181 +1,160 @@
 package eu.kanade.tachiyomi.lib.lk21extractor
 
+import android.util.Log
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 
+/**
+ * LK21 Video Extractor - Simplified & Reliable
+ * Fokus pada quality daripada quantity server
+ */
 class Lk21Extractor(
     private val client: OkHttpClient,
     private val headers: Headers
 ) {
 
+    companion object {
+        private const val TAG = "Lk21Extractor"
+    }
+
     /**
-     * Extract video URLs dari iframe URL
-     * @param iframeUrl URL iframe dari player (misal: https://playeriframe.sbs/iframe/p2p/xxxxx)
-     * @param serverName Nama server untuk label (P2P, TurboVIP, Cast, Hydrax)
+     * Extract videos dari iframe URL
+     * @param iframeUrl URL iframe player
+     * @param serverName Label server untuk quality string
      * @return List of Video objects
      */
-    fun videosFromUrl(iframeUrl: String, serverName: String = "Unknown"): List<Video> {
+    fun videosFromUrl(iframeUrl: String, serverName: String = "Player"): List<Video> {
+        if (iframeUrl.isBlank()) {
+            Log.w(TAG, "Empty iframe URL")
+            return emptyList()
+        }
+
         return try {
-            when {
-                iframeUrl.contains("playeriframe.sbs") -> extractFromPlayerIframe(iframeUrl, serverName)
-                else -> extractGeneric(iframeUrl, serverName)
+            Log.d(TAG, "Extracting from: $iframeUrl")
+
+            val response = client.newCall(GET(iframeUrl, headers)).execute()
+
+            if (!response.isSuccessful) {
+                Log.w(TAG, "HTTP ${response.code} for $iframeUrl")
+                return emptyList()
             }
+
+            val document = response.asJsoup()
+            val videoList = mutableListOf<Video>()
+
+            // Method 1: Direct video tags
+            document.select("video source[src], video[src]").forEach { element ->
+                val videoUrl = element.attr("src").ifBlank { 
+                    element.attr("data-src") 
+                }
+
+                if (videoUrl.isNotBlank() && videoUrl.startsWith("http")) {
+                    val quality = extractQuality(videoUrl, serverName)
+                    videoList.add(Video(videoUrl, quality, videoUrl, headers))
+                    Log.d(TAG, "Found video tag: $quality")
+                }
+            }
+
+            // Method 2: JavaScript sources (common patterns)
+            document.select("script").forEach { script ->
+                val scriptText = script.html()
+
+                // Pattern: file: "https://..."
+                extractFromPattern(
+                    scriptText,
+                    """file:\s*["']([^"']+)["']""".toRegex(),
+                    serverName,
+                    videoList
+                )
+
+                // Pattern: src: "https://..."
+                extractFromPattern(
+                    scriptText,
+                    """src:\s*["']([^"']+)["']""".toRegex(),
+                    serverName,
+                    videoList
+                )
+
+                // Pattern: sources: [{file: "..."}]
+                extractFromPattern(
+                    scriptText,
+                    """sources:\s*\[?\{[^}]*file:\s*["']([^"']+)["']""".toRegex(),
+                    serverName,
+                    videoList
+                )
+
+                // Pattern: Direct .m3u8 or .mp4 URLs
+                extractFromPattern(
+                    scriptText,
+                    """https?://[^\s"'<>]+\.(?:m3u8|mp4)""".toRegex(),
+                    serverName,
+                    videoList
+                )
+            }
+
+            // Method 3: Nested iframes (recursive, 1 level deep only)
+            if (videoList.isEmpty()) {
+                document.select("iframe[src]").forEach { iframe ->
+                    val nestedUrl = iframe.attr("src")
+                    if (nestedUrl.isNotBlank() && 
+                        nestedUrl.startsWith("http") && 
+                        nestedUrl != iframeUrl) {
+
+                        Log.d(TAG, "Trying nested iframe: $nestedUrl")
+                        videoList.addAll(videosFromUrl(nestedUrl, "$serverName (Nested)"))
+                    }
+                }
+            }
+
+            Log.d(TAG, "Extracted ${videoList.size} videos from $serverName")
+            videoList.distinctBy { it.url }
+
         } catch (e: Exception) {
+            Log.e(TAG, "Error extracting from $iframeUrl", e)
             emptyList()
         }
     }
 
     /**
-     * Extract dari playeriframe.sbs
+     * Helper: Extract video URLs from regex pattern
      */
-    private fun extractFromPlayerIframe(iframeUrl: String, serverName: String): List<Video> {
-        val videoList = mutableListOf<Video>()
+    private fun extractFromPattern(
+        scriptText: String,
+        pattern: Regex,
+        serverName: String,
+        videoList: MutableList<Video>
+    ) {
+        pattern.findAll(scriptText).forEach { match ->
+            val videoUrl = match.groupValues.getOrNull(1) ?: match.value
 
-        try {
-            val response = client.newCall(GET(iframeUrl, headers)).execute()
-            val document = response.asJsoup()
+            if (videoUrl.isNotBlank() && 
+                videoUrl.startsWith("http") &&
+                (videoUrl.contains(".m3u8") || videoUrl.contains(".mp4"))) {
 
-            // Method 1: Cari direct video URLs di sources
-            document.select("video source[src], video[src]").forEach { element ->
-                val videoUrl = element.attr("src").takeIf { it.isNotBlank() }
-                    ?: element.attr("data-src")
-
-                if (videoUrl.isNotBlank() && videoUrl.startsWith("http")) {
-                    val quality = extractQuality(videoUrl) ?: "Default"
-                    videoList.add(
-                        Video(
-                            url = videoUrl,
-                            quality = "$serverName - $quality",
-                            videoUrl = videoUrl,
-                            headers = headers
-                        )
-                    )
-                }
+                val quality = extractQuality(videoUrl, serverName)
+                videoList.add(Video(videoUrl, quality, videoUrl, headers))
             }
-
-            // Method 2: Cari di script tags untuk file: atau sources:
-            document.select("script").forEach { script ->
-                val scriptText = script.html()
-                
-                // Pattern: file: "https://..."
-                val filePattern = """file:\s*["']([^"']+)["']""".toRegex()
-                filePattern.findAll(scriptText).forEach { match ->
-                    val videoUrl = match.groupValues[1]
-                    if (videoUrl.startsWith("http")) {
-                        val quality = extractQuality(videoUrl) ?: "Default"
-                        videoList.add(
-                            Video(
-                                url = videoUrl,
-                                quality = "$serverName - $quality",
-                                videoUrl = videoUrl,
-                                headers = headers
-                            )
-                        )
-                    }
-                }
-
-                // Pattern: sources: [{file: "https://..."}]
-                val sourcesPattern = """sources:\s*\[?\{[^}]*file:\s*["']([^"']+)["']""".toRegex()
-                sourcesPattern.findAll(scriptText).forEach { match ->
-                    val videoUrl = match.groupValues[1]
-                    if (videoUrl.startsWith("http")) {
-                        val quality = extractQuality(videoUrl) ?: "Default"
-                        videoList.add(
-                            Video(
-                                url = videoUrl,
-                                quality = "$serverName - $quality",
-                                videoUrl = videoUrl,
-                                headers = headers
-                            )
-                        )
-                    }
-                }
-            }
-
-            // Method 3: Cari iframe nested
-            document.select("iframe[src]").forEach { iframe ->
-                val nestedUrl = iframe.attr("src")
-                if (nestedUrl.startsWith("http") && nestedUrl != iframeUrl) {
-                    videoList.addAll(extractGeneric(nestedUrl, "$serverName (Nested)"))
-                }
-            }
-
-        } catch (e: Exception) {
-            // Return empty jika gagal
         }
-
-        return videoList.distinctBy { it.url }
-    }
-
-    /**
-     * Generic extractor untuk iframe lain
-     */
-    private fun extractGeneric(iframeUrl: String, serverName: String): List<Video> {
-        val videoList = mutableListOf<Video>()
-
-        try {
-            val response = client.newCall(GET(iframeUrl, headers)).execute()
-            val document = response.asJsoup()
-
-            // Cari video tags
-            document.select("video source[src], video[src]").forEach { element ->
-                val videoUrl = element.attr("src").takeIf { it.isNotBlank() }
-                    ?: element.attr("data-src")
-
-                if (videoUrl.isNotBlank() && videoUrl.startsWith("http")) {
-                    val quality = extractQuality(videoUrl) ?: "Default"
-                    videoList.add(
-                        Video(
-                            url = videoUrl,
-                            quality = "$serverName - $quality",
-                            videoUrl = videoUrl,
-                            headers = headers
-                        )
-                    )
-                }
-            }
-
-            // Cari di script untuk .m3u8 atau .mp4
-            document.select("script").forEach { script ->
-                val scriptText = script.html()
-                val urlPattern = """https?://[^\s"'<>]+\.(?:m3u8|mp4)""".toRegex()
-
-                urlPattern.findAll(scriptText).forEach { match ->
-                    val videoUrl = match.value
-                    val quality = extractQuality(videoUrl) ?: "Default"
-                    videoList.add(
-                        Video(
-                            url = videoUrl,
-                            quality = "$serverName - $quality",
-                            videoUrl = videoUrl,
-                            headers = headers
-                        )
-                    )
-                }
-            }
-
-        } catch (e: Exception) {
-            // Return empty jika gagal
-        }
-
-        return videoList.distinctBy { it.url }
     }
 
     /**
      * Extract quality dari URL atau filename
+     * Format: "ServerName - Quality"
      */
-    private fun extractQuality(url: String): String? {
-        return when {
-            url.contains("1080") || url.contains("1080p") -> "1080p"
-            url.contains("720") || url.contains("720p") -> "720p"
-            url.contains("480") || url.contains("480p") -> "480p"
-            url.contains("360") || url.contains("360p") -> "360p"
-            url.contains(".m3u8") -> "HLS"
-            url.contains(".mp4") -> "MP4"
-            else -> null
+    private fun extractQuality(url: String, serverName: String): String {
+        val quality = when {
+            url.contains("1080", ignoreCase = true) -> "1080p"
+            url.contains("720", ignoreCase = true) -> "720p"
+            url.contains("480", ignoreCase = true) -> "480p"
+            url.contains("360", ignoreCase = true) -> "360p"
+            url.contains(".m3u8", ignoreCase = true) -> "HLS"
+            url.contains(".mp4", ignoreCase = true) -> "MP4"
+            else -> "Default"
         }
+
+        return "$serverName - $quality"
     }
 }
