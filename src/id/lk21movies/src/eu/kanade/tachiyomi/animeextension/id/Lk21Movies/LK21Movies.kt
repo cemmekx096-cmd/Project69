@@ -2,20 +2,18 @@ package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.app.Application
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.animeextension.id.lk21movies.extractors.LK21MoviesExtractorFactory
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
+import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
-import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
-import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
-import eu.kanade.tachiyomi.lib.lk21extractor.YoutubeExtractor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
-import okhttp3.Headers
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Document
@@ -23,243 +21,325 @@ import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-/**
- * LK21Movies Extension - Fixed Version
- *
- * Features:
- * - Live filter scraping dengan cache (24h)
- * - YouTube trailer support
- * - Quality selector
- * - Anti-duplicate & drama filter
- */
 class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
-    override val name = "LK21Movies"
+    override val name = "LK21 Movies"
+
+    override val baseUrl = "https://tv8.lk21official.cc"
+
     override val lang = "id"
+
     override val supportsLatest = true
+
+    override val client: OkHttpClient = network.cloudflareClient
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
-    // Base URL dengan normalisasi (hapus trailing slash)
-    override val baseUrl: String
-        get() = LK21Config.getBaseUrl(preferences).removeSuffix("/")
-
-    // Custom headers dengan User-Agent
-    override fun headersBuilder(): Headers.Builder = Headers.Builder().apply {
-        add("User-Agent", LK21Config.DEFAULT_USER_AGENT)
-        add("Referer", "$baseUrl/")
-    }
-
-    companion object {
-        private const val TAG = "LK21Movies"
-        private var filtersInitialized = false
-    }
-
-    // === PREFERENCE SCREEN ===
-
-    override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        LK21Preferences.setupPreferenceScreen(screen, preferences)
-    }
-
-    // === POPULAR ANIME ===
-
-    override fun popularAnimeSelector() = LK21Parser.POPULAR_SELECTOR
+    // ============================== Popular ===============================
 
     override fun popularAnimeRequest(page: Int): Request {
-        // Initialize filters on first request (lazy init)
-        initializeFiltersIfNeeded()
-        return GET("$baseUrl/populer/page/$page", headers)
+        val url = if (page == 1) {
+            "$baseUrl/populer/"
+        } else {
+            "$baseUrl/populer/page/$page/"
+        }
+        return GET(url, headers)
     }
+
+    override fun popularAnimeSelector(): String = "li.slider"
 
     override fun popularAnimeFromElement(element: Element): SAnime {
-        return LK21Parser.parseAnimeFromElement(element, baseUrl) ?: SAnime.create()
+        return SAnime.create().apply {
+            // Cek apakah ini series/drama - jika ya, skip
+            if (element.hasClass("episode") || element.hasClass("episode.complete")) {
+                return@apply
+            }
+
+            val link = element.selectFirst("article figure a")
+
+            setUrlWithoutDomain(link?.attr("href") ?: "")
+            title = link?.attr("title") ?: ""
+
+            // Ambil poster dari picture > img
+            thumbnail_url = element.selectFirst("picture img")?.attr("src")
+                ?: element.selectFirst("picture source")?.attr("srcset")
+        }
     }
 
-    override fun popularAnimeParse(response: Response): AnimesPage {
-        val document = response.asJsoup()
+    override fun popularAnimeNextPageSelector(): String = "a.next"
 
-        val animeList = document.select(popularAnimeSelector())
-            .mapNotNull { LK21Parser.parseAnimeFromElement(it, baseUrl) }
-            .distinctBy { it.url } // Anti-duplicate
-
-        val hasNextPage = LK21Parser.hasNextPage(document)
-
-        Log.d(TAG, "Popular page loaded: ${animeList.size} items, hasNext: $hasNextPage")
-
-        return AnimesPage(animeList, hasNextPage)
-    }
-
-    override fun popularAnimeNextPageSelector() = LK21Parser.NEXT_PAGE_SELECTOR
-
-    // === LATEST UPDATES ===
-
-    override fun latestUpdatesSelector() = popularAnimeSelector()
+    // =============================== Latest ===============================
 
     override fun latestUpdatesRequest(page: Int): Request {
-        initializeFiltersIfNeeded()
-        return GET("$baseUrl/latest/page/$page", headers)
+        val url = if (page == 1) {
+            "$baseUrl/latest/"
+        } else {
+            "$baseUrl/latest/page/$page/"
+        }
+        return GET(url, headers)
     }
+
+    override fun latestUpdatesSelector(): String = popularAnimeSelector()
 
     override fun latestUpdatesFromElement(element: Element): SAnime {
         return popularAnimeFromElement(element)
     }
 
-    override fun latestUpdatesNextPageSelector() = popularAnimeNextPageSelector()
+    override fun latestUpdatesNextPageSelector(): String = popularAnimeNextPageSelector()
 
-    // === SEARCH ===
+    // =============================== Search ===============================
 
-    override fun searchAnimeSelector() = popularAnimeSelector()
+    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
+        return if (query.isNotBlank()) {
+            // Search by query
+            val searchUrl = "$baseUrl/search?s=$query"
+            GET(searchUrl, headers)
+        } else {
+            // Apply filters
+            val typeFilter = filters.filterIsInstance<LK21MoviesFilters.TypeFilter>().firstOrNull()
+            val genreFilter = filters.filterIsInstance<LK21MoviesFilters.GenreFilter>().firstOrNull()
+            val genre2Filter = filters.filterIsInstance<LK21MoviesFilters.Genre2Filter>().firstOrNull()
+            val countryFilter = filters.filterIsInstance<LK21MoviesFilters.CountryFilter>().firstOrNull()
+            val yearFilter = filters.filterIsInstance<LK21MoviesFilters.YearFilter>().firstOrNull()
+            val sortFilter = filters.filterIsInstance<LK21MoviesFilters.SortFilter>().firstOrNull()
+
+            // Build filter URL
+            val filterUrl = buildString {
+                append(baseUrl)
+
+                // Sort (Popular atau Latest)
+                when (sortFilter?.toUriPart()) {
+                    "populer" -> append("/populer/")
+                    else -> append("/latest/")
+                }
+
+                // Tambahkan query params untuk filter
+                val params = mutableListOf<String>()
+
+                typeFilter?.toUriPart()?.takeIf { it.isNotEmpty() }?.let {
+                    params.add("type=$it")
+                }
+
+                genreFilter?.toUriPart()?.takeIf { it.isNotEmpty() }?.let {
+                    params.add("genre1=$it")
+                }
+
+                genre2Filter?.toUriPart()?.takeIf { it.isNotEmpty() }?.let {
+                    params.add("genre2=$it")
+                }
+
+                countryFilter?.toUriPart()?.takeIf { it.isNotEmpty() }?.let {
+                    params.add("country=$it")
+                }
+
+                yearFilter?.toUriPart()?.takeIf { it.isNotEmpty() }?.let {
+                    params.add("tahun=$it")
+                }
+
+                if (params.isNotEmpty()) {
+                    append("?")
+                    append(params.joinToString("&"))
+                }
+
+                // Pagination
+                if (page > 1) {
+                    append(if (params.isEmpty()) "?" else "&")
+                    append("page=$page")
+                }
+            }
+
+            GET(filterUrl, headers)
+        }
+    }
+
+    override fun searchAnimeSelector(): String = popularAnimeSelector()
 
     override fun searchAnimeFromElement(element: Element): SAnime {
         return popularAnimeFromElement(element)
     }
 
-    override fun searchAnimeNextPageSelector() = popularAnimeNextPageSelector()
+    override fun searchAnimeNextPageSelector(): String = popularAnimeNextPageSelector()
 
-    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        initializeFiltersIfNeeded()
-
-        // Jika ada query search
-        if (query.isNotEmpty()) {
-            return GET("$baseUrl/?s=$query&page=$page", headers)
-        }
-
-        // Parse filters
-        var genreState = 0
-        var yearState = 0
-        var countryState = 0
-        var sortState = 0
-
-        filters.forEach { filter ->
-            when (filter) {
-                is GenreFilter -> genreState = filter.state
-                is YearFilter -> yearState = filter.state
-                is CountryFilter -> countryState = filter.state
-                is SortFilter -> sortState = filter.state
-                else -> {}
-            }
-        }
-
-        val url = LK21Parser.buildFilterUrl(
-            baseUrl, page, genreState, yearState, countryState, sortState,
-        )
-
-        return GET(url, headers)
-    }
-
-    override fun getFilterList(): AnimeFilterList {
-        initializeFiltersIfNeeded()
-        return AnimeFilterList(
-            GenreFilter("Genre"),
-            YearFilter(),
-            CountryFilter(),
-            SortFilter(),
-        )
-    }
-
-    // === ANIME DETAILS ===
+    // =========================== Anime Details ============================
 
     override fun animeDetailsParse(document: Document): SAnime {
-        return LK21Parser.parseAnimeDetails(document)
+        return SAnime.create().apply {
+            // Title dari meta atau h1
+            title = document.selectFirst("div.detail h1")?.text()
+                ?: document.selectFirst("meta[property=og:title]")?.attr("content")
+                ?: ""
+
+            // Poster/Thumbnail
+            thumbnail_url = document.selectFirst("picture img")?.attr("src")
+                ?: document.selectFirst("picture source")?.attr("srcset")
+                ?: document.selectFirst("meta[property=og:image]")?.attr("content")
+
+            // Genre
+            genre = document.select("div.tag-list a[href*=/genre/], a[href*=/country/]")
+                .joinToString(", ") { it.text() }
+
+            // Author = Director
+            author = document.select("div.detail p a[href*=/director/]")
+                .joinToString(", ") { it.text() }
+
+            // Artist = Cast
+            artist = document.select("div.detail p a[href*=/artist/]")
+                .take(5) // Ambil 5 aktor utama saja
+                .joinToString(", ") { it.text() }
+
+            // Description
+            description = buildString {
+                // Sinopsis
+                document.selectFirst("div.meta-info div.synopsis")?.text()?.let {
+                    append(it.trim())
+                    append("\n\n")
+                }
+
+                // Rating
+                document.selectFirst("span.rating")?.text()?.let {
+                    append("⭐ Rating: $it\n")
+                }
+
+                // Tahun
+                document.select("div.detail p").forEach { p ->
+                    val text = p.text()
+                    if (text.contains("Tahun:", ignoreCase = true)) {
+                        append("📅 $text\n")
+                    }
+                }
+
+                // Durasi
+                document.select("div.detail p").forEach { p ->
+                    val text = p.text()
+                    if (text.contains("Durasi:", ignoreCase = true)) {
+                        append("⏱️ $text\n")
+                    }
+                }
+
+                // Director
+                if (!author.isNullOrEmpty()) {
+                    append("🎬 Sutradara: $author\n")
+                }
+
+                // Cast
+                if (!artist.isNullOrEmpty()) {
+                    append("🎭 Pemeran: $artist\n")
+                }
+
+                // Genre
+                if (!genre.isNullOrEmpty()) {
+                    append("🏷️ Genre: $genre\n")
+                }
+
+                // Trailer link
+                document.selectFirst("a.yt-lightbox")?.attr("href")?.let { trailerUrl ->
+                    append("\n🎥 Trailer: $trailerUrl\n")
+                }
+
+                // Poster URL (for debugging)
+                thumbnail_url?.let {
+                    append("\n🖼️ Poster: $it")
+                }
+            }
+
+            status = SAnime.COMPLETED
+        }
     }
 
-    // === EPISODE LIST ===
-
-    override fun episodeListSelector() = "html"
-
-    override fun episodeFromElement(element: Element): SEpisode {
-        throw Exception("Not used")
-    }
+    // ============================== Episodes ==============================
 
     override fun episodeListParse(response: Response): List<SEpisode> {
         val document = response.asJsoup()
-        val url = response.request.url.toString()
-        return LK21Parser.parseEpisodeList(document, url)
+
+        // LK21 adalah site untuk MOVIE saja, bukan series
+        // Jadi hanya ada 1 episode per film
+        return listOf(
+            SEpisode.create().apply {
+                name = document.selectFirst("div.detail h1")?.text() ?: "Movie"
+                episode_number = 1F
+
+                // Ambil URL dari response
+                val url = response.request.url.toString()
+                setUrlWithoutDomain(url.removePrefix(baseUrl))
+
+                // Tanggal upload (jika ada)
+                date_upload = 0L
+            },
+        )
     }
 
-    // === VIDEO EXTRACTION ===
+    override fun episodeListSelector(): String = throw Exception("Not used")
 
-    override fun videoListSelector() = throw Exception("Not used")
+    override fun episodeFromElement(element: Element): SEpisode = throw Exception("Not used")
 
-    override fun videoFromElement(element: Element): Video {
-        throw Exception("Not used")
-    }
-
-    override fun videoUrlParse(document: Document): String {
-        throw Exception("Not used")
-    }
+    // ============================ Video Links =============================
 
     override fun videoListParse(response: Response): List<Video> {
         val document = response.asJsoup()
-        val url = response.request.url.toString()
-        val videoList = mutableListOf<Video>()
+        val factory = LK21MoviesExtractorFactory(client, headers)
 
-        // Check if this is YouTube trailer
-        if (url.contains("youtube.com")) {
-            return try {
-                YoutubeExtractor(client).videosFromUrl(url)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error extracting YouTube video", e)
-                emptyList()
-            }
-        }
+        // Extract semua server dari player-list
+        val servers = document.select("ul#player-list li a")
 
-        // Extract main iframe
-        val mainIframe = document.select(LK21Parser.MAIN_IFRAME_SELECTOR).attr("src")
-        if (mainIframe.isNotBlank()) {
-            try {
-                val videos = Lk21Extractor(client, headers).videosFromUrl(mainIframe, "Main Player")
-                videoList.addAll(videos)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error extracting main iframe", e)
-            }
-        }
+        val videos = mutableListOf<Video>()
 
-        // Extract alternate players
-        document.select(LK21Parser.PLAYER_LIST_SELECTOR).forEach { server ->
-            val serverName = server.attr("data-server").ifBlank { "Server" }
-            val iframeUrl = server.attr("data-url")
+        servers.forEach { serverElement ->
+            val serverName = serverElement.attr("data-server") ?: "Unknown"
+            val serverUrl = serverElement.attr("data-url") ?: ""
 
-            if (iframeUrl.isNotBlank()) {
+            if (serverUrl.isNotEmpty()) {
                 try {
-                    val videos = Lk21Extractor(client, headers).videosFromUrl(iframeUrl, serverName)
-                    videoList.addAll(videos)
+                    // Extract videos dari setiap server
+                    val extractedVideos = factory.extractFromServer(serverUrl, serverName, response.request.url.toString())
+                    videos.addAll(extractedVideos)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error extracting server: $serverName", e)
+                    android.util.Log.e("LK21", "Error extracting from $serverName: ${e.message}")
                 }
             }
         }
 
-        // Sort by preferred quality
-        return videoList
-            .distinctBy { it.url }
-            .sortedWith(
-                compareByDescending {
-                    it.quality.contains(
-                        LK21Config.getPreferredQuality(preferences),
-                        ignoreCase = true,
-                    )
-                },
-            )
-    }
-
-    // === HELPER FUNCTIONS ===
-
-    /**
-     * Initialize filters secara lazy (hanya saat dibutuhkan)
-     * Menghindari crash di init block
-     */
-    private fun initializeFiltersIfNeeded() {
-        if (!filtersInitialized) {
-            try {
-                LK21Filters.initialize(client, baseUrl, preferences)
-                filtersInitialized = true
-                Log.d(TAG, "Filters initialized with base URL: $baseUrl")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error initializing filters", e)
+        // Jika tidak ada server list, coba extract dari main player
+        if (videos.isEmpty()) {
+            val mainIframe = document.selectFirst("iframe#main-player")?.attr("src")
+            if (!mainIframe.isNullOrEmpty()) {
+                val extractedVideos = factory.extractFromServer(mainIframe, "Main Player", response.request.url.toString())
+                videos.addAll(extractedVideos)
             }
         }
+
+        return videos.distinctBy { it.url }
+    }
+
+    override fun videoListSelector(): String = throw Exception("Not used")
+
+    override fun videoFromElement(element: Element): Video = throw Exception("Not used")
+
+    override fun videoUrlParse(document: Document): String = throw Exception("Not used")
+
+    // ============================== Filters ===============================
+
+    override fun getFilterList(): AnimeFilterList {
+        return AnimeFilterList(
+            AnimeFilter.Header("NOTE: Filter diabaikan jika search query tidak kosong!"),
+            AnimeFilter.Separator(),
+            LK21MoviesFilters.SortFilter(),
+            LK21MoviesFilters.TypeFilter(),
+            LK21MoviesFilters.GenreFilter(),
+            LK21MoviesFilters.Genre2Filter(),
+            LK21MoviesFilters.CountryFilter(),
+            LK21MoviesFilters.YearFilter(),
+        )
+    }
+
+    // ============================== Settings ==============================
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        // Bisa ditambahkan preference untuk quality priority, dll
+    }
+
+    companion object {
+        const val PREFIX_SEARCH = "id:"
     }
 }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest package="eu.kanade.tachiyomi.animeextension" >
+
+    <application>
+        <activity
+            android:name=".id.lk21movies.LK21MoviesUrlActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                
+                <!-- Deep link untuk domain utama -->
+                <data
+                    android:host="tv8.lk21official.cc"
+                    android:pathPattern="/.*"
+                    android:scheme="https" />
+                
+                <!-- Deep link untuk domain alternatif -->
+                <data
+                    android:host="lk21.de"
+                    android:pathPattern="/.*"
+                    android:scheme="https" />
+                    
+                <!-- Tambahkan domain lain jika ada -->
+                <data
+                    android:host="*.lk21official.cc"
+                    android:pathPattern="/.*"
+                    android:scheme="https" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
