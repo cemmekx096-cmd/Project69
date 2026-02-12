@@ -56,7 +56,7 @@ object LK21Preferences {
                 "720p (HD)",
                 "480p (SD)",
                 "360p (Low)",
-                "Auto (Otomatis)"
+                "Auto (Otomatis)",
             )
             entryValues = arrayOf("1080", "720", "480", "360", "auto")
             setDefaultValue("720")
@@ -105,7 +105,7 @@ object LK21Preferences {
             setOnPreferenceClickListener {
                 val intent = android.content.Intent(
                     android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay")
+                    android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay"),
                 )
                 context.startActivity(intent)
                 true
