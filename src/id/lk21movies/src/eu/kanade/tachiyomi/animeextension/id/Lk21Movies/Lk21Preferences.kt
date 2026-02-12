@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.animeextension.id.lk21movies
 import android.content.SharedPreferences
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
-import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
 
 object Lk21Preferences {
