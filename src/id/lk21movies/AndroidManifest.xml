@@ -1,35 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest package="eu.kanade.tachiyomi.animeextension" >
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
         <activity
-            android:name=".id.lk21movies.LK21MoviesUrlActivity"
+            android:name=".LK21MoviesUrlActivity"
             android:excludeFromRecents="true"
             android:exported="true"
             android:theme="@android:style/Theme.NoDisplay">
+            
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 
-                <!-- Deep link untuk domain utama -->
-                <data
-                    android:host="tv8.lk21official.cc"
-                    android:pathPattern="/.*"
-                    android:scheme="https" />
+                <!-- Domain utama -->
+                <data android:scheme="https" />
+                <data android:host="tv8.lk21official.cc" />
+                <data android:pathPattern="/.*" />
                 
-                <!-- Deep link untuk domain alternatif -->
-                <data
-                    android:host="lk21.de"
-                    android:pathPattern="/.*"
-                    android:scheme="https" />
-                    
-                <!-- Tambahkan domain lain jika ada -->
-                <data
-                    android:host="*.lk21official.cc"
-                    android:pathPattern="/.*"
-                    android:scheme="https" />
+                <!-- Domain alternatif -->
+                <data android:scheme="https" />
+                <data android:host="lk21.de" />
+                <data android:pathPattern="/.*" />
+                
+                <!-- Wildcard subdomain -->
+                <data android:scheme="https" />
+                <data android:host="*.lk21official.cc" />
+                <data android:pathPattern="/.*" />
+                
+                <!-- Juga support http -->
+                <data android:scheme="http" />
+                <data android:host="tv8.lk21official.cc" />
+                <data android:pathPattern="/.*" />
+                
+                <data android:scheme="http" />
+                <data android:host="lk21.de" />
+                <data android:pathPattern="/.*" />
+                
+                <data android:scheme="http" />
+                <data android:host="*.lk21official.cc" />
+                <data android:pathPattern="/.*" />
             </intent-filter>
+            
         </activity>
     </application>
+    
 </manifest>
