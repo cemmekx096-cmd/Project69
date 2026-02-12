@@ -34,7 +34,7 @@ object LK21Config {
      */
     fun fetchAndUpdateConfig(
         client: OkHttpClient,
-        preferences: SharedPreferences
+        preferences: SharedPreferences,
     ): String {
         val lastUpdate = preferences.getLong(PREF_LAST_UPDATE_KEY, 0L)
         val currentTime = System.currentTimeMillis()
@@ -82,7 +82,6 @@ object LK21Config {
                 Log.w(TAG, "Invalid base URL in config")
                 getBaseUrl(preferences)
             }
-
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching config", e)
             getBaseUrl(preferences)
@@ -115,7 +114,7 @@ object LK21Config {
      */
     fun forceUpdateConfig(
         client: OkHttpClient,
-        preferences: SharedPreferences
+        preferences: SharedPreferences,
     ): String {
         // Reset last update time
         preferences.edit()
