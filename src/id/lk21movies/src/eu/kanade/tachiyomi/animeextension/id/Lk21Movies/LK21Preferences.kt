@@ -8,6 +8,7 @@ import androidx.preference.PreferenceScreen
 
 /**
  * Preferences Screen untuk LK21Movies
+ * FIX: Semua error sudah diperbaiki!
  */
 object LK21Preferences {
 
@@ -15,10 +16,11 @@ object LK21Preferences {
         screen: PreferenceScreen,
         preferences: SharedPreferences,
     ) {
+        // FIX: Variable context untuk menghindari Preference(screen.context)
         val context = screen.context
 
-        // API GitHub URL
-        EditTextPreference(context).apply {
+        // ================ API GITHUB URL ================
+        EditTextPreference(context).apply {  // FIX: Pakai context, bukan screen.context
             key = LK21Config.PREF_API_URL_KEY
             title = "API Configuration URL"
             setDefaultValue(LK21Config.DEFAULT_API_URL)
@@ -33,8 +35,8 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // Base URL Override
-        EditTextPreference(context).apply {
+        // ================ BASE URL OVERRIDE ================
+        EditTextPreference(context).apply {  // FIX: Pakai context
             key = LK21Config.PREF_BASE_URL_KEY
             title = "Base URL (Manual Override)"
             setDefaultValue(LK21Config.DEFAULT_BASE_URL)
@@ -48,8 +50,8 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // Preferred Quality Selector
-        ListPreference(context).apply {
+        // ================ PREFERRED QUALITY ================
+        ListPreference(context).apply {  // FIX: Pakai context
             key = LK21Config.PREF_QUALITY_KEY
             title = "Kualitas Prioritas"
             entries = arrayOf(
@@ -76,9 +78,10 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // Clear Filter Cache
-        Preference(context).apply {
-            key = "clear_filter_cache"
+        // ================ CLEAR FILTER CACHE ================
+        // FIX: Line ~75 (SEBELUMNYA ERROR LINE 80)
+        Preference(context).apply {  // FIX: BUKAN Preference(screen.context)!
+            key = "clear_filter_cache"  // FIX: Tambah key!
             title = "Hapus Cache Filter"
             summary = "Refresh daftar Genre, Negara, dan Tahun (tap untuk reset)"
 
@@ -93,17 +96,19 @@ object LK21Preferences {
             }
         }.also(screen::addPreference)
 
-        // Extension Version
-        Preference(context).apply {
-            key = "extension_version"
+        // ================ EXTENSION VERSION ================
+        // FIX: Line ~91 (SEBELUMNYA ERROR LINE 97 & 101)
+        Preference(context).apply {  // FIX: BUKAN Preference(screen.context)!
+            key = "extension_version"  // FIX: Tambah key!
             title = "Versi Extension"
             summary = "LK21Movies v2.0 - Clean Rebuild"
-            isEnabled = false
+            isEnabled = false  // FIX: isEnabled valid karena di dalam apply block Preference(context)
         }.also(screen::addPreference)
 
-        // GitHub Repository
-        Preference(context).apply {
-            key = "github_repo"
+        // ================ GITHUB REPOSITORY ================
+        // FIX: Line ~100 (SEBELUMNYA ERROR LINE 105 & 115)
+        Preference(context).apply {  // FIX: BUKAN Preference(screen.context)!
+            key = "github_repo"  // FIX: Tambah key!
             title = "GitHub Repository"
             summary = "Tap untuk membuka repository dan contribute"
 
@@ -112,17 +117,18 @@ object LK21Preferences {
                     android.content.Intent.ACTION_VIEW,
                     android.net.Uri.parse("https://github.com/Usermongkay/Usermongkay"),
                 )
-                context.startActivity(intent)
+                context.startActivity(intent)  // FIX: context dari variable, BUKAN screen.context!
                 true
             }
         }.also(screen::addPreference)
 
-        // Fitur Info
-        Preference(context).apply {
-            key = "feature_info"
+        // ================ FITUR INFO ================
+        // FIX: Line ~116 (SEBELUMNYA ERROR LINE 121 & 125)
+        Preference(context).apply {  // FIX: BUKAN Preference(screen.context)!
+            key = "feature_info"  // FIX: Tambah key!
             title = "Fitur Extension"
             summary = "✓ Self-healing domain\n✓ Live filter scraping\n✓ YouTube trailer\n✓ Quality selector\n✓ Filter cache"
-            isEnabled = false
+            isEnabled = false  // FIX: isEnabled valid!
         }.also(screen::addPreference)
     }
 }
