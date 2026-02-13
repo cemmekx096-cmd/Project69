@@ -130,16 +130,13 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     }
 
     // FIX #1 — Duplicate Filter
-    // seenTitles menyimpan judul yang sudah muncul di halaman ini
-    private val seenTitles = mutableSetOf<String>()
 
     override fun popularAnimeParse(response: Response): AnimesPage {
-        seenTitles.clear() // Reset tiap halaman baru
+        val seenTitles = mutableSetOf<String>()
         val document = response.asJsoup()
         val animes = document.select(popularAnimeSelector())
             .map { popularAnimeFromElement(it) }
             .filter { anime ->
-                // seenTitles.add() return false jika sudah ada → otomatis di-skip
                 val normalized = anime.title.trim().lowercase()
                 seenTitles.add(normalized)
             }
@@ -151,13 +148,41 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // =============================== Latest ===============================
 
+    // Cache URL latest yang diambil dari tombol "SEMUA" di homepage
+    private var latestUrl: String? = null
+
+    private fun getLatestUrl(): String {
+        // Gunakan cache jika sudah ada
+        latestUrl?.let { return it }
+
+        return try {
+            // Fetch homepage, cari tombol "SEMUA" di section latest-movies
+            val document = client.newCall(GET(baseUrl, headers)).execute().asJsoup()
+            val url = document.selectFirst("div[data-type=latest-movies] a.btn.btn-small")
+                ?.attr("href")
+                ?.let {
+                    // Pastikan URL lengkap
+                    if (it.startsWith("http")) it else "$baseUrl$it"
+                }
+                ?: "$baseUrl/latest"
+
+            ReportLog.log("LK21-Latest", "Latest URL from SEMUA button: $url", LogLevel.INFO)
+            latestUrl = url
+            url
+        } catch (e: Exception) {
+            ReportLog.reportError("LK21-Latest", "Failed to get latest URL: ${e.message}")
+            "$baseUrl/latest"
+        }
+    }
+
     override fun latestUpdatesRequest(page: Int): Request {
-        val url = if (page == 1) baseUrl else "$baseUrl/page/$page"
+        val baseLatestUrl = getLatestUrl()
+        val url = if (page == 1) baseLatestUrl else "$baseLatestUrl/page/$page"
         ReportLog.log("LK21-Latest", "Loading page $page: $url", LogLevel.INFO)
         return GET(url, headers)
     }
 
-    override fun latestUpdatesSelector(): String = "div[data-type=latest-movies] ul.sliders li.slider:not(:has(span.episode))"
+    override fun latestUpdatesSelector(): String = "ul.sliders li.slider:not(:has(span.episode))"
 
     override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
@@ -165,7 +190,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // FIX #1 — Duplicate Filter untuk Latest juga
     override fun latestUpdatesParse(response: Response): AnimesPage {
-        seenTitles.clear()
+        val seenTitles = mutableSetOf<String>()
         val document = response.asJsoup()
         val animes = document.select(latestUpdatesSelector())
             .map { latestUpdatesFromElement(it) }
