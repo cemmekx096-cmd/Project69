@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
@@ -128,6 +129,24 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
     }
 
+    // FIX #1 \u2014 Duplicate Filter
+    // seenTitles menyimpan judul yang sudah muncul di halaman ini
+    private val seenTitles = mutableSetOf<String>()
+
+    override fun popularAnimeParse(response: Response): AnimesPage {
+        seenTitles.clear() // Reset tiap halaman baru
+        val document = response.asJsoup()
+        val animes = document.select(popularAnimeSelector())
+            .map { popularAnimeFromElement(it) }
+            .filter { anime ->
+                // seenTitles.add() return false jika sudah ada \u2192 otomatis di-skip
+                val normalized = anime.title.trim().lowercase()
+                seenTitles.add(normalized)
+            }
+        val hasNextPage = document.selectFirst(popularAnimeNextPageSelector()) != null
+        return AnimesPage(animes, hasNextPage)
+    }
+
     override fun popularAnimeNextPageSelector(): String = "div.pagination a.next"
 
     // =============================== Latest ===============================
@@ -139,6 +158,20 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
     override fun latestUpdatesNextPageSelector(): String = popularAnimeNextPageSelector()
+
+    // FIX #1 \u2014 Duplicate Filter untuk Latest juga
+    override fun latestUpdatesParse(response: Response): AnimesPage {
+        seenTitles.clear()
+        val document = response.asJsoup()
+        val animes = document.select(latestUpdatesSelector())
+            .map { latestUpdatesFromElement(it) }
+            .filter { anime ->
+                val normalized = anime.title.trim().lowercase()
+                seenTitles.add(normalized)
+            }
+        val hasNextPage = document.selectFirst(latestUpdatesNextPageSelector()) != null
+        return AnimesPage(animes, hasNextPage)
+    }
 
     // =============================== Search ===============================
 
@@ -185,12 +218,53 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun searchAnimeNextPageSelector(): String = popularAnimeNextPageSelector()
 
+    // FIX #1 \u2014 Duplicate Filter untuk Search juga
+    override fun searchAnimeParse(response: Response): AnimesPage {
+        seenTitles.clear()
+        val document = response.asJsoup()
+        val animes = document.select(searchAnimeSelector())
+            .map { searchAnimeFromElement(it) }
+            .filter { anime ->
+                val normalized = anime.title.trim().lowercase()
+                seenTitles.add(normalized)
+            }
+        val hasNextPage = document.selectFirst(searchAnimeNextPageSelector()) != null
+        return AnimesPage(animes, hasNextPage)
+    }
+
     // =========================== Anime Details ============================
 
     override fun animeDetailsParse(document: Document): SAnime {
         return SAnime.create().apply {
             title = document.selectFirst("h1[itemprop=name]")?.text() ?: ""
-            thumbnail_url = document.selectFirst("picture img")?.attr("src") ?: ""
+
+            // FIX #2 \u2014 Poster Mismatch
+            // Ambil slug dari URL halaman, contoh: /our-universe-2026/ \u2192 "our-universe-2026"
+            // Lalu validasi poster harus mengandung slug tsb agar tidak keliru
+            thumbnail_url = run {
+                val pageUrl = document.location()
+                val slug = pageUrl.trimEnd('/').substringAfterLast('/')
+
+                ReportLog.log("LK21-Poster", "Page slug: $slug", LogLevel.DEBUG)
+
+                val allImages = document.select("picture img, img[src]")
+
+                // Cari gambar yang src-nya mengandung slug film
+                // Contoh: "film-our-universe-2026-lk21" harus mengandung "our-universe-2026"
+                val matchedPoster = allImages.firstOrNull { img ->
+                    val src = img.attr("src")
+                    src.contains(slug, ignoreCase = true)
+                }
+
+                if (matchedPoster != null) {
+                    ReportLog.log("LK21-Poster", "Matched poster: ${matchedPoster.attr("src")}", LogLevel.INFO)
+                    matchedPoster.attr("src")
+                } else {
+                    // Fallback ke picture img jika tidak ada yang cocok
+                    ReportLog.log("LK21-Poster", "No slug match, using fallback poster", LogLevel.WARN)
+                    document.selectFirst("picture img")?.attr("src") ?: ""
+                }
+            }
 
             genre = document.select("div.genre a")
                 .joinToString(", ") { it.text() }
@@ -383,28 +457,4 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun videoUrlParse(document: Document): String = throw UnsupportedOperationException()
 
-    // ============================== Filters ===============================
-
-    override fun getFilterList(): AnimeFilterList = LK21Filters.getFilterList()
-
-    // ============================== Settings ==============================
-
-    override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        Lk21Preferences.setupPreferences(
-            screen = screen,
-            preferences = preferences,
-            defaultBaseUrl = Lk21Preferences.DEFAULT_BASE_URL_MOVIES,
-            isMovieExtension = true,
-        )
-    }
-
-    // ============================= Companion ==============================
-
-    companion object {
-        private const val PREF_CACHED_DOMAIN_KEY = "cached_domain"
-        private const val PREF_CACHE_TIME_KEY = "cache_time"
-
-        private const val PREF_TIMEOUT_KEY = "network_timeout"
-        private const val PREF_TIMEOUT_DEFAULT = "90"
-    }
-}
+    // ==============================
