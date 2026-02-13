@@ -181,9 +181,9 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val url = when {
             query.isNotEmpty() -> {
                 val searchUrl = if (page == 1) {
-                    "$baseUrl/?s=$query"
+                    "$baseUrl/search?s=$query"
                 } else {
-                    "$baseUrl/page/$page/?s=$query"
+                    "$baseUrl/search/page/$page?s=$query"
                 }
                 ReportLog.log("LK21-Search", "Searching: $query (page $page)", LogLevel.INFO)
                 searchUrl
