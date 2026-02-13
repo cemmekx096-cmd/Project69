@@ -249,7 +249,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // FIX #1 — Duplicate Filter untuk Search juga
     override fun searchAnimeParse(response: Response): AnimesPage {
-        seenTitles.clear()
+        val seenTitles = mutableSetOf<String>()
         val document = response.asJsoup()
         val animes = document.select(searchAnimeSelector())
             .map { searchAnimeFromElement(it) }
