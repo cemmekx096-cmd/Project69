@@ -212,7 +212,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET(url, headers)
     }
 
-    override fun searchAnimeSelector(): String = popularAnimeSelector()
+    override fun searchAnimeSelector(): String = "div.gallery-grid#results article"
 
     override fun searchAnimeFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
