@@ -110,7 +110,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Popular ===============================
 
     override fun popularAnimeRequest(page: Int): Request {
-        val url = if (page == 1) baseUrl else "$baseUrl/page/$page"
+        val url = if (page == 1) "$baseUrl/populer/" else "$baseUrl/populer/page/$page"
         ReportLog.log("LK21-Popular", "Loading page $page: $url", LogLevel.INFO)
         return GET(url, headers)
     }
@@ -151,7 +151,11 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // =============================== Latest ===============================
 
-    override fun latestUpdatesRequest(page: Int): Request = popularAnimeRequest(page)
+    override fun latestUpdatesRequest(page: Int): Request {
+        val url = if (page == 1) "$baseUrl/latest/" else "$baseUrl/latest/page/$page"
+        ReportLog.log("LK21-Latest", "Loading page $page: $url", LogLevel.INFO)
+        return GET(url, headers)
+    }
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
 
