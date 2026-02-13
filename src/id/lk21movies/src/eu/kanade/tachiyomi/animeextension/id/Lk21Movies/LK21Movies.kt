@@ -17,9 +17,10 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.json.JSONObject
+import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.json.JSONObject
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
@@ -95,6 +96,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 .connectTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .addInterceptor(CloudflareInterceptor(network.client))
                 .build()
         }
 
