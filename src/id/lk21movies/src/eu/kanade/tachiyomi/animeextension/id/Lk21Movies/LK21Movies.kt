@@ -110,27 +110,26 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Popular ===============================
 
     override fun popularAnimeRequest(page: Int): Request {
-        val url = if (page == 1) baseUrl else "$baseUrl/page/$page"
+        val url = if (page == 1) "$baseUrl/populer/" else "$baseUrl/populer/page/$page"
         ReportLog.log("LK21-Popular", "Loading page $page: $url", LogLevel.INFO)
         return GET(url, headers)
     }
 
-    override fun popularAnimeSelector(): String = "ul.sliders li.slider:not(:has(span.episode))"
+    override fun popularAnimeSelector(): String = "div.gallery-grid article"
 
     override fun popularAnimeFromElement(element: Element): SAnime {
         return SAnime.create().apply {
-            val link = element.selectFirst("a")!!
+            val link = element.selectFirst("a[href]")!!
             setUrlWithoutDomain(link.attr("href"))
 
             title = element.selectFirst("h3.poster-title")?.text() ?: ""
-            thumbnail_url = element.selectFirst("img")?.attr("src") ?: ""
+            thumbnail_url = element.selectFirst("picture img")?.attr("src") ?: ""
 
             ReportLog.log("LK21-Popular", "Parsed: $title", LogLevel.DEBUG)
         }
     }
 
     // FIX #1 — Duplicate Filter
-
     override fun popularAnimeParse(response: Response): AnimesPage {
         val seenTitles = mutableSetOf<String>()
         val document = response.asJsoup()
@@ -144,49 +143,21 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimesPage(animes, hasNextPage)
     }
 
-    override fun popularAnimeNextPageSelector(): String = "div.pagination a.next"
+    override fun popularAnimeNextPageSelector(): String = "ul.pagination li a[href*='/page/']"
 
     // =============================== Latest ===============================
 
-    // Cache URL latest yang diambil dari tombol "SEMUA" di homepage
-    private var latestUrl: String? = null
-
-    private fun getLatestUrl(): String {
-        // Gunakan cache jika sudah ada
-        latestUrl?.let { return it }
-
-        return try {
-            // Fetch homepage, cari tombol "SEMUA" di section latest-movies
-            val document = client.newCall(GET(baseUrl, headers)).execute().asJsoup()
-            val url = document.selectFirst("div[data-type=latest-movies] a.btn.btn-small")
-                ?.attr("href")
-                ?.let {
-                    // Pastikan URL lengkap
-                    if (it.startsWith("http")) it else "$baseUrl$it"
-                }
-                ?: "$baseUrl/latest"
-
-            ReportLog.log("LK21-Latest", "Latest URL from SEMUA button: $url", LogLevel.INFO)
-            latestUrl = url
-            url
-        } catch (e: Exception) {
-            ReportLog.reportError("LK21-Latest", "Failed to get latest URL: ${e.message}")
-            "$baseUrl/latest"
-        }
-    }
-
     override fun latestUpdatesRequest(page: Int): Request {
-        val baseLatestUrl = getLatestUrl()
-        val url = if (page == 1) baseLatestUrl else "$baseLatestUrl/page/$page"
+        val url = if (page == 1) "$baseUrl/latest/" else "$baseUrl/latest/page/$page"
         ReportLog.log("LK21-Latest", "Loading page $page: $url", LogLevel.INFO)
         return GET(url, headers)
     }
 
-    override fun latestUpdatesSelector(): String = "ul.sliders li.slider:not(:has(span.episode))"
+    override fun latestUpdatesSelector(): String = "div.gallery-grid article"
 
     override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
-    override fun latestUpdatesNextPageSelector(): String = popularAnimeNextPageSelector()
+    override fun latestUpdatesNextPageSelector(): String = "ul.pagination li a[href*='/page/']"
 
     // FIX #1 — Duplicate Filter untuk Latest juga
     override fun latestUpdatesParse(response: Response): AnimesPage {
@@ -219,7 +190,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
             params.genre.isNotEmpty() -> {
                 val genreUrl = if (page == 1) {
-                    "$baseUrl/genre/${params.genre}"
+                    "$baseUrl/genre/${params.genre}/"
                 } else {
                     "$baseUrl/genre/${params.genre}/page/$page"
                 }
@@ -228,14 +199,14 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
             params.country.isNotEmpty() -> {
                 val countryUrl = if (page == 1) {
-                    "$baseUrl/country/${params.country}"
+                    "$baseUrl/country/${params.country}/"
                 } else {
                     "$baseUrl/country/${params.country}/page/$page"
                 }
                 ReportLog.log("LK21-Search", "Country filter: ${params.country}", LogLevel.INFO)
                 countryUrl
             }
-            else -> popularAnimeRequest(page).url.toString()
+            else -> if (page == 1) "$baseUrl/populer/" else "$baseUrl/populer/page/$page"
         }
 
         return GET(url, headers)
