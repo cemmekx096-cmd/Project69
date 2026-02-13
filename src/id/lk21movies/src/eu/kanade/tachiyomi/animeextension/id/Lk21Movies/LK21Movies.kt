@@ -19,6 +19,7 @@ import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.json.JSONObject
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
@@ -177,19 +178,19 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // =============================== Search ===============================
 
+    private val searchApiBase = "https://gudangvape.com/search.php"
+
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         val params = LK21Filters.getSearchParameters(filters)
 
         val url = when {
+            // Search biasa → pakai JSON API
             query.isNotEmpty() -> {
-                val searchUrl = if (page == 1) {
-                    "$baseUrl/search?s=$query"
-                } else {
-                    "$baseUrl/search/page/$page?s=$query"
-                }
-                ReportLog.log("LK21-Search", "Searching: $query (page $page)", LogLevel.INFO)
+                val searchUrl = "$searchApiBase?s=$query&page=$page"
+                ReportLog.log("LK21-Search", "Searching: $query (page $page) via API", LogLevel.INFO)
                 searchUrl
             }
+            // Filter genre → pakai HTML scraping
             params.genre.isNotEmpty() -> {
                 val genreUrl = if (page == 1) {
                     "$baseUrl/genre/${params.genre}/"
@@ -199,6 +200,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 ReportLog.log("LK21-Search", "Genre filter: ${params.genre}", LogLevel.INFO)
                 genreUrl
             }
+            // Filter country → pakai HTML scraping
             params.country.isNotEmpty() -> {
                 val countryUrl = if (page == 1) {
                     "$baseUrl/country/${params.country}/"
@@ -214,24 +216,62 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET(url, headers)
     }
 
-    override fun searchAnimeSelector(): String = "div.gallery-grid#results article"
+    override fun searchAnimeSelector(): String = "div.gallery-grid article"
 
     override fun searchAnimeFromElement(element: Element): SAnime = popularAnimeFromElement(element)
 
     override fun searchAnimeNextPageSelector(): String = popularAnimeNextPageSelector()
 
-    // FIX #1 — Duplicate Filter untuk Search juga
     override fun searchAnimeParse(response: Response): AnimesPage {
-        val seenTitles = mutableSetOf<String>()
-        val document = response.asJsoup()
-        val animes = document.select(searchAnimeSelector())
-            .map { searchAnimeFromElement(it) }
-            .filter { anime ->
-                val normalized = anime.title.trim().lowercase()
-                seenTitles.add(normalized)
+        val url = response.request.url.toString()
+
+        // Kalau bukan dari API gudangvape → pakai HTML scraping biasa (genre/country)
+        if (!url.contains("gudangvape.com")) {
+            val seenTitles = mutableSetOf<String>()
+            val document = response.asJsoup()
+            val animes = document.select(searchAnimeSelector())
+                .map { searchAnimeFromElement(it) }
+                .filter { anime ->
+                    val normalized = anime.title.trim().lowercase()
+                    seenTitles.add(normalized)
+                }
+            val hasNextPage = document.selectFirst(searchAnimeNextPageSelector()) != null
+            return AnimesPage(animes, hasNextPage)
+        }
+
+        // Parse JSON dari API gudangvape
+        return try {
+            val jsonObject = JSONObject(response.body.string())
+            val totalPages = jsonObject.getInt("totalPages")
+            val dataArray = jsonObject.getJSONArray("data")
+            val currentPage = url.substringAfterLast("page=").toIntOrNull() ?: 1
+
+            val animes = mutableListOf<SAnime>()
+            for (i in 0 until dataArray.length()) {
+                val item = dataArray.getJSONObject(i)
+                val type = item.getString("type")
+
+                // Filter hanya movie, skip series
+                if (type != "movie") continue
+
+                animes.add(
+                    SAnime.create().apply {
+                        val slug = item.getString("slug")
+                        setUrlWithoutDomain("/$slug")
+                        title = item.getString("title")
+                        thumbnail_url = "${posterBase}wp-content/uploads/${item.getString("poster")}"
+                        ReportLog.log("LK21-Search", "Parsed from API: $title", LogLevel.DEBUG)
+                    },
+                )
             }
-        val hasNextPage = document.selectFirst(searchAnimeNextPageSelector()) != null
-        return AnimesPage(animes, hasNextPage)
+
+            val hasNextPage = currentPage < totalPages
+            ReportLog.log("LK21-Search", "Page $currentPage of $totalPages, hasNext: $hasNextPage", LogLevel.INFO)
+            AnimesPage(animes, hasNextPage)
+        } catch (e: Exception) {
+            ReportLog.reportError("LK21-Search", "JSON parse error: ${e.message}")
+            AnimesPage(emptyList(), false)
+        }
     }
 
     // =========================== Anime Details ============================
