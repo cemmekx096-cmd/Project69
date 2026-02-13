@@ -129,7 +129,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
     }
 
-    // FIX #1 \u2014 Duplicate Filter
+    // FIX #1 — Duplicate Filter
     // seenTitles menyimpan judul yang sudah muncul di halaman ini
     private val seenTitles = mutableSetOf<String>()
 
@@ -139,7 +139,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val animes = document.select(popularAnimeSelector())
             .map { popularAnimeFromElement(it) }
             .filter { anime ->
-                // seenTitles.add() return false jika sudah ada \u2192 otomatis di-skip
+                // seenTitles.add() return false jika sudah ada → otomatis di-skip
                 val normalized = anime.title.trim().lowercase()
                 seenTitles.add(normalized)
             }
@@ -159,7 +159,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun latestUpdatesNextPageSelector(): String = popularAnimeNextPageSelector()
 
-    // FIX #1 \u2014 Duplicate Filter untuk Latest juga
+    // FIX #1 — Duplicate Filter untuk Latest juga
     override fun latestUpdatesParse(response: Response): AnimesPage {
         seenTitles.clear()
         val document = response.asJsoup()
@@ -218,7 +218,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun searchAnimeNextPageSelector(): String = popularAnimeNextPageSelector()
 
-    // FIX #1 \u2014 Duplicate Filter untuk Search juga
+    // FIX #1 — Duplicate Filter untuk Search juga
     override fun searchAnimeParse(response: Response): AnimesPage {
         seenTitles.clear()
         val document = response.asJsoup()
@@ -238,8 +238,8 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return SAnime.create().apply {
             title = document.selectFirst("h1[itemprop=name]")?.text() ?: ""
 
-            // FIX #2 \u2014 Poster Mismatch
-            // Ambil slug dari URL halaman, contoh: /our-universe-2026/ \u2192 "our-universe-2026"
+            // FIX #2 — Poster Mismatch
+            // Ambil slug dari URL halaman, contoh: /our-universe-2026/ → "our-universe-2026"
             // Lalu validasi poster harus mengandung slug tsb agar tidak keliru
             thumbnail_url = run {
                 val pageUrl = document.location()
@@ -457,4 +457,28 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun videoUrlParse(document: Document): String = throw UnsupportedOperationException()
 
-    // ==============================
+    // ============================== Filters ===============================
+
+    override fun getFilterList(): AnimeFilterList = LK21Filters.getFilterList()
+
+    // ============================== Settings ==============================
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        Lk21Preferences.setupPreferences(
+            screen = screen,
+            preferences = preferences,
+            defaultBaseUrl = Lk21Preferences.DEFAULT_BASE_URL_MOVIES,
+            isMovieExtension = true,
+        )
+    }
+
+    // ============================= Companion ==============================
+
+    companion object {
+        private const val PREF_CACHED_DOMAIN_KEY = "cached_domain"
+        private const val PREF_CACHE_TIME_KEY = "cache_time"
+
+        private const val PREF_TIMEOUT_KEY = "network_timeout"
+        private const val PREF_TIMEOUT_DEFAULT = "90"
+    }
+}
