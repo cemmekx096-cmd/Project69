@@ -23,7 +23,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
-class LK21MoviesV2 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
+class LK21Movies: ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "LK21Movies"
     override val lang = "id"
@@ -268,7 +268,7 @@ class LK21MoviesV2 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         seenTitles.clear()
         val document = response.asJsoup()
         val selector = scraperHelper.getSelectorConfig("popular")
-        
+
         val animes = document.select(selector.item)
             .filterNot { scraperHelper.shouldExclude(it, forMovies = true) }
             .mapNotNull { element ->
@@ -281,7 +281,7 @@ class LK21MoviesV2 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     null
                 }
             }
-        
+
         val hasNextPage = document.selectFirst(selector.pagination) != null
         return AnimesPage(animes, hasNextPage)
     }
@@ -322,7 +322,7 @@ class LK21MoviesV2 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         seenTitles.clear()
         val document = response.asJsoup()
         val selector = scraperHelper.getSelectorConfig("latest")
-        
+
         val animes = document.select(selector.item)
             .filterNot { scraperHelper.shouldExclude(it, forMovies = true) }
             .mapNotNull { element ->
@@ -335,7 +335,7 @@ class LK21MoviesV2 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     null
                 }
             }
-        
+
         val hasNextPage = document.selectFirst(selector.pagination) != null
         return AnimesPage(animes, hasNextPage)
     }
@@ -386,7 +386,7 @@ class LK21MoviesV2 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         seenTitles.clear()
         val document = response.asJsoup()
         val selector = scraperHelper.getSelectorConfig("search")
-        
+
         val animes = document.select(selector.item)
             .filterNot { scraperHelper.shouldExclude(it, forMovies = true) }
             .mapNotNull { element ->
@@ -398,7 +398,7 @@ class LK21MoviesV2 : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     null
                 }
             }
-        
+
         val hasNextPage = document.selectFirst(selector.pagination) != null
         return AnimesPage(animes, hasNextPage)
     }

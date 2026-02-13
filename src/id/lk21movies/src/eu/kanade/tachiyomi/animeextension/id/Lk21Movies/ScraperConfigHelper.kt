@@ -16,7 +16,7 @@ data class ScraperConfig(
     val selectors: SelectorsConfig,
     val poster_matching: PosterMatchingConfig,
     val data_normalization: DataNormalizationConfig,
-    val filtering: FilteringConfig
+    val filtering: FilteringConfig,
 )
 
 @Serializable
@@ -25,13 +25,13 @@ data class EndpointsConfig(
     val latest: EndpointInfo,
     val search: EndpointInfo,
     val genre: EndpointInfo,
-    val country: EndpointInfo
+    val country: EndpointInfo,
 )
 
 @Serializable
 data class EndpointInfo(
     val path: String,
-    val page_format: String
+    val page_format: String,
 )
 
 @Serializable
@@ -40,7 +40,7 @@ data class SelectorsConfig(
     val latest: SectionSelector,
     val search: SectionSelector,
     val detail: DetailSelector,
-    val player: PlayerSelector
+    val player: PlayerSelector,
 )
 
 @Serializable
@@ -57,7 +57,7 @@ data class SectionSelector(
     val year: String? = null,
     val quality: String? = null,
     val duration: String? = null,
-    val genre: String? = null
+    val genre: String? = null,
 )
 
 @Serializable
@@ -76,20 +76,20 @@ data class DetailSelector(
     val episode_indicator: String,
     val episode_list: String,
     val player_list: String,
-    val player_iframe: String
+    val player_iframe: String,
 )
 
 @Serializable
 data class PlayerSelector(
     val server_name: String,
     val data_server: String,
-    val data_url: String
+    val data_url: String,
 )
 
 @Serializable
 data class PosterMatchingConfig(
     val enabled: Boolean,
-    val validation: PosterValidation
+    val validation: PosterValidation,
 )
 
 @Serializable
@@ -98,40 +98,40 @@ data class PosterValidation(
     val check_title_in_poster: Boolean,
     val ignore_case: Boolean,
     val remove_special_chars: Boolean,
-    val allowed_extensions: List<String>
+    val allowed_extensions: List<String>,
 )
 
 @Serializable
 data class DataNormalizationConfig(
     val title: TitleNormalization,
     val thumbnail: ThumbnailNormalization,
-    val url: UrlNormalization
+    val url: UrlNormalization,
 )
 
 @Serializable
 data class TitleNormalization(
     val trim: Boolean,
     val remove_year_suffix: Boolean,
-    val decode_html_entities: Boolean
+    val decode_html_entities: Boolean,
 )
 
 @Serializable
 data class ThumbnailNormalization(
     val prefer_webp: Boolean,
     val prefer_high_quality: Boolean,
-    val validate_url: Boolean
+    val validate_url: Boolean,
 )
 
 @Serializable
 data class UrlNormalization(
     val ensure_absolute: Boolean,
-    val trim_trailing_slash: Boolean
+    val trim_trailing_slash: Boolean,
 )
 
 @Serializable
 data class FilteringConfig(
     val duplicate_detection: DuplicateDetection,
-    val exclude_series: ExcludeSeries
+    val exclude_series: ExcludeSeries,
 )
 
 @Serializable
@@ -139,13 +139,13 @@ data class DuplicateDetection(
     val enabled: Boolean,
     val method: String,
     val case_sensitive: Boolean,
-    val trim_whitespace: Boolean
+    val trim_whitespace: Boolean,
 )
 
 @Serializable
 data class ExcludeSeries(
     val enabled_for_movies: Boolean,
-    val indicator: String
+    val indicator: String,
 )
 
 /**
@@ -278,7 +278,7 @@ class ScraperConfigHelper(private val config: ScraperConfig) {
         // Strategy 3: Fallback to first valid poster
         val fallbackPoster = allImages.firstOrNull()
             ?.attr(config.selectors.detail.poster_attribute) ?: ""
-        
+
         if (fallbackPoster.isNotEmpty()) {
             ReportLog.log("PosterMatch", "⚠ Using fallback poster: $fallbackPoster", LogLevel.WARN)
         } else {
@@ -314,7 +314,7 @@ class ScraperConfigHelper(private val config: ScraperConfig) {
         if (validation.ignore_case) {
             normalized = normalized.lowercase()
         }
-        
+
         return normalized.trim()
     }
 
@@ -334,11 +334,11 @@ class ScraperConfigHelper(private val config: ScraperConfig) {
      */
     private fun normalizeTitle(title: String): String {
         var normalized = title
-        
+
         if (config.data_normalization.title.trim) {
             normalized = normalized.trim()
         }
-        
+
         if (config.data_normalization.title.decode_html_entities) {
             normalized = normalized
                 .replace("&amp;", "&")
@@ -347,7 +347,7 @@ class ScraperConfigHelper(private val config: ScraperConfig) {
                 .replace("&lt;", "<")
                 .replace("&gt;", ">")
         }
-        
+
         return normalized
     }
 
@@ -356,15 +356,15 @@ class ScraperConfigHelper(private val config: ScraperConfig) {
      */
     private fun normalizeUrl(url: String, baseUrl: String): String {
         var normalized = url
-        
+
         if (config.data_normalization.url.ensure_absolute && !url.startsWith("http")) {
             normalized = baseUrl + url
         }
-        
+
         if (config.data_normalization.url.trim_trailing_slash) {
             normalized = normalized.trimEnd('/')
         }
-        
+
         return normalized
     }
 
@@ -373,10 +373,10 @@ class ScraperConfigHelper(private val config: ScraperConfig) {
      */
     fun shouldExclude(element: Element, forMovies: Boolean): Boolean {
         if (!forMovies) return false
-        
+
         val excludeSeries = config.filtering.exclude_series
         if (!excludeSeries.enabled_for_movies) return false
-        
+
         return element.selectFirst(excludeSeries.indicator) != null
     }
 }
@@ -392,5 +392,5 @@ data class ParsedItem(
     val year: String? = null,
     val quality: String? = null,
     val duration: String? = null,
-    val genre: String? = null
+    val genre: String? = null,
 )
