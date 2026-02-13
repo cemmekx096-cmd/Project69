@@ -123,7 +123,9 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             setUrlWithoutDomain(link.attr("href"))
 
             title = element.selectFirst("h3.poster-title")?.text() ?: ""
-            thumbnail_url = element.selectFirst("picture img")?.attr("src") ?: ""
+            thumbnail_url = element.selectFirst("picture img")?.attr("src")
+                ?: element.selectFirst("img")?.attr("src")
+                ?: ""
 
             ReportLog.log("LK21-Popular", "Parsed: $title", LogLevel.DEBUG)
         }
