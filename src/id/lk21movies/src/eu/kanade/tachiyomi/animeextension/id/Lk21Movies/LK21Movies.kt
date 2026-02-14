@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
-import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
@@ -18,9 +17,10 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.json.JSONObject
+import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.json.JSONObject
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
@@ -125,7 +125,9 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             val link = element.selectFirst("a[href]")!!
             setUrlWithoutDomain(link.attr("href"))
 
-            title = element.selectFirst("h3.poster-title")?.text() ?: ""
+            title = element.selectFirst("h3.poster-title[itemprop=name]")?.text()
+                ?: element.selectFirst("h3.poster-title")?.ownText()
+                ?: ""
             thumbnail_url = element.selectFirst("picture img")?.attr("src")
                 ?: element.selectFirst("img")?.attr("src")
                 ?: ""
@@ -310,7 +312,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
             }
 
-            genre = document.select("div.genre a")
+            genre = document.select("div.tag-list span.tag a[href*=/genre/]")
                 .joinToString(", ") { it.text() }
 
             // Check if series or movie
@@ -327,7 +329,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
 
             description = buildString {
-                document.selectFirst("div.synopsis")?.text()?.let {
+                document.selectFirst("div.synopsis expanded, div.synopsis")?.text()?.let {
                     append("Synopsis:\n$it\n\n")
                 }
 
@@ -345,6 +347,11 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
                 document.selectFirst("span.label")?.text()?.let {
                     append("Quality: $it\n")
+                }
+
+                // Tambah link trailer jika ada
+                document.selectFirst("a.yt-lightbox[href*=youtube]")?.attr("href")?.let {
+                    append("\nTrailer: $it")
                 }
             }
 
