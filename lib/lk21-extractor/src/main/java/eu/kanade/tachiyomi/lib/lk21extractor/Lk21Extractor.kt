@@ -1,148 +1,136 @@
 package eu.kanade.tachiyomi.lib.lk21extractor
 
-import android.util.Log
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.util.asJsoup
+import eu.kanade.tachiyomi.network.POST
+import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.OkHttpClient
+import org.json.JSONObject
 
 /**
- * LK21 Video Extractor - Simplified & Reliable
- * Fokus pada quality daripada quantity server
+ * LK21 Video Extractor
+ * - Cast/TurboVIP/Hydrax → GET via playeriframe.sbs (SSR, no JS needed)
+ * - P2P → POST ke api2.php (last resort, berisiko Cloudflare)
  */
 class Lk21Extractor(
     private val client: OkHttpClient,
-    private val headers: Headers
+    private val headers: Headers,
 ) {
-
-    companion object {
-        private const val TAG = "Lk21Extractor"
-    }
+    private val defaultHeaders = Headers.Builder()
+        .add("Referer", "https://lk21.de/")
+        .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+        .build()
 
     /**
-     * Extract videos dari iframe URL
-     * @param iframeUrl URL iframe player
+     * Extract videos dari player URL
+     * @param playerUrl URL player (sudah dalam format playeriframe.sbs/iframe/provider/slug)
      * @param serverName Label server untuk quality string
-     * @return List of Video objects
      */
-    fun videosFromUrl(iframeUrl: String, serverName: String = "Player"): List<Video> {
-        if (iframeUrl.isBlank()) {
-            Log.w(TAG, "Empty iframe URL")
-            return emptyList()
-        }
+    fun videosFromUrl(playerUrl: String, serverName: String = "Player"): List<Video> {
+        if (playerUrl.isBlank()) return emptyList()
+
+        val videoList = mutableListOf<Video>()
 
         return try {
-            Log.d(TAG, "Extracting from: $iframeUrl")
-
-            val response = client.newCall(GET(iframeUrl, headers)).execute()
-
-            if (!response.isSuccessful) {
-                Log.w(TAG, "HTTP ${response.code} for $iframeUrl")
-                return emptyList()
-            }
-
-            val document = response.asJsoup()
-            val videoList = mutableListOf<Video>()
-
-            // Method 1: Direct video tags
-            document.select("video source[src], video[src]").forEach { element ->
-                val videoUrl = element.attr("src").ifBlank { 
-                    element.attr("data-src") 
+            when {
+                // P2P → POST ke api2.php (prioritas terakhir)
+                playerUrl.contains("/p2p/") -> {
+                    extractP2P(playerUrl, serverName, videoList)
                 }
-
-                if (videoUrl.isNotBlank() && videoUrl.startsWith("http")) {
-                    val quality = extractQuality(videoUrl, serverName)
-                    videoList.add(Video(videoUrl, quality, videoUrl, headers))
-                    Log.d(TAG, "Found video tag: $quality")
+                // Cast, TurboVIP, Hydrax → GET via playeriframe.sbs
+                playerUrl.contains("/cast/") ||
+                playerUrl.contains("/turbovip/") ||
+                playerUrl.contains("/hydrax/") -> {
+                    extractViaProxy(playerUrl, serverName, videoList)
+                }
+                // Provider tidak dikenal → coba proxy langsung
+                else -> {
+                    extractViaProxy(playerUrl, serverName, videoList)
                 }
             }
-
-            // Method 2: JavaScript sources (common patterns)
-            document.select("script").forEach { script ->
-                val scriptText = script.html()
-
-                // Pattern: file: "https://..."
-                extractFromPattern(
-                    scriptText,
-                    """file:\s*["']([^"']+)["']""".toRegex(),
-                    serverName,
-                    videoList
-                )
-
-                // Pattern: src: "https://..."
-                extractFromPattern(
-                    scriptText,
-                    """src:\s*["']([^"']+)["']""".toRegex(),
-                    serverName,
-                    videoList
-                )
-
-                // Pattern: sources: [{file: "..."}]
-                extractFromPattern(
-                    scriptText,
-                    """sources:\s*\[?\{[^}]*file:\s*["']([^"']+)["']""".toRegex(),
-                    serverName,
-                    videoList
-                )
-
-                // Pattern: Direct .m3u8 or .mp4 URLs
-                extractFromPattern(
-                    scriptText,
-                    """https?://[^\s"'<>]+\.(?:m3u8|mp4)""".toRegex(),
-                    serverName,
-                    videoList
-                )
-            }
-
-            // Method 3: Nested iframes (recursive, 1 level deep only)
-            if (videoList.isEmpty()) {
-                document.select("iframe[src]").forEach { iframe ->
-                    val nestedUrl = iframe.attr("src")
-                    if (nestedUrl.isNotBlank() && 
-                        nestedUrl.startsWith("http") && 
-                        nestedUrl != iframeUrl) {
-
-                        Log.d(TAG, "Trying nested iframe: $nestedUrl")
-                        videoList.addAll(videosFromUrl(nestedUrl, "$serverName (Nested)"))
-                    }
-                }
-            }
-
-            Log.d(TAG, "Extracted ${videoList.size} videos from $serverName")
             videoList.distinctBy { it.url }
-
         } catch (e: Exception) {
-            Log.e(TAG, "Error extracting from $iframeUrl", e)
             emptyList()
         }
     }
 
     /**
-     * Helper: Extract video URLs from regex pattern
+     * Extract via playeriframe.sbs proxy (Cast, TurboVIP, Hydrax)
+     * Server sudah SSR → link langsung ada di HTML
      */
-    private fun extractFromPattern(
-        scriptText: String,
-        pattern: Regex,
+    private fun extractViaProxy(
+        playerUrl: String,
         serverName: String,
-        videoList: MutableList<Video>
+        videoList: MutableList<Video>,
     ) {
-        pattern.findAll(scriptText).forEach { match ->
-            val videoUrl = match.groupValues.getOrNull(1) ?: match.value
+        try {
+            val response = client.newCall(GET(playerUrl, defaultHeaders)).execute()
+            if (!response.isSuccessful) return
 
-            if (videoUrl.isNotBlank() && 
-                videoUrl.startsWith("http") &&
-                (videoUrl.contains(".m3u8") || videoUrl.contains(".mp4"))) {
+            val html = response.body.string()
 
-                val quality = extractQuality(videoUrl, serverName)
-                videoList.add(Video(videoUrl, quality, videoUrl, headers))
+            // Regex untuk .m3u8 dan .mp4
+            val videoRegex = """(https?://[^\s"'<>]+(?:\.m3u8|\.mp4)[^\s"'<>]*?)["'\s]""".toRegex()
+            videoRegex.findAll(html).forEach { match ->
+                val videoUrl = match.groupValues[1]
+                if (videoUrl.isNotBlank()) {
+                    val quality = extractQuality(videoUrl, serverName)
+                    videoList.add(Video(videoUrl, quality, videoUrl, defaultHeaders))
+                }
             }
+
+            // Juga cari pattern jwplayer/flowplayer
+            val jwRegex = """file\s*:\s*["'](https?://[^"']+)["']""".toRegex()
+            jwRegex.findAll(html).forEach { match ->
+                val videoUrl = match.groupValues[1]
+                if (videoUrl.isNotBlank() &&
+                    (videoUrl.contains(".m3u8") || videoUrl.contains(".mp4"))
+                ) {
+                    val quality = extractQuality(videoUrl, serverName)
+                    videoList.add(Video(videoUrl, quality, videoUrl, defaultHeaders))
+                }
+            }
+        } catch (e: Exception) {
+            // Gagal → biarkan kosong, fallback di LK21Movies.kt
         }
     }
 
     /**
-     * Extract quality dari URL atau filename
-     * Format: "ServerName - Quality"
+     * Extract P2P via api2.php POST
+     * P2P hanya tersedia 480p
+     */
+    private fun extractP2P(
+        playerUrl: String,
+        serverName: String,
+        videoList: MutableList<Video>,
+    ) {
+        try {
+            val slug = playerUrl.substringAfterLast("/")
+            val p2pApi = "https://cloud.hownetwork.xyz/api2.php?id=$slug"
+
+            val body = FormBody.Builder()
+                .add("r", "https://lk21.de/")
+                .add("d", "cloud.hownetwork.xyz")
+                .build()
+
+            val response = client.newCall(POST(p2pApi, defaultHeaders, body)).execute()
+            if (!response.isSuccessful) return
+
+            val json = JSONObject(response.body.string())
+            val videoUrl = json.optString("file", "")
+
+            if (videoUrl.isNotBlank() && videoUrl.startsWith("http")) {
+                videoList.add(Video(videoUrl, "$serverName - 480p", videoUrl, defaultHeaders))
+            }
+        } catch (e: Exception) {
+            // P2P gagal (kemungkinan Cloudflare) → biarkan kosong
+        }
+    }
+
+    /**
+     * Extract quality dari URL
      */
     private fun extractQuality(url: String, serverName: String): String {
         val quality = when {
@@ -154,7 +142,6 @@ class Lk21Extractor(
             url.contains(".mp4", ignoreCase = true) -> "MP4"
             else -> "Default"
         }
-
         return "$serverName - $quality"
     }
 }

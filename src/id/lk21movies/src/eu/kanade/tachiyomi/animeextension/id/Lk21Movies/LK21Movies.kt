@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
-import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
@@ -18,9 +17,10 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.json.JSONObject
+import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.json.JSONObject
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
@@ -417,42 +417,63 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         ReportLog.log("LK21-Video", "=== VIDEO PARSE START ===", LogLevel.INFO)
         ReportLog.log("LK21-Video", "Page URL: ${response.request.url}", LogLevel.INFO)
 
-        // Parse player list
+        // Kumpulkan semua player URL dulu
         val playerItems = document.select("ul#player-list li a")
-
         ReportLog.log("LK21-Video", "Found ${playerItems.size} players", LogLevel.INFO)
 
-        playerItems.forEachIndexed { index, element ->
-            try {
-                val serverName = element.text().trim()
-                val dataServer = element.attr("data-server")
-                val dataUrl = element.attr("data-url")
+        data class PlayerEntry(val url: String, val name: String)
 
-                ReportLog.log("LK21-Video", "[$index] Server: $serverName (Type: $dataServer)", LogLevel.DEBUG)
+        val playerEntries = mutableListOf<PlayerEntry>()
 
-                if (dataUrl.isNotEmpty()) {
-                    // Build player URL
-                    val playerUrl = when {
-                        dataUrl.startsWith("http") -> dataUrl
-                        else -> "$playerBase$dataServer/$dataUrl"
-                    }
+        playerItems.forEach { element ->
+            val serverName = element.text().trim()
+            val dataServer = element.attr("data-server")
+            val dataUrl = element.attr("data-url")
 
-                    ReportLog.log("LK21-Video", "[$index] Player URL: $playerUrl", LogLevel.DEBUG)
-
-                    // Extract video from player
-                    extractVideoFromPlayer(playerUrl, videoList, serverName)
+            if (dataUrl.isNotEmpty()) {
+                val playerUrl = when {
+                    dataUrl.startsWith("http") -> dataUrl
+                    else -> "$playerBase$dataServer/$dataUrl"
                 }
-            } catch (e: Exception) {
-                ReportLog.reportError("LK21-Video", "[$index] Error: ${e.message}")
+                playerEntries.add(PlayerEntry(playerUrl, serverName))
+                ReportLog.log("LK21-Video", "Found player: $serverName → $playerUrl", LogLevel.DEBUG)
             }
         }
 
-        // Also check for direct iframe in main-player
+        // Juga tambahkan direct iframe jika ada
         document.selectFirst("iframe#main-player")?.let { iframe ->
             val iframeSrc = iframe.attr("src")
             if (iframeSrc.isNotEmpty()) {
+                playerEntries.add(PlayerEntry(iframeSrc, "Direct Player"))
                 ReportLog.log("LK21-Video", "Found direct iframe: $iframeSrc", LogLevel.INFO)
-                extractVideoFromPlayer(iframeSrc, videoList, "Direct Player")
+            }
+        }
+
+        // Sort player: Cast → TurboVIP → Hydrax → P2P → lainnya
+        val sortedEntries = playerEntries.sortedBy { entry ->
+            when {
+                entry.url.contains("/cast/") -> 1
+                entry.url.contains("/turbovip/") -> 2
+                entry.url.contains("/hydrax/") -> 3
+                entry.url.contains("/p2p/") -> 4
+                else -> 5
+            }
+        }
+
+        // Extract video dari setiap player
+        sortedEntries.forEachIndexed { index, entry ->
+            try {
+                ReportLog.log("LK21-Video", "[$index] Extracting: ${entry.name} → ${entry.url}", LogLevel.DEBUG)
+                val videos = extractor.videosFromUrl(entry.url, entry.name)
+                if (videos.isNotEmpty()) {
+                    ReportLog.log("LK21-Video", "[$index] Found ${videos.size} video(s) from ${entry.name}", LogLevel.INFO)
+                    videoList.addAll(videos)
+                } else {
+                    ReportLog.log("LK21-Video", "[$index] No videos from ${entry.name}, adding iframe fallback", LogLevel.WARN)
+                    videoList.add(Video(entry.url, "${entry.name} (Iframe)", entry.url))
+                }
+            } catch (e: Exception) {
+                ReportLog.reportError("LK21-Video", "[$index] Error: ${e.message}")
             }
         }
 
@@ -464,43 +485,6 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
     }
 
-    /**
-     * Extract video from player iframe using Lk21Extractor library
-     */
-    private fun extractVideoFromPlayer(playerUrl: String, videoList: MutableList<Video>, serverName: String) {
-        try {
-            ReportLog.log("LK21-Extractor", "Extracting from: $playerUrl (Server: $serverName)", LogLevel.INFO)
-
-            // Use Lk21Extractor library
-            val videos = extractor.videosFromUrl(playerUrl, serverName)
-
-            if (videos.isNotEmpty()) {
-                ReportLog.log("LK21-Extractor", "Found ${videos.size} video(s) from $serverName", LogLevel.INFO)
-                videoList.addAll(videos)
-            } else {
-                ReportLog.log("LK21-Extractor", "No videos found from $serverName, adding iframe fallback", LogLevel.WARN)
-                // Add iframe as fallback if extractor returns empty
-                videoList.add(
-                    Video(
-                        url = playerUrl,
-                        quality = "$serverName (Iframe)",
-                        videoUrl = playerUrl,
-                    ),
-                )
-            }
-        } catch (e: Exception) {
-            ReportLog.reportError("LK21-Extractor", "Extraction failed for $playerUrl: ${e.message}")
-            e.printStackTrace()
-            // Add iframe as error fallback
-            videoList.add(
-                Video(
-                    url = playerUrl,
-                    quality = "$serverName (Error)",
-                    videoUrl = playerUrl,
-                ),
-            )
-        }
-    }
 
     override fun videoListSelector(): String = throw UnsupportedOperationException()
 
