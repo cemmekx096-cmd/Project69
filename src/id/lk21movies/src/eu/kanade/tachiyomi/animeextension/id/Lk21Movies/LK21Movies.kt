@@ -485,7 +485,6 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
     }
 
-
     override fun videoListSelector(): String = throw UnsupportedOperationException()
 
     override fun videoFromElement(element: Element): Video = throw UnsupportedOperationException()
