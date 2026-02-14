@@ -433,7 +433,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             if (dataUrl.isNotEmpty()) {
                 val playerUrl = when {
                     dataUrl.startsWith("http") -> dataUrl
-                    else -> "$playerBase$dataServer/$dataUrl"
+                    else -> "$dataServer/$dataUrl" // format: "cast/slug", "turbovip/slug", "p2p/slug"
                 }
                 playerEntries.add(PlayerEntry(playerUrl, serverName))
                 ReportLog.log("LK21-Video", "Found player: $serverName → $playerUrl", LogLevel.DEBUG)
@@ -452,10 +452,10 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         // Sort player: Cast → TurboVIP → Hydrax → P2P → lainnya
         val sortedEntries = playerEntries.sortedBy { entry ->
             when {
-                entry.url.contains("/cast/") -> 1
-                entry.url.contains("/turbovip/") -> 2
-                entry.url.contains("/hydrax/") -> 3
-                entry.url.contains("/p2p/") -> 4
+                entry.url.contains("cast") -> 1
+                entry.url.contains("turbovip") -> 2
+                entry.url.contains("hydrax") -> 3
+                entry.url.contains("p2p") -> 4
                 else -> 5
             }
         }
@@ -484,6 +484,7 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             listOf(Video(response.request.url.toString(), "Open in WebView", response.request.url.toString()))
         }
     }
+
 
     override fun videoListSelector(): String = throw UnsupportedOperationException()
 
