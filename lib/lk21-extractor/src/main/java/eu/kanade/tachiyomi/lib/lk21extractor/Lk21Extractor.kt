@@ -2,16 +2,17 @@ package eu.kanade.tachiyomi.lib.lk21extractor
 
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.POST
-import okhttp3.FormBody
+import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import org.json.JSONObject
 
 /**
  * LK21 Video Extractor
- * - Cast/TurboVIP/Hydrax → GET via playeriframe.sbs (SSR, no JS needed)
- * - P2P → POST ke api2.php (last resort, berisiko Cloudflare)
+ * - P2P → GET api2.php (JSON response)
+ * - TurboVIP → GET turbovidhls.com → data-hash attribute
+ * - Cast → iframe fallback (server sering down / token expire)
+ * - Hydrax → iframe fallback (implementasi nanti via abyss-extractor)
  */
 class Lk21Extractor(
     private val client: OkHttpClient,
@@ -23,125 +24,97 @@ class Lk21Extractor(
         .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
         .build()
 
-    /**
-     * Extract videos dari player URL
-     * @param playerUrl URL player (sudah dalam format playeriframe.sbs/iframe/provider/slug)
-     * @param serverName Label server untuk quality string
-     */
     fun videosFromUrl(playerUrl: String, serverName: String = "Player"): List<Video> {
         if (playerUrl.isBlank()) return emptyList()
 
-        val videoList = mutableListOf<Video>()
-
         return try {
             when {
-                // P2P → POST ke api2.php (prioritas terakhir)
-                playerUrl.contains("/p2p/") -> {
-                    extractP2P(playerUrl, serverName, videoList)
-                }
-                // Cast, TurboVIP, Hydrax → GET via playeriframe.sbs
-                playerUrl.contains("/cast/") ||
-                playerUrl.contains("/turbovip/") ||
-                playerUrl.contains("/hydrax/") -> {
-                    extractViaProxy(playerUrl, serverName, videoList)
-                }
-                // Provider tidak dikenal → coba proxy langsung
-                else -> {
-                    extractViaProxy(playerUrl, serverName, videoList)
-                }
+                playerUrl.contains("/p2p/") -> extractP2P(playerUrl, serverName)
+                playerUrl.contains("/turbovip/") -> extractTurboVip(playerUrl, serverName)
+                playerUrl.contains("/cast/") -> extractCast(playerUrl, serverName)
+                playerUrl.contains("/hydrax/") -> emptyList() // fallback ke iframe
+                else -> emptyList()
             }
-            videoList.distinctBy { it.url }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
     /**
-     * Extract via playeriframe.sbs proxy (Cast, TurboVIP, Hydrax)
-     * Server sudah SSR → link langsung ada di HTML
+     * P2P → GET api2.php?id={slug} → JSON {file, type}
      */
-    private fun extractViaProxy(
-        playerUrl: String,
-        serverName: String,
-        videoList: MutableList<Video>,
-    ) {
-        try {
-            val response = client.newCall(GET(playerUrl, defaultHeaders)).execute()
-            if (!response.isSuccessful) return
-
-            val html = response.body.string()
-
-            // Regex untuk .m3u8 dan .mp4
-            val videoRegex = """(https?://[^\s"'<>]+(?:\.m3u8|\.mp4)[^\s"'<>]*?)["'\s]""".toRegex()
-            videoRegex.findAll(html).forEach { match ->
-                val videoUrl = match.groupValues[1]
-                if (videoUrl.isNotBlank()) {
-                    val quality = extractQuality(videoUrl, serverName)
-                    videoList.add(Video(videoUrl, quality, videoUrl, defaultHeaders))
-                }
-            }
-
-            // Juga cari pattern jwplayer/flowplayer
-            val jwRegex = """file\s*:\s*["'](https?://[^"']+)["']""".toRegex()
-            jwRegex.findAll(html).forEach { match ->
-                val videoUrl = match.groupValues[1]
-                if (videoUrl.isNotBlank() &&
-                    (videoUrl.contains(".m3u8") || videoUrl.contains(".mp4"))
-                ) {
-                    val quality = extractQuality(videoUrl, serverName)
-                    videoList.add(Video(videoUrl, quality, videoUrl, defaultHeaders))
-                }
-            }
-        } catch (e: Exception) {
-            // Gagal → biarkan kosong, fallback di LK21Movies.kt
-        }
-    }
-
-    /**
-     * Extract P2P via api2.php POST
-     * P2P hanya tersedia 480p
-     */
-    private fun extractP2P(
-        playerUrl: String,
-        serverName: String,
-        videoList: MutableList<Video>,
-    ) {
-        try {
+    private fun extractP2P(playerUrl: String, serverName: String): List<Video> {
+        return try {
             val slug = playerUrl.substringAfterLast("/")
-            val p2pApi = "https://cloud.hownetwork.xyz/api2.php?id=$slug"
+            val apiUrl = "https://cloud.hownetwork.xyz/api2.php?id=$slug"
 
-            val body = FormBody.Builder()
-                .add("r", "https://lk21.de/")
-                .add("d", "cloud.hownetwork.xyz")
-                .build()
-
-            val response = client.newCall(POST(p2pApi, defaultHeaders, body)).execute()
-            if (!response.isSuccessful) return
+            val response = client.newCall(GET(apiUrl, defaultHeaders)).execute()
+            if (!response.isSuccessful) return emptyList()
 
             val json = JSONObject(response.body.string())
             val videoUrl = json.optString("file", "")
 
             if (videoUrl.isNotBlank() && videoUrl.startsWith("http")) {
-                videoList.add(Video(videoUrl, "$serverName - 480p", videoUrl, defaultHeaders))
+                listOf(Video(videoUrl, "$serverName - 480p", videoUrl, defaultHeaders))
+            } else {
+                emptyList()
             }
         } catch (e: Exception) {
-            // P2P gagal (kemungkinan Cloudflare) → biarkan kosong
+            emptyList()
         }
     }
 
     /**
-     * Extract quality dari URL
+     * TurboVIP → GET turbovidhls.com/t/{slug}
+     * → ambil data-hash dari div#video_player
      */
-    private fun extractQuality(url: String, serverName: String): String {
-        val quality = when {
-            url.contains("1080", ignoreCase = true) -> "1080p"
-            url.contains("720", ignoreCase = true) -> "720p"
-            url.contains("480", ignoreCase = true) -> "480p"
-            url.contains("360", ignoreCase = true) -> "360p"
-            url.contains(".m3u8", ignoreCase = true) -> "HLS"
-            url.contains(".mp4", ignoreCase = true) -> "MP4"
-            else -> "Default"
+    private fun extractTurboVip(playerUrl: String, serverName: String): List<Video> {
+        return try {
+            val slug = playerUrl.substringAfterLast("/")
+            val turboUrl = "https://turbovidhls.com/t/$slug"
+
+            val response = client.newCall(GET(turboUrl, defaultHeaders)).execute()
+            if (!response.isSuccessful) return emptyList()
+
+            val document = response.asJsoup()
+            val videoUrl = document.selectFirst("div#video_player[data-hash]")
+                ?.attr("data-hash") ?: return emptyList()
+
+            if (videoUrl.isNotBlank() && videoUrl.contains(".m3u8")) {
+                listOf(Video(videoUrl, "$serverName - HLS", videoUrl, defaultHeaders))
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
         }
-        return "$serverName - $quality"
+    }
+
+    /**
+     * Cast → GET f16px.com/e/{slug} → regex master.m3u8
+     * Token expire cepat, gunakan sebagai best-effort
+     */
+    private fun extractCast(playerUrl: String, serverName: String): List<Video> {
+        return try {
+            val slug = playerUrl.substringAfterLast("/")
+            val castUrl = "https://f16px.com/e/$slug"
+
+            val response = client.newCall(GET(castUrl, defaultHeaders)).execute()
+            if (!response.isSuccessful) return emptyList()
+
+            val html = response.body.string()
+
+            val m3u8Regex = """(https?://[^\s"'<>]+master\.m3u8[^\s"'<>]*)""".toRegex()
+            val videoUrl = m3u8Regex.find(html)?.groupValues?.get(1) ?: return emptyList()
+
+            if (videoUrl.isNotBlank()) {
+                listOf(Video(videoUrl, "$serverName - HLS", videoUrl, defaultHeaders))
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 }
+
