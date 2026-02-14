@@ -11,7 +11,7 @@ import org.json.JSONObject
  * LK21 Video Extractor
  * - P2P → GET api2.php (JSON response)
  * - TurboVIP → GET turbovidhls.com → data-hash attribute
- * - Cast → iframe fallback (server sering down / token expire)
+ * - Cast → GET f16px.com → regex master.m3u8
  * - Hydrax → iframe fallback (implementasi nanti via abyss-extractor)
  */
 class Lk21Extractor(
@@ -28,11 +28,21 @@ class Lk21Extractor(
         if (playerUrl.isBlank()) return emptyList()
 
         return try {
-            when {
-                playerUrl.contains("/p2p/") -> extractP2P(playerUrl, serverName)
-                playerUrl.contains("/turbovip/") -> extractTurboVip(playerUrl, serverName)
-                playerUrl.contains("/cast/") -> extractCast(playerUrl, serverName)
-                playerUrl.contains("/hydrax/") -> emptyList() // fallback ke iframe
+            // Extract provider dan slug dari URL
+            // Format bisa: "playeriframe.sbs/iframe/turbovip/slug" atau "turbovip/slug"
+            val provider = when {
+                playerUrl.contains("playeriframe.sbs") ->
+                    playerUrl.substringAfter("iframe/").substringBefore("/")
+                else ->
+                    playerUrl.substringBefore("/")
+            }
+            val slug = playerUrl.substringAfterLast("/")
+
+            when (provider) {
+                "cast" -> extractCast(slug, serverName)
+                "turbovip" -> extractTurboVip(slug, serverName)
+                "p2p" -> extractP2P(slug, serverName)
+                "hydrax" -> emptyList() // fallback ke iframe
                 else -> emptyList()
             }
         } catch (e: Exception) {
@@ -43,9 +53,8 @@ class Lk21Extractor(
     /**
      * P2P → GET api2.php?id={slug} → JSON {file, type}
      */
-    private fun extractP2P(playerUrl: String, serverName: String): List<Video> {
+    private fun extractP2P(slug: String, serverName: String): List<Video> {
         return try {
-            val slug = playerUrl.substringAfterLast("/")
             val apiUrl = "https://cloud.hownetwork.xyz/api2.php?id=$slug"
 
             val response = client.newCall(GET(apiUrl, defaultHeaders)).execute()
@@ -68,9 +77,8 @@ class Lk21Extractor(
      * TurboVIP → GET turbovidhls.com/t/{slug}
      * → ambil data-hash dari div#video_player
      */
-    private fun extractTurboVip(playerUrl: String, serverName: String): List<Video> {
+    private fun extractTurboVip(slug: String, serverName: String): List<Video> {
         return try {
-            val slug = playerUrl.substringAfterLast("/")
             val turboUrl = "https://turbovidhls.com/t/$slug"
 
             val response = client.newCall(GET(turboUrl, defaultHeaders)).execute()
@@ -92,11 +100,9 @@ class Lk21Extractor(
 
     /**
      * Cast → GET f16px.com/e/{slug} → regex master.m3u8
-     * Token expire cepat, gunakan sebagai best-effort
      */
-    private fun extractCast(playerUrl: String, serverName: String): List<Video> {
+    private fun extractCast(slug: String, serverName: String): List<Video> {
         return try {
-            val slug = playerUrl.substringAfterLast("/")
             val castUrl = "https://f16px.com/e/$slug"
 
             val response = client.newCall(GET(castUrl, defaultHeaders)).execute()
@@ -117,4 +123,3 @@ class Lk21Extractor(
         }
     }
 }
-
