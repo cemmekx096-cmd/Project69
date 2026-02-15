@@ -105,16 +105,16 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         // ── Next Page ─────────────────────────────────────────────────────
         const val NEXT_PAGE_COMPLETED = "a.next.page-numbers"
-        const val NEXT_PAGE_HOMEPAGE  = "div.hpage a.r"
+        const val NEXT_PAGE_HOMEPAGE = "div.hpage a.r"
 
         // ── Episode List ──────────────────────────────────────────────────
-        const val EPISODE_LIST_DETAIL   = "div.eplister ul li"
+        const val EPISODE_LIST_DETAIL = "div.eplister ul li"
         const val EPISODE_LIST_HOMEPAGE = "div.episodelist ul li"
 
         // ── Date ──────────────────────────────────────────────────────────
         // Homepage: "Eps 01 - Title - January 18, 2026"
 
-        const val DATE_SELECTOR_HOMEPAGE  = "div.playinfo span"
+        const val DATE_SELECTOR_HOMEPAGE = "div.playinfo span"
 
         // Completed & Search: "January 12, 2026"
 
