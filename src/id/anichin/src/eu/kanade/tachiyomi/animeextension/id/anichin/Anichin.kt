@@ -104,20 +104,24 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         // Homepage & detail page
         const val SYNOPSIS_A = "div.desc.mindes.alldes"
         // Completed & search page
+
         const val SYNOPSIS_B = "div.bixbox.synp div.entry-content[itemprop=description]"
         // Fallback generic
+
         const val SYNOPSIS_C = "div.entry-content[itemprop=description]"
 
         // ── Next Page ─────────────────────────────────────────────────────
         // Completed page
         const val NEXT_PAGE_COMPLETED = "a.next.page-numbers"
         // Homepage (latest)
+
         const val NEXT_PAGE_HOMEPAGE = "div.hpage a.r"
 
         // ── Episode List ──────────────────────────────────────────────────
         // Detail page
         const val EPISODE_LIST_DETAIL = "div.eplister ul li"
         // Homepage episode list
+
         const val EPISODE_LIST_HOMEPAGE = "div.episodelist ul li"
 
         // ── Status ────────────────────────────────────────────────────────
