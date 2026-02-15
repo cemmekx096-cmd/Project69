@@ -11,8 +11,8 @@ dependencies {
     implementation(project(":lib:okru-extractor"))
     implementation(project(":lib:dailymotion-extractor"))
     implementation(project(":lib:cloudflare-interceptor"))
-    implementation project(':lib:doodstream-extractor')
-    implementation project(':lib:gdriveplayer-extractor')
+    implementation(project(":lib:dood-extractor"))
+    implementationproject(':lib:gdriveplayer-extractor')
     implementation(project(":lib:playlist-utils"))  // TAMBAH INI
     implementation(project(":lib:googledrive-extractor"))
     // ✨ NEW EXTRACTORS

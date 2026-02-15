@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.lib.anichinextractor.AnichinExtractor
 import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.lib.dailymotionextractor.DailymotionExtractor
+import eu.kanade.tachiyomi.lib.doodextractor.DoodExtractor
 import eu.kanade.tachiyomi.lib.googledriveextractor.GoogleDriveExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.lib.playlistutils.PlaylistUtils
@@ -28,6 +29,8 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.text.SimpleDateFormat
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
@@ -93,12 +96,14 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     private val anichinVipExtractor by lazy { AnichinExtractor(client) }
     private val rubyVidExtractor by lazy { RubyVidHubExtractor(client) }
     private val rumbleExtractor by lazy { RumbleExtractor(client) }
+    private val doodExtractor by lazy { DoodExtractor(client) } // ✨ TAMBAH Doodstream
     private val universalBase64Extractor by lazy { UniversalBase64Extractor(client) }
 
     // ============================== Popular ===============================
+    // FIX: Ganti ongoing → completed
 
     override fun popularAnimeRequest(page: Int): Request {
-        return GET("$baseUrl/ongoing/?page=$page", headers)
+        return GET("$baseUrl/completed/page/$page/", headers)
     }
 
     override fun popularAnimeSelector(): String = "div.listupd article.bs"
@@ -114,9 +119,10 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun popularAnimeNextPageSelector(): String = "div.pagination a.next"
 
     // =============================== Latest ===============================
+    // FIX: Ganti ongoing → homepage
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/ongoing/?page=$page", headers)
+        return GET("$baseUrl/page/$page/", headers)
     }
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
@@ -133,7 +139,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val url = when {
             query.isNotEmpty() -> "$baseUrl/?s=$query&page=$page"
             params.genre.isNotEmpty() -> "$baseUrl/genres/${params.genre}/?page=$page"
-            else -> "$baseUrl/ongoing/?page=$page"
+            else -> "$baseUrl/page/$page/"
         }
 
         return GET(url, headers)
@@ -154,14 +160,21 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
             genre = document.select("div.genxed a").joinToString { it.text() }
 
-            status = when {
-                document.select("div.status").text().contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
-                document.select("div.status").text().contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
-                else -> SAnime.UNKNOWN
-            }
+            // FIX: Status dari div.spe span (lebih akurat)
+            status = document.select("div.spe span").firstOrNull { span ->
+                span.selectFirst("b")?.text()?.contains("Status", ignoreCase = true) == true
+            }?.text()?.let { statusText ->
+                when {
+                    statusText.contains("Ongoing", ignoreCase = true) -> SAnime.ONGOING
+                    statusText.contains("Completed", ignoreCase = true) -> SAnime.COMPLETED
+                    else -> SAnime.UNKNOWN
+                }
+            } ?: SAnime.UNKNOWN
 
+            // FIX: Synopsis selector yang benar
             description = buildString {
-                document.selectFirst("div.desc")?.text()?.let { append(it) }
+                document.selectFirst("div.desc.mindes.alldes")?.text()?.let { append(it) }
+                    ?: document.selectFirst("div.desc")?.text()?.let { append(it) }
             }
         }
     }
@@ -175,7 +188,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             val episodeUrl = element.selectFirst("a")!!.attr("href")
             setUrlWithoutDomain(episodeUrl)
 
-            val rawName = element.selectFirst("span.epcur")?.text()
+            val rawName = element.selectFirst("div.playinfo h4")?.text()
+                ?: element.selectFirst("span.epcur")?.text()
                 ?: element.selectFirst("a")?.text()
                 ?: "Episode"
 
@@ -185,8 +199,27 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 rawName
             }
 
-            episode_number = rawName.filter { it.isDigit() }.toFloatOrNull() ?: 0f
-            date_upload = System.currentTimeMillis()
+            // FIX: Ambil angka setelah "Episode" atau "Eps" saja, bukan semua digit
+            episode_number = Regex("""[Ee]pisode\s*(\d+)""")
+                .find(rawName)?.groupValues?.get(1)?.toFloatOrNull()
+                ?: Regex("""[Ee]ps?\s*(\d+)""")
+                    .find(rawName)?.groupValues?.get(1)?.toFloatOrNull()
+                ?: 0f
+
+            // FIX: Parse tanggal dari div.playinfo span
+            val spanText = element.selectFirst("div.playinfo span")?.text() ?: ""
+            date_upload = parseDate(spanText)
+        }
+    }
+
+    // Parse tanggal dari format "Eps 01 - Title - June 24, 2023"
+    private fun parseDate(text: String): Long {
+        return try {
+            val datePart = text.substringAfterLast(" - ").trim()
+            SimpleDateFormat("MMMM dd, yyyy", Locale.ENGLISH).parse(datePart)?.time
+                ?: System.currentTimeMillis()
+        } catch (e: Exception) {
+            System.currentTimeMillis()
         }
     }
 
@@ -354,6 +387,14 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     } else {
                         videoList.addAll(videos)
                     }
+                }
+
+                // ✨ Doodstream
+                finalUrl.contains("dood", ignoreCase = true) -> {
+                    android.util.Log.d("Anichin", "Extracting Doodstream")
+                    val videos = doodExtractor.videosFromUrl(finalUrl, "$serverName - ")
+                    android.util.Log.d("Anichin", "Doodstream videos: ${videos.size}")
+                    videoList.addAll(videos)
                 }
 
                 // Existing extractors (with case-insensitive)
