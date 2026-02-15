@@ -6,6 +6,7 @@ import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -37,7 +38,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "Anichin"
 
-    // ✨ Use preference for base URL
     override val baseUrl: String
         get() = preferences.getString(AnichinPreferences.PREF_BASE_URL_KEY, AnichinPreferences.PREF_BASE_URL_DEFAULT)!!
 
@@ -52,7 +52,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         CloudflareInterceptor(network.client)
     }
 
-    // ✨ Dynamic client with preferences
     override val client: OkHttpClient
         get() {
             val timeoutSeconds = preferences.getString(AnichinPreferences.PREF_TIMEOUT_KEY, AnichinPreferences.PREF_TIMEOUT_DEFAULT)!!
@@ -70,7 +69,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             return builder.build()
         }
 
-    // ✨ Dynamic headers with custom user agent
     override fun headersBuilder(): Headers.Builder {
         val userAgent = preferences.getString(AnichinPreferences.PREF_USER_AGENT_KEY, AnichinPreferences.PREF_USER_AGENT_DEFAULT)!!
 
@@ -85,13 +83,11 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
     }
 
-    // Existing extractors
+    // Extractors
     private val okruExtractor by lazy { OkruExtractor(client) }
     private val dailymotionExtractor by lazy { DailymotionExtractor(client) }
     private val googleDriveExtractor by lazy { GoogleDriveExtractor(client, headers) }
     private val playlistUtils by lazy { PlaylistUtils(client, headers) }
-
-    // ✨ NEW EXTRACTORS
     private val anichinVipExtractor by lazy { AnichinExtractor(client) }
     private val rubyVidExtractor by lazy { RubyVidHubExtractor(client) }
     private val rumbleExtractor by lazy { RumbleExtractor(client) }
@@ -101,38 +97,42 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Selectors Library =====================
     companion object {
         // ── Synopsis ──────────────────────────────────────────────────────
-        // Homepage & detail page
-        const val SYNOPSIS_A = "div.desc.mindes.alldes"
-        // Completed & search page
+        // FIX: "alldes" tidak ada, yang benar hanya "desc mindes"
 
+        const val SYNOPSIS_A = "div.desc.mindes"
         const val SYNOPSIS_B = "div.bixbox.synp div.entry-content[itemprop=description]"
-        // Fallback generic
-
         const val SYNOPSIS_C = "div.entry-content[itemprop=description]"
 
         // ── Next Page ─────────────────────────────────────────────────────
-        // Completed page
         const val NEXT_PAGE_COMPLETED = "a.next.page-numbers"
-        // Homepage (latest)
-
-        const val NEXT_PAGE_HOMEPAGE = "div.hpage a.r"
+        const val NEXT_PAGE_HOMEPAGE  = "div.hpage a.r"
 
         // ── Episode List ──────────────────────────────────────────────────
-        // Detail page
-        const val EPISODE_LIST_DETAIL = "div.eplister ul li"
-        // Homepage episode list
-
+        const val EPISODE_LIST_DETAIL   = "div.eplister ul li"
         const val EPISODE_LIST_HOMEPAGE = "div.episodelist ul li"
+
+        // ── Date ──────────────────────────────────────────────────────────
+        // Homepage: "Eps 01 - Title - January 18, 2026"
+
+        const val DATE_SELECTOR_HOMEPAGE  = "div.playinfo span"
+
+        // Completed & Search: "January 12, 2026"
+
+        const val DATE_SELECTOR_COMPLETED = "div.epl-date"
+        const val DATE_FORMAT = "MMMM dd, yyyy"
 
         // ── Status ────────────────────────────────────────────────────────
         const val STATUS_SELECTOR = "div.spe span"
 
-        // ── Date format ───────────────────────────────────────────────────
-        const val DATE_FORMAT = "MMMM dd, yyyy"
+        // ── Suffixes to clean from episode/anime name ─────────────────────
+        val CLEAN_SUFFIXES = listOf(
+            Regex("""\s*[Ss]ubtitle\s+[Ii]ndonesia.*$"""),
+            Regex("""\s*[Ss]ub\s+[Ii]ndo.*$"""),
+            Regex("""\s*[Ss]ub\s+ID.*$"""),
+        )
     }
 
     // ============================== Popular ===============================
-    // Popular → Completed
 
     override fun popularAnimeRequest(page: Int): Request {
         return GET("$baseUrl/completed/page/$page/", headers)
@@ -151,7 +151,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun popularAnimeNextPageSelector(): String = NEXT_PAGE_COMPLETED
 
     // =============================== Latest ===============================
-    // Latest → Homepage
 
     override fun latestUpdatesRequest(page: Int): Request {
         return GET("$baseUrl/page/$page/", headers)
@@ -159,7 +158,41 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun latestUpdatesSelector(): String = popularAnimeSelector()
 
-    override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
+    // FIX: De-duplicate anime di homepage berdasarkan URL
+    override fun latestUpdatesParse(response: Response): AnimesPage {
+        val document = response.asJsoup()
+        val seenUrls = mutableSetOf<String>()
+        val animes = document.select(latestUpdatesSelector())
+            .mapNotNull { element ->
+                val animeUrl = element.selectFirst("div.bsx > a")?.attr("href") ?: return@mapNotNull null
+                // Ambil URL anime induk — buang bagian episode dari URL jika ada
+                val animeBaseUrl = animeUrl
+                    .replace(Regex("""/episode-\d+.*$"""), "/")
+                    .replace(Regex("""-episode-\d+.*$"""), "/")
+                if (seenUrls.contains(animeBaseUrl)) return@mapNotNull null
+                seenUrls.add(animeBaseUrl)
+
+                latestUpdatesFromElement(element)
+            }
+        val hasNextPage = latestUpdatesNextPageSelector()
+            .let { document.selectFirst(it) != null }
+        return AnimesPage(animes, hasNextPage)
+    }
+
+    override fun latestUpdatesFromElement(element: Element): SAnime {
+        return SAnime.create().apply {
+            val url = element.selectFirst("div.bsx > a")!!.attr("href")
+            // Normalisasi URL ke halaman induk anime
+            val cleanUrl = url
+                .replace(Regex("""/episode-\d+.*$"""), "/")
+                .replace(Regex("""-episode-\d+.*$"""), "/")
+            setUrlWithoutDomain(cleanUrl)
+            thumbnail_url = element.selectFirst("div.bsx img")?.attr("src")
+            // FIX: Bersihkan judul dari "Episode XX Subtitle Indonesia"
+            val rawTitle = element.selectFirst("div.bsx a")?.attr("title") ?: ""
+            title = cleanEpisodeSuffix(rawTitle)
+        }
+    }
 
     override fun latestUpdatesNextPageSelector(): String = NEXT_PAGE_HOMEPAGE
 
@@ -167,20 +200,16 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         val params = AnichinFilters.getSearchParameters(filters)
-
         val url = when {
             query.isNotEmpty() -> "$baseUrl/?s=$query&page=$page"
             params.genre.isNotEmpty() -> "$baseUrl/genres/${params.genre}/?page=$page"
             else -> "$baseUrl/page/$page/"
         }
-
         return GET(url, headers)
     }
 
     override fun searchAnimeSelector(): String = popularAnimeSelector()
-
     override fun searchAnimeFromElement(element: Element): SAnime = popularAnimeFromElement(element)
-
     override fun searchAnimeNextPageSelector(): String = NEXT_PAGE_COMPLETED
 
     // =========================== Anime Details ============================
@@ -189,10 +218,9 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return SAnime.create().apply {
             title = document.selectFirst("h1.entry-title")?.text() ?: ""
             thumbnail_url = document.selectFirst("div.thumb img")?.attr("src")
-
             genre = document.select("div.genxed a").joinToString { it.text() }
 
-            // Status dari div.spe span
+            // Status
             status = document.select(STATUS_SELECTOR).firstOrNull { span ->
                 span.selectFirst("b")?.text()?.contains("Status", ignoreCase = true) == true
             }?.text()?.let { statusText ->
@@ -203,7 +231,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 }
             } ?: SAnime.UNKNOWN
 
-            // Synopsis - fallback chain A → B → C
+            // Synopsis fallback chain A → B → C
             description = buildString {
                 document.selectFirst(SYNOPSIS_A)?.text()
                     ?.takeIf { it.isNotBlank() }
@@ -219,7 +247,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // ============================== Episodes ==============================
 
-    // Support both detail page and homepage episode list
     override fun episodeListSelector(): String = "$EPISODE_LIST_DETAIL, $EPISODE_LIST_HOMEPAGE"
 
     override fun episodeFromElement(element: Element): SEpisode {
@@ -232,9 +259,8 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 ?: element.selectFirst("a")?.text()
                 ?: "Episode"
 
-            // Bersihkan suffix "Subtitle Indonesia" dari nama
-            name = rawName
-                .replace(Regex("""\s*[Ss]ubtitle\s+[Ii]ndonesia.*$"""), "")
+            // FIX: Bersihkan semua suffix subtitle dari nama episode
+            name = cleanEpisodeSuffix(rawName)
                 .trim()
                 .let { if (it.length > 80) it.take(77) + "..." else it }
 
@@ -245,17 +271,34 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     .find(rawName)?.groupValues?.get(1)?.toFloatOrNull()
                 ?: 0f
 
-            // Date dari div.playinfo span format "Eps 01 - Title - January 18, 2026"
-            val spanText = element.selectFirst("div.playinfo span")?.text() ?: ""
-            date_upload = parseDate(spanText)
+            // FIX: Date — coba homepage format dulu, lalu completed format
+            date_upload = parseDate(
+                element.selectFirst(DATE_SELECTOR_HOMEPAGE)?.text() ?: "",
+                element.selectFirst(DATE_SELECTOR_COMPLETED)?.text() ?: "",
+            )
         }
     }
 
-    private fun parseDate(text: String): Long {
+    // Bersihkan suffix "Subtitle Indonesia", "Sub Indo", dll
+    private fun cleanEpisodeSuffix(text: String): String {
+        var result = text
+        CLEAN_SUFFIXES.forEach { regex -> result = result.replace(regex, "") }
+        return result.trim()
+    }
+
+    private fun parseDate(homepageSpan: String, eplDate: String): Long {
+        val formatter = SimpleDateFormat(DATE_FORMAT, Locale.ENGLISH)
         return try {
-            val datePart = text.substringAfterLast(" - ").trim()
-            SimpleDateFormat(DATE_FORMAT, Locale.ENGLISH).parse(datePart)?.time
-                ?: System.currentTimeMillis()
+            // Homepage format: "Eps 01 - Title - January 18, 2026"
+            if (homepageSpan.isNotBlank()) {
+                val datePart = homepageSpan.substringAfterLast(" - ").trim()
+                formatter.parse(datePart)?.time?.let { return it }
+            }
+            // Completed/Search format: "January 12, 2026"
+            if (eplDate.isNotBlank()) {
+                formatter.parse(eplDate.trim())?.time?.let { return it }
+            }
+            System.currentTimeMillis()
         } catch (e: Exception) {
             System.currentTimeMillis()
         }
@@ -303,7 +346,6 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                             iframeSrc.startsWith("http") -> iframeSrc
                             else -> iframeSrc
                         }
-
                         android.util.Log.d("Anichin", "[$index] Iframe URL: $cleanUrl")
                         extractVideoFromUrl(cleanUrl, videoList, serverName)
                     } else {
@@ -323,7 +365,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             AnichinPreferences.PREF_QUALITY_DEFAULT,
         )!!
 
-        val sortedList = videoList.sortedByDescending { video ->
+        return videoList.sortedByDescending { video ->
             if (video.quality.contains(preferredQuality, ignoreCase = true)) {
                 1000
             } else {
@@ -335,11 +377,7 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     else -> 0
                 }
             }
-        }
-
-        android.util.Log.d("Anichin", "Sorted by preferred quality: $preferredQuality")
-
-        return sortedList.ifEmpty {
+        }.ifEmpty {
             listOf(Video(response.request.url.toString(), "Open in WebView", response.request.url.toString()))
         }
     }
@@ -374,24 +412,18 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             when {
                 finalUrl.contains("anichin", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Anichin VIP Stream")
-                    val videos = anichinVipExtractor.videosFromUrl(finalUrl, serverName)
-                    android.util.Log.d("Anichin", "Anichin VIP videos: ${videos.size}")
-                    videoList.addAll(videos)
+                    videoList.addAll(anichinVipExtractor.videosFromUrl(finalUrl, serverName))
                 }
 
                 finalUrl.contains("rubyvidhub", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting RubyVidHub")
-                    val videos = rubyVidExtractor.videosFromUrl(finalUrl, serverName)
-                    android.util.Log.d("Anichin", "RubyVidHub videos: ${videos.size}")
-                    videoList.addAll(videos)
+                    videoList.addAll(rubyVidExtractor.videosFromUrl(finalUrl, serverName))
                 }
 
                 finalUrl.contains("rumble", ignoreCase = true) -> {
-                    android.util.Log.d("Anichin", "Extracting Rumble (new extractor)")
+                    android.util.Log.d("Anichin", "Extracting Rumble")
                     val videos = rumbleExtractor.videosFromUrl(finalUrl, serverName)
-                    android.util.Log.d("Anichin", "Rumble videos: ${videos.size}")
                     if (videos.isEmpty()) {
-                        android.util.Log.d("Anichin", "Fallback to old Rumble extraction")
                         videoList.addAll(extractRumbleLegacy(finalUrl, serverName))
                     } else {
                         videoList.addAll(videos)
@@ -400,39 +432,29 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
                 finalUrl.contains("dood", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Doodstream")
-                    val videos = doodExtractor.videosFromUrl(finalUrl, "$serverName - ")
-                    android.util.Log.d("Anichin", "Doodstream videos: ${videos.size}")
-                    videoList.addAll(videos)
+                    videoList.addAll(doodExtractor.videosFromUrl(finalUrl, "$serverName - "))
                 }
 
                 finalUrl.contains("ok.ru", ignoreCase = true) ||
                     finalUrl.contains("odnoklassniki", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting OK.ru")
-                    val videos = okruExtractor.videosFromUrl(finalUrl, "$serverName - ")
-                    android.util.Log.d("Anichin", "OK.ru videos: ${videos.size}")
-                    videoList.addAll(videos)
+                    videoList.addAll(okruExtractor.videosFromUrl(finalUrl, "$serverName - "))
                 }
 
                 finalUrl.contains("dailymotion", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Dailymotion")
-                    val videos = dailymotionExtractor.videosFromUrl(finalUrl, prefix = "$serverName - ")
-                    android.util.Log.d("Anichin", "Dailymotion videos: ${videos.size}")
-                    videoList.addAll(videos)
+                    videoList.addAll(dailymotionExtractor.videosFromUrl(finalUrl, prefix = "$serverName - "))
                 }
 
                 finalUrl.contains("drive.google", ignoreCase = true) ||
                     finalUrl.contains("drive.usercontent.google", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting Google Drive")
-                    val videos = googleDriveExtractor.videosFromUrl(finalUrl, "$serverName - ")
-                    android.util.Log.d("Anichin", "GDrive videos: ${videos.size}")
-                    videoList.addAll(videos)
+                    videoList.addAll(googleDriveExtractor.videosFromUrl(finalUrl, "$serverName - "))
                 }
 
                 finalUrl.contains(".m3u8", ignoreCase = true) -> {
                     android.util.Log.d("Anichin", "Extracting HLS")
-                    val videos = playlistUtils.extractFromHls(finalUrl, baseUrl)
-                    android.util.Log.d("Anichin", "HLS videos: ${videos.size}")
-                    videoList.addAll(videos)
+                    videoList.addAll(playlistUtils.extractFromHls(finalUrl, baseUrl))
                 }
 
                 else -> {
@@ -457,27 +479,22 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return try {
             val document = client.newCall(GET(url, headers)).execute().asJsoup()
             val m3u8Url = document.select("script").mapNotNull { script ->
-                val scriptContent = script.data()
                 Regex("""["'](https://[^"']*\.m3u8[^"']*)["']""")
-                    .findAll(scriptContent)
+                    .findAll(script.data())
                     .map { it.groupValues[1] }
                     .firstOrNull()
             }.firstOrNull()
 
             if (m3u8Url != null) {
-                android.util.Log.d("Anichin", "Found Rumble m3u8: $m3u8Url")
                 playlistUtils.extractFromHls(
                     playlistUrl = m3u8Url,
                     referer = url,
                     videoNameGen = { q -> "$quality - $q" },
                 )
             } else {
-                android.util.Log.w("Anichin", "Rumble m3u8 not found, using iframe")
                 listOf(Video(url, "$quality (Rumble)", url))
             }
         } catch (e: Exception) {
-            android.util.Log.e("Anichin", "Rumble extraction error: ${e.message}")
-            e.printStackTrace()
             listOf(Video(url, "$quality (Rumble - Error)", url))
         }
     }
@@ -501,6 +518,4 @@ class Anichin : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         AnichinPreferences.setupPreferences(screen, preferences)
     }
-
-    // ============================= Utilities ==============================
 }
