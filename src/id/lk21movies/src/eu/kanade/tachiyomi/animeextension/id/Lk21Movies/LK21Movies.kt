@@ -413,64 +413,103 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun videoListParse(response: Response): List<Video> {
         val document = response.asJsoup()
         val videoList = mutableListOf<Video>()
+        val pageUrl = response.request.url.toString()
 
         ReportLog.log("LK21-Video", "=== VIDEO PARSE START ===", LogLevel.INFO)
-        ReportLog.log("LK21-Video", "Page URL: ${response.request.url}", LogLevel.INFO)
-
-        // Kumpulkan semua player URL dulu
-        val playerItems = document.select("ul#player-list li a")
-        ReportLog.log("LK21-Video", "Found ${playerItems.size} players", LogLevel.INFO)
+        ReportLog.log("LK21-Video", "Page URL: $pageUrl", LogLevel.INFO)
 
         data class PlayerEntry(val url: String, val name: String)
 
         val playerEntries = mutableListOf<PlayerEntry>()
 
+        // ── Step 1: Ambil semua link dari player-list ──────────────────────
+        // CloudStream flow: follow href → halaman intermediate → ambil iframe
+        val playerItems = document.select("ul#player-list a[href]")
+        ReportLog.log("LK21-Video", "Found ${playerItems.size} player links", LogLevel.INFO)
+
         playerItems.forEach { element ->
             val serverName = element.text().trim()
-            val dataServer = element.attr("data-server")
-            val dataUrl = element.attr("data-url")
+            val href = element.attr("href").trim()
 
-            if (dataUrl.isNotEmpty()) {
-                val playerUrl = when {
-                    dataUrl.startsWith("http") -> dataUrl
-                    else -> "$dataServer/$dataUrl" // format: "cast/slug", "turbovip/slug", "p2p/slug"
+            if (href.isNotEmpty() && href != "#") {
+                val fullUrl = when {
+                    href.startsWith("http") -> href
+                    href.startsWith("/") -> "$baseUrl$href"
+                    else -> "$baseUrl/$href"
                 }
-                playerEntries.add(PlayerEntry(playerUrl, serverName))
-                ReportLog.log("LK21-Video", "Found player: $serverName → $playerUrl", LogLevel.DEBUG)
+                playerEntries.add(PlayerEntry(fullUrl, serverName))
+                ReportLog.log("LK21-Video", "Player found: $serverName → $fullUrl", LogLevel.DEBUG)
             }
         }
 
-        // Juga tambahkan direct iframe jika ada
-        document.selectFirst("iframe#main-player")?.let { iframe ->
-            val iframeSrc = iframe.attr("src")
-            if (iframeSrc.isNotEmpty()) {
-                playerEntries.add(PlayerEntry(iframeSrc, "Direct Player"))
-                ReportLog.log("LK21-Video", "Found direct iframe: $iframeSrc", LogLevel.INFO)
+        // ── Step 2: Fallback — cek direct iframe jika player-list kosong ──
+        if (playerEntries.isEmpty()) {
+            ReportLog.log("LK21-Video", "No player-list found, trying direct iframe", LogLevel.WARN)
+            document.selectFirst("div.embed-player iframe, iframe#main-player, iframe[src]")?.let { iframe ->
+                val iframeSrc = iframe.attr("src").trim()
+                if (iframeSrc.isNotEmpty()) {
+                    playerEntries.add(PlayerEntry(iframeSrc, "Direct Player"))
+                    ReportLog.log("LK21-Video", "Found direct iframe: $iframeSrc", LogLevel.INFO)
+                }
             }
         }
 
-        // Sort player: Cast → TurboVIP → Hydrax → P2P → lainnya
-        val sortedEntries = playerEntries.sortedBy { entry ->
-            when {
-                entry.url.contains("cast") -> 1
-                entry.url.contains("turbovip") -> 2
-                entry.url.contains("hydrax") -> 3
-                entry.url.contains("p2p") -> 4
-                else -> 5
-            }
-        }
-
-        // Extract video dari setiap player
-        sortedEntries.forEachIndexed { index, entry ->
+        // ── Step 3: Follow setiap href → ambil iframe src ─────────────────
+        playerEntries.forEachIndexed { index, entry ->
             try {
-                ReportLog.log("LK21-Video", "[$index] Extracting: ${entry.name} → ${entry.url}", LogLevel.DEBUG)
-                val videos = extractor.videosFromUrl(entry.url, entry.name)
+                ReportLog.log("LK21-Video", "[$index] Following: ${entry.name} → ${entry.url}", LogLevel.DEBUG)
+
+                // Follow link ke halaman intermediate
+                val intermediateDoc = client.newCall(
+                    GET(entry.url, headers.newBuilder().add("Referer", pageUrl).build()),
+                ).execute().asJsoup()
+
+                // Ambil iframe src dari halaman intermediate
+                val iframeSrc = intermediateDoc
+                    .selectFirst("iframe[src], div.embed-container iframe, div.player-embed iframe")
+                    ?.attr("src")
+                    ?.trim()
+                    ?: ""
+
+                ReportLog.log("LK21-Video", "[$index] Iframe src: $iframeSrc", LogLevel.DEBUG)
+
+                if (iframeSrc.isEmpty()) {
+                    // Kalau tidak ada iframe, mungkin URL-nya sudah final (short.icu redirect)
+                    val resolvedUrl = resolveRedirect(entry.url)
+                    ReportLog.log("LK21-Video", "[$index] No iframe, using resolved URL: $resolvedUrl", LogLevel.WARN)
+                    val videos = extractor.videosFromUrl(resolvedUrl, entry.name)
+                    if (videos.isNotEmpty()) {
+                        videoList.addAll(videos)
+                    } else {
+                        videoList.add(Video(resolvedUrl, "${entry.name} (Iframe)", resolvedUrl))
+                    }
+                    return@forEachIndexed
+                }
+
+                // Normalize iframe URL
+                val finalIframeUrl = when {
+                    iframeSrc.startsWith("//") -> "https:$iframeSrc"
+                    iframeSrc.startsWith("http") -> iframeSrc
+                    else -> iframeSrc
+                }
+
+                // Handle short.icu redirect
+                val resolvedUrl = if (finalIframeUrl.contains("short.icu")) {
+                    resolveRedirect(finalIframeUrl)
+                } else {
+                    finalIframeUrl
+                }
+
+                ReportLog.log("LK21-Video", "[$index] Extracting from: $resolvedUrl", LogLevel.INFO)
+
+                // Extract video dari URL final
+                val videos = extractor.videosFromUrl(resolvedUrl, entry.name)
                 if (videos.isNotEmpty()) {
                     ReportLog.log("LK21-Video", "[$index] Found ${videos.size} video(s) from ${entry.name}", LogLevel.INFO)
                     videoList.addAll(videos)
                 } else {
-                    ReportLog.log("LK21-Video", "[$index] No videos from ${entry.name}, adding iframe fallback", LogLevel.WARN)
-                    videoList.add(Video(entry.url, "${entry.name} (Iframe)", entry.url))
+                    ReportLog.log("LK21-Video", "[$index] No videos, adding iframe fallback", LogLevel.WARN)
+                    videoList.add(Video(resolvedUrl, "${entry.name} (Iframe)", resolvedUrl))
                 }
             } catch (e: Exception) {
                 ReportLog.reportError("LK21-Video", "[$index] Error: ${e.message}")
@@ -481,7 +520,22 @@ class LK21Movies : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         return videoList.ifEmpty {
             ReportLog.log("LK21-Video", "No videos found, returning WebView option", LogLevel.WARN)
-            listOf(Video(response.request.url.toString(), "Open in WebView", response.request.url.toString()))
+            listOf(Video(pageUrl, "Open in WebView", pageUrl))
+        }
+    }
+
+    // Follow redirect sampai URL final (untuk short.icu dan sejenisnya)
+    private fun resolveRedirect(url: String): String {
+        return try {
+            val response = client.newCall(
+                GET(url, headers.newBuilder().add("Referer", baseUrl).build()),
+            ).execute()
+            val finalUrl = response.request.url.toString()
+            ReportLog.log("LK21-Video", "Redirect: $url → $finalUrl", LogLevel.DEBUG)
+            finalUrl
+        } catch (e: Exception) {
+            ReportLog.reportError("LK21-Video", "Redirect failed for $url: ${e.message}")
+            url
         }
     }
 
