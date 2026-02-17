@@ -1,125 +1,339 @@
 package eu.kanade.tachiyomi.lib.lk21extractor
 
+import android.util.Log
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.util.asJsoup
+import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import org.json.JSONObject
 
 /**
  * LK21 Video Extractor
- * - P2P → GET api2.php (JSON response)
- * - TurboVIP → GET turbovidhls.com → data-hash attribute
- * - Cast → GET f16px.com → regex master.m3u8
- * - Hydrax → iframe fallback (implementasi nanti via abyss-extractor)
+ *
+ * Dispatcher utama — detect provider dari full URL lalu delegate ke extractor.
+ *
+ * Provider yang di-support:
+ * ├── Emturbovid  → emturbovid.com / turbovidhls.com
+ * ├── Hownetwork  → cloud.hownetwork.xyz / stream.hownetwork.xyz (P2P)
+ * ├── Filesim     → f16px.com / furher.in / co4nxtrl.com (Cast)
+ * └── Hydrax      → abysscdn.com (TODO)
  */
 class Lk21Extractor(
     private val client: OkHttpClient,
     private val headers: Headers,
 ) {
-    private val defaultHeaders = Headers.Builder()
-        .add("Referer", "https://lk21.de/")
-        .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-        .build()
+    private val tag = "LK21-Extractor"
 
-    fun videosFromUrl(playerUrl: String, serverName: String = "Player"): List<Video> {
-        if (playerUrl.isBlank()) return emptyList()
+    // ── Dispatcher ────────────────────────────────────────────────────────────
+    fun videosFromUrl(url: String, serverName: String = "Player"): List<Video> {
+        if (url.isBlank()) return emptyList()
+
+        Log.d(tag, "Dispatching: $serverName → $url")
 
         return try {
-            // Extract provider dan slug dari URL
-            // Format bisa: "playeriframe.sbs/iframe/turbovip/slug" atau "turbovip/slug"
-            val provider = when {
-                playerUrl.contains("playeriframe.sbs") ->
-                    playerUrl.substringAfter("iframe/").substringBefore("/")
-                else ->
-                    playerUrl.substringBefore("/")
-            }
-            val slug = playerUrl.substringAfterLast("/")
+            when {
+                // Emturbovid / TurboVIP
+                url.contains("emturbovid.com", ignoreCase = true) ||
+                url.contains("turbovidhls.com", ignoreCase = true) ->
+                    extractEmturbovid(url, serverName)
 
-            when (provider) {
-                "cast" -> extractCast(slug, serverName)
-                "turbovip" -> extractTurboVip(slug, serverName)
-                "p2p" -> extractP2P(slug, serverName)
-                "hydrax" -> emptyList() // fallback ke iframe
-                else -> emptyList()
+                // Hownetwork / P2P
+                url.contains("hownetwork.xyz", ignoreCase = true) ->
+                    extractHownetwork(url, serverName)
+
+                // Filesim / Cast
+                url.contains("f16px.com", ignoreCase = true) ||
+                url.contains("furher.in", ignoreCase = true) ||
+                url.contains("co4nxtrl.com", ignoreCase = true) ||
+                url.contains("files.im", ignoreCase = true) ->
+                    extractFilesim(url, serverName)
+
+                // Hydrax / Abyss — TODO
+                url.contains("abysscdn.com", ignoreCase = true) ||
+                url.contains("abyss.to", ignoreCase = true) -> {
+                    Log.w(tag, "Hydrax/Abyss not yet implemented: $url")
+                    emptyList()
+                }
+
+                else -> {
+                    Log.w(tag, "Unknown provider: $url")
+                    emptyList()
+                }
             }
         } catch (e: Exception) {
+            Log.e(tag, "Dispatch error for $url: ${e.message}")
             emptyList()
         }
     }
 
-    /**
-     * P2P → GET api2.php?id={slug} → JSON {file, type}
-     */
-    private fun extractP2P(slug: String, serverName: String): List<Video> {
+    // =========================================================================
+    // 1. Emturbovid Extractor
+    // Port dari: EmturbovidExtractor.kt (CloudStream)
+    // Flow: GET url → script[var urlPlay = '...'] → m3u8 URL
+    // =========================================================================
+    private fun extractEmturbovid(url: String, serverName: String): List<Video> {
         return try {
-            val apiUrl = "https://cloud.hownetwork.xyz/api2.php?id=$slug"
+            Log.d(tag, "[Emturbovid] Fetching: $url")
 
-            val response = client.newCall(GET(apiUrl, defaultHeaders)).execute()
-            if (!response.isSuccessful) return emptyList()
+            val reqHeaders = headers.newBuilder()
+                .set("Referer", url)
+                .build()
 
+            val document = client.newCall(GET(url, reqHeaders)).execute().asJsoup()
+
+            val playerScript = document
+                .select("script")
+                .firstOrNull { it.data().contains("var urlPlay") }
+                ?.data()
+
+            if (playerScript.isNullOrEmpty()) {
+                Log.w(tag, "[Emturbovid] Script not found")
+                return emptyList()
+            }
+
+            val m3u8Url = playerScript
+                .substringAfter("var urlPlay = '")
+                .substringBefore("'")
+                .trim()
+
+            if (m3u8Url.isEmpty() || !m3u8Url.startsWith("http")) {
+                Log.w(tag, "[Emturbovid] Invalid m3u8: $m3u8Url")
+                return emptyList()
+            }
+
+            Log.d(tag, "[Emturbovid] m3u8: $m3u8Url")
+            parseM3u8(m3u8Url, url, serverName, "Emturbovid")
+        } catch (e: Exception) {
+            Log.e(tag, "[Emturbovid] Error: ${e.message}")
+            emptyList()
+        }
+    }
+
+    // =========================================================================
+    // 2. Hownetwork Extractor (P2P)
+    // Port dari: Extractors.kt CloudStream LK21
+    // Flow: POST /api2.php?id={id} → JSON {file: url} → video URL
+    // =========================================================================
+    private fun extractHownetwork(url: String, serverName: String): List<Video> {
+        return try {
+            val id = url.substringAfter("id=").substringBefore("&").trim()
+            if (id.isEmpty()) {
+                Log.w(tag, "[Hownetwork] No ID in URL: $url")
+                return emptyList()
+            }
+
+            val baseUrl = when {
+                url.contains("cloud.hownetwork") -> "https://cloud.hownetwork.xyz"
+                url.contains("stream.hownetwork") -> "https://stream.hownetwork.xyz"
+                else -> "https://cloud.hownetwork.xyz"
+            }
+
+            val apiUrl = "$baseUrl/api2.php?id=$id"
+            Log.d(tag, "[Hownetwork] POST: $apiUrl")
+
+            val reqHeaders = headers.newBuilder()
+                .set("Referer", url)
+                .set("X-Requested-With", "XMLHttpRequest")
+                .set("Accept", "*/*")
+                .build()
+
+            val formBody = FormBody.Builder()
+                .add("r", "")
+                .add("d", baseUrl)
+                .build()
+
+            val response = client.newCall(POST(apiUrl, reqHeaders, formBody)).execute()
             val json = JSONObject(response.body.string())
-            val videoUrl = json.optString("file", "")
+            val fileUrl = json.optString("file", "").trim()
 
-            if (videoUrl.isNotBlank() && videoUrl.startsWith("http")) {
-                listOf(Video(videoUrl, "$serverName - 480p", videoUrl, defaultHeaders))
+            if (fileUrl.isEmpty()) {
+                Log.w(tag, "[Hownetwork] Empty file URL")
+                return emptyList()
+            }
+
+            Log.d(tag, "[Hownetwork] File: $fileUrl")
+
+            val videoHeaders = Headers.Builder()
+                .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0")
+                .add("Referer", baseUrl)
+                .add("Accept", "*/*")
+                .add("Pragma", "no-cache")
+                .add("Cache-Control", "no-cache")
+                .build()
+
+            if (fileUrl.contains(".m3u8")) {
+                parseM3u8(fileUrl, url, serverName, "P2P", videoHeaders)
             } else {
-                emptyList()
+                listOf(Video(fileUrl, "$serverName - P2P", fileUrl, videoHeaders))
             }
         } catch (e: Exception) {
+            Log.e(tag, "[Hownetwork] Error: ${e.message}")
             emptyList()
         }
     }
 
-    /**
-     * TurboVIP → GET turbovidhls.com/t/{slug}
-     * → ambil data-hash dari div#video_player
-     */
-    private fun extractTurboVip(slug: String, serverName: String): List<Video> {
+    // =========================================================================
+    // 3. Filesim Extractor (f16px / Cast)
+    // Port dari: Filesim.kt (CloudStream)
+    // Flow: GET /e/{id} → JS unpack → regex file:"*.m3u8"
+    // =========================================================================
+    private fun extractFilesim(url: String, serverName: String): List<Video> {
         return try {
-            val turboUrl = "https://turbovidhls.com/t/$slug"
+            // Normalize ke /e/ format
+            val embedUrl = url
+                .replace("/download/", "/e/")
+                .replace("/f/", "/e/")
 
-            val response = client.newCall(GET(turboUrl, defaultHeaders)).execute()
-            if (!response.isSuccessful) return emptyList()
+            Log.d(tag, "[Filesim] Fetching: $embedUrl")
 
-            val document = response.asJsoup()
-            val videoUrl = document.selectFirst("div#video_player[data-hash]")
-                ?.attr("data-hash") ?: return emptyList()
+            var pageResponse = client.newCall(GET(embedUrl, headers)).execute()
+            var pageText = pageResponse.body.string()
 
-            if (videoUrl.isNotBlank() && videoUrl.contains(".m3u8")) {
-                listOf(Video(videoUrl, "$serverName - HLS", videoUrl, defaultHeaders))
-            } else {
-                emptyList()
+            // Follow iframe kalau ada
+            val iframeSrc = pageResponse.asJsoup()
+                .selectFirst("iframe[src]")?.attr("src")
+
+            if (iframeSrc != null) {
+                Log.d(tag, "[Filesim] Following iframe: $iframeSrc")
+                val iframeHeaders = headers.newBuilder()
+                    .set("Referer", embedUrl)
+                    .set("Accept-Language", "en-US,en;q=0.5")
+                    .set("Sec-Fetch-Dest", "iframe")
+                    .build()
+                pageResponse = client.newCall(GET(iframeSrc, iframeHeaders)).execute()
+                pageText = pageResponse.body.string()
             }
+
+            // JS unpack
+            val scriptData = if (pageText.contains("eval(function(p,a,c,k,e")) {
+                Log.d(tag, "[Filesim] JS unpacking...")
+                JsUnpacker.unpackAndCombine(pageText) ?: pageText
+            } else {
+                pageResponse.asJsoup()
+                    .select("script")
+                    .firstOrNull {
+                        it.data().contains("sources:") ||
+                        it.data().contains("\"file\"") ||
+                        it.data().contains("'file'")
+                    }?.data() ?: pageText
+            }
+
+            // Regex m3u8
+            val m3u8Url =
+                Regex("""file:\s*["'](https?://[^"']*\.m3u8[^"']*)["']""").find(scriptData)?.groupValues?.get(1)
+                ?: Regex("""["'](https?://[^"']*\.m3u8[^"']*)["']""").find(scriptData)?.groupValues?.get(1)
+
+            if (m3u8Url.isNullOrEmpty()) {
+                Log.w(tag, "[Filesim] No m3u8 found")
+                return emptyList()
+            }
+
+            Log.d(tag, "[Filesim] m3u8: $m3u8Url")
+            parseM3u8(m3u8Url, embedUrl, serverName, "Cast")
         } catch (e: Exception) {
+            Log.e(tag, "[Filesim] Error: ${e.message}")
             emptyList()
         }
     }
 
-    /**
-     * Cast → GET f16px.com/e/{slug} → regex master.m3u8
-     */
-    private fun extractCast(slug: String, serverName: String): List<Video> {
+    // =========================================================================
+    // Helper: Parse M3U8 playlist → multi-quality videos
+    // =========================================================================
+    private fun parseM3u8(
+        m3u8Url: String,
+        referer: String,
+        serverName: String,
+        providerName: String,
+        videoHeaders: Headers? = null,
+    ): List<Video> {
         return try {
-            val castUrl = "https://f16px.com/e/$slug"
+            val reqHeaders = headers.newBuilder()
+                .set("Referer", referer)
+                .build()
 
-            val response = client.newCall(GET(castUrl, defaultHeaders)).execute()
-            if (!response.isSuccessful) return emptyList()
+            val playlistBody = client.newCall(GET(m3u8Url, reqHeaders)).execute().body.string()
+            val finalHeaders = videoHeaders ?: reqHeaders
 
-            val html = response.body.string()
+            if (playlistBody.contains("#EXT-X-STREAM-INF")) {
+                val videos = mutableListOf<Video>()
+                val baseUrl = m3u8Url.substringBeforeLast("/")
 
-            val m3u8Regex = """(https?://[^\s"'<>]+master\.m3u8[^\s"'<>]*)""".toRegex()
-            val videoUrl = m3u8Regex.find(html)?.groupValues?.get(1) ?: return emptyList()
+                playlistBody.lines().windowed(2).forEach { lines ->
+                    if (lines[0].contains("#EXT-X-STREAM-INF")) {
+                        val quality = Regex("RESOLUTION=\\d+x(\\d+)")
+                            .find(lines[0])?.groupValues?.get(1)?.let { "${it}p" }
+                            ?: Regex("BANDWIDTH=(\\d+)").find(lines[0])?.groupValues?.get(1)
+                                ?.toLongOrNull()?.let { "${it / 1000}kbps" }
+                            ?: "Unknown"
 
-            if (videoUrl.isNotBlank()) {
-                listOf(Video(videoUrl, "$serverName - HLS", videoUrl, defaultHeaders))
+                        val segmentUrl = when {
+                            lines[1].trim().startsWith("http") -> lines[1].trim()
+                            else -> "$baseUrl/${lines[1].trim()}"
+                        }
+
+                        videos.add(Video(
+                            segmentUrl,
+                            "$serverName - $providerName $quality",
+                            segmentUrl,
+                            finalHeaders,
+                        ))
+                        Log.d(tag, "[$providerName] Quality: $quality")
+                    }
+                }
+                videos
             } else {
-                emptyList()
+                listOf(Video(m3u8Url, "$serverName - $providerName", m3u8Url, finalHeaders))
             }
         } catch (e: Exception) {
-            emptyList()
+            Log.e(tag, "[$providerName] M3U8 error: ${e.message}")
+            listOf(Video(m3u8Url, "$serverName - $providerName", m3u8Url))
         }
+    }
+}
+
+// =========================================================================
+// JS Unpacker — unpack eval(function(p,a,c,k,e,...))
+// =========================================================================
+object JsUnpacker {
+
+    fun unpackAndCombine(html: String): String? {
+        return try {
+            val packed = Regex("""eval\(function\(p,a,c,k,e[^)]*\)[^)]*\)""")
+                .findAll(html)
+                .mapNotNull { unpack(it.value) }
+                .joinToString("\n")
+            packed.ifEmpty { null }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun unpack(packed: String): String? {
+        return try {
+            val p = Regex("""'(.*?)'""").find(packed)?.groupValues?.get(1) ?: return null
+            val a = Regex(""",(\d+),""").find(packed)?.groupValues?.get(1)?.toIntOrNull() ?: return null
+            val c = Regex(""",\d+,(\d+),""").find(packed)?.groupValues?.get(1)?.toIntOrNull() ?: return null
+            val kStr = Regex("""'([^']*)'\.split\('""").find(packed)?.groupValues?.get(1) ?: return null
+            val k = kStr.split("|")
+
+            var result = p
+            for (i in c - 1 downTo 0) {
+                if (k.getOrNull(i)?.isNotEmpty() == true) {
+                    result = result.replace(Regex("\\b${toBase(i, a)}\\b"), k[i])
+                }
+            }
+            result
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun toBase(num: Int, base: Int): String {
+        val chars = "0123456789abcdefghijklmnopqrstuvwxyz"
+        return if (num < base) chars[num].toString()
+        else toBase(num / base, base) + chars[num % base]
     }
 }
