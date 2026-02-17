@@ -114,7 +114,16 @@ class Lk21Extractor(
             }
 
             Log.d(tag, "[Emturbovid] m3u8: $m3u8Url")
-            parseM3u8(m3u8Url, url, serverName, "Emturbovid")
+
+            // Ikut CloudStream: langsung return master m3u8 + referer
+            // JANGAN parse/split playlist — biarkan player Aniyomi yang handle
+            val videoHeaders = Headers.Builder()
+                .add("Referer", "https://emturbovid.com/")
+                .add("Origin", "https://emturbovid.com")
+                .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .build()
+
+            listOf(Video(m3u8Url, "$serverName - Emturbovid", m3u8Url, videoHeaders))
         } catch (e: Exception) {
             Log.e(tag, "[Emturbovid] Error: ${e.message}")
             emptyList()
