@@ -117,12 +117,26 @@ class Lk21Extractor(
 
             // Ikut CloudStream: langsung return master m3u8 + referer
             // JANGAN parse/split playlist — biarkan player Aniyomi yang handle
+            // PENTING: Referer harus pakai CDN domain dari m3u8 URL, bukan emturbovid.com!
+            val cdnDomain = when {
+                m3u8Url.contains("turboviplay.com") -> "https://turboviplay.com/"
+                m3u8Url.contains("turbovidhls.com") -> "https://turbovidhls.com/"
+                else -> "https://emturbovid.com/"
+            }
+            
             val videoHeaders = Headers.Builder()
-                .add("Referer", "https://emturbovid.com/")
-                .add("Origin", "https://emturbovid.com")
+                .add("Referer", cdnDomain)
+                .add("Origin", cdnDomain.trimEnd('/'))
                 .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .add("Accept", "*/*")
+                .add("Accept-Language", "en-US,en;q=0.5")
+                .add("Connection", "keep-alive")
+                .add("Sec-Fetch-Dest", "empty")
+                .add("Sec-Fetch-Mode", "cors")
+                .add("Sec-Fetch-Site", "cross-site")
                 .build()
 
+            Log.d(tag, "[Emturbovid] Video headers Referer: $cdnDomain")
             listOf(Video(m3u8Url, "$serverName - Emturbovid", m3u8Url, videoHeaders))
         } catch (e: Exception) {
             Log.e(tag, "[Emturbovid] Error: ${e.message}")
