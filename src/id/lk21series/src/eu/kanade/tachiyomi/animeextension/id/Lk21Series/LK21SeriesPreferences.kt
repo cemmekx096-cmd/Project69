@@ -23,7 +23,6 @@ object LK21SeriesPreferences {
     // Setup Preferences
     // ═══════════════════════════════════════════════════════════════════════
     fun setupPreferences(screen: PreferenceScreen, preferences: SharedPreferences) {
-
         // ── User Agent ────────────────────────────────────────────────────
         EditTextPreference(screen.context).apply {
             key = PREF_USER_AGENT_KEY
