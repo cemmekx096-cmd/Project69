@@ -38,54 +38,12 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     private val extractor by lazy { Lk21Extractor(client, headers) }
 
-    // ============================= Gateway & Domain =============================
+    override val baseUrl = "https://tv3.nontondrama.my"
 
-    private val downloadBase = "https://dl.lk21.party/"
-    private val playerBase = "https://playeriframe.sbs/iframe/"
-    private val posterBase = "https://poster.lk21.party/"
-
-    override val baseUrl: String
-        get() = getMainDomain()
 
     /**
      * Fetch main domain from gateway
      */
-    private fun getMainDomain(): String {
-        return try {
-            val cachedDomain = preferences.getString(PREF_CACHED_DOMAIN_KEY, null)
-            val cacheTime = preferences.getLong(PREF_CACHE_TIME_KEY, 0)
-            val currentTime = System.currentTimeMillis()
-
-            // Cache valid for 6 hours
-            if (cachedDomain != null && (currentTime - cacheTime) < 6 * 60 * 60 * 1000) {
-                ReportLog.log("LK21-Domain", "Using cached domain: $cachedDomain", LogLevel.INFO)
-                return cachedDomain
-            }
-
-            // Fetch new domain from gateway (using Lk21Preferences)
-            val gateway = Lk21Preferences.getGatewayUrl(preferences)
-            ReportLog.log("LK21-Domain", "Fetching new domain from gateway: $gateway", LogLevel.INFO)
-            val response = client.newCall(GET(gateway, headers)).execute()
-            val document = response.asJsoup()
-
-            val mainDomain = document.selectFirst("a.cta-button.green-button")
-                ?.attr("href")
-                ?.trimEnd('/')
-                ?: Lk21Preferences.getBaseUrl(preferences, Lk21Preferences.DEFAULT_BASE_URL_SERIES)
-
-            // Cache the domain
-            preferences.edit()
-                .putString(PREF_CACHED_DOMAIN_KEY, mainDomain)
-                .putLong(PREF_CACHE_TIME_KEY, currentTime)
-                .apply()
-
-            ReportLog.log("LK21-Domain", "New domain fetched: $mainDomain", LogLevel.INFO)
-            mainDomain
-        } catch (e: Exception) {
-            ReportLog.reportError("LK21-Domain", "Failed to fetch domain: ${e.message}")
-            Lk21Preferences.getBaseUrl(preferences, Lk21Preferences.DEFAULT_BASE_URL_SERIES)
-        }
-    }
 
     override val client: OkHttpClient
         get() {
@@ -178,105 +136,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
         val hasNextPage = document.selectFirst(latestUpdatesNextPageSelector()) != null
         return AnimesPage(animes, hasNextPage)
-    }
-
-    // =============================== Search ===============================
-
-    private val searchApiBase = "https://gudangvape.com/search.php"
-
-    // SKIP SEARCH - Cloudflare issue
-    // override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        val params = LK21Filters.getSearchParameters(filters)
-
-        val url = when {
-            // Search biasa → pakai JSON API
-            query.isNotEmpty() -> {
-                val searchUrl = "$searchApiBase?s=$query&page=$page"
-                ReportLog.log("LK21-Search", "Searching: $query (page $page) via API", LogLevel.INFO)
-                searchUrl
-            }
-            // Filter genre → pakai HTML scraping
-            params.genre.isNotEmpty() -> {
-                val genreUrl = if (page == 1) {
-                    "$baseUrl/genre/${params.genre}/"
-                } else {
-                    "$baseUrl/genre/${params.genre}/page/$page"
-                }
-                ReportLog.log("LK21-Search", "Genre filter: ${params.genre}", LogLevel.INFO)
-                genreUrl
-            }
-            // Filter country → pakai HTML scraping
-            params.country.isNotEmpty() -> {
-                val countryUrl = if (page == 1) {
-                    "$baseUrl/country/${params.country}/"
-                } else {
-                    "$baseUrl/country/${params.country}/page/$page"
-                }
-                ReportLog.log("LK21-Search", "Country filter: ${params.country}", LogLevel.INFO)
-                countryUrl
-            }
-            else -> if (page == 1) "$baseUrl/populer/" else "$baseUrl/populer/page/$page"
-        }
-
-        return GET(url, headers)
-    }
-
-    // override fun searchAnimeSelector(): String = "div.gallery-grid article"
-
-    // override fun searchAnimeFromElement(element: Element): SAnime = popularAnimeFromElement(element)
-
-    // override fun searchAnimeNextPageSelector(): String = popularAnimeNextPageSelector()
-
-    // override fun searchAnimeParse(response: Response): AnimesPage {
-        val url = response.request.url.toString()
-
-        // Kalau bukan dari API gudangvape → pakai HTML scraping biasa (genre/country)
-        if (!url.contains("gudangvape.com")) {
-            val seenTitles = mutableSetOf<String>()
-            val document = response.asJsoup()
-            val animes = document.select(searchAnimeSelector())
-                .map { searchAnimeFromElement(it) }
-                .filter { anime ->
-                    val normalized = anime.title.trim().lowercase()
-                    seenTitles.add(normalized)
-                }
-            val hasNextPage = document.selectFirst(searchAnimeNextPageSelector()) != null
-            return AnimesPage(animes, hasNextPage)
-        }
-
-        // Parse JSON dari API gudangvape
-        return try {
-            val jsonObject = JSONObject(response.body.string())
-            val totalPages = jsonObject.getInt("totalPages")
-            val dataArray = jsonObject.getJSONArray("data")
-            val currentPage = url.substringAfterLast("page=").toIntOrNull() ?: 1
-
-            val animes = mutableListOf<SAnime>()
-            for (i in 0 until dataArray.length()) {
-                val item = dataArray.getJSONObject(i)
-                val type = item.getString("type")
-
-                // Filter hanya movie, skip series
-                if (type != "movie") continue
-
-                animes.add(
-                    SAnime.create().apply {
-                        val slug = item.getString("slug")
-                        setUrlWithoutDomain("/$slug")
-                        title = item.getString("title")
-                        thumbnail_url = "${posterBase}wp-content/uploads/${item.getString("poster")}"
-                        ReportLog.log("LK21-Search", "Parsed from API: $title", LogLevel.DEBUG)
-                    },
-                )
-            }
-
-            val hasNextPage = currentPage < totalPages
-            ReportLog.log("LK21-Search", "Page $currentPage of $totalPages, hasNext: $hasNextPage", LogLevel.INFO)
-            AnimesPage(animes, hasNextPage)
-        } catch (e: Exception) {
-            ReportLog.reportError("LK21-Search", "JSON parse error: ${e.message}")
-            AnimesPage(emptyList(), false)
-        }
     }
 
     // =========================== Anime Details ============================
@@ -510,9 +369,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================= Companion ==============================
 
     companion object {
-        private const val PREF_CACHED_DOMAIN_KEY = "cached_domain"
-        private const val PREF_CACHE_TIME_KEY = "cache_time"
-
         private const val PREF_TIMEOUT_KEY = "network_timeout"
         private const val PREF_TIMEOUT_DEFAULT = "90"
     }
