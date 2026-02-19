@@ -6,7 +6,6 @@ import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 
 object LK21SeriesPreferences {
-
     // ═══════════════════════════════════════════════════════════════════════
     // Keys & Defaults
     // ═══════════════════════════════════════════════════════════════════════
