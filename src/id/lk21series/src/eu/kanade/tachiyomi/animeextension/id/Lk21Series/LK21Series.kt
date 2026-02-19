@@ -5,14 +5,12 @@ import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
-import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Preferences
-import eu.kanade.tachiyomi.lib.lk21extractor.LogLevel
-import eu.kanade.tachiyomi.lib.lk21extractor.ReportLog
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
@@ -51,7 +49,7 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
 
     override fun headersBuilder(): Headers.Builder {
-        val userAgent = Lk21Preferences.getUserAgent(preferences)
+        val userAgent = preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT)!!
 
         return super.headersBuilder().apply {
             add("User-Agent", userAgent)
@@ -331,16 +329,15 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Settings ==============================
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        Lk21Preferences.setupPreferences(
-            screen = screen,
-            preferences = preferences,
-            defaultBaseUrl = baseUrl,
-            isMovieExtension = false,
-        )
+        LK21SeriesPreferences.setupPreferences(screen, preferences)
     }
 
     companion object {
         private const val PREF_TIMEOUT_KEY = "network_timeout"
         private const val PREF_TIMEOUT_DEFAULT = "90"
+        
+        private const val PREF_USER_AGENT_KEY = "user_agent"
+        private const val PREF_USER_AGENT_DEFAULT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 }
