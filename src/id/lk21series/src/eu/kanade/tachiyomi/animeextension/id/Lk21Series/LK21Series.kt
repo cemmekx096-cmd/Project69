@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
-import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Preferences
 import eu.kanade.tachiyomi.lib.lk21extractor.LogLevel
@@ -19,31 +18,26 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
+
 class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "LK21Series"
-
     override val lang = "id"
     override val supportsLatest = true
+
+    override val baseUrl = "https://tv3.nontondrama.my"
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
     private val extractor by lazy { Lk21Extractor(client, headers) }
-
-    override val baseUrl = "https://tv3.nontondrama.my"
-
-    /**
-     * Fetch main domain from gateway
-     */
 
     override val client: OkHttpClient
         get() {
@@ -54,7 +48,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 .connectTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
-                .addInterceptor(CloudflareInterceptor(network.client))
                 .build()
         }
 
@@ -70,305 +63,271 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // ============================== Popular ===============================
 
-    override fun popularAnimeRequest(page: Int): Request {
-        val url = if (page == 1) "$baseUrl/populer/" else "$baseUrl/populer/page/$page"
-        ReportLog.log("LK21-Popular", "Loading page $page: $url", LogLevel.INFO)
-        return GET(url, headers)
+    override fun popularAnimeRequest(page: Int) = GET("$baseUrl/populer/page/$page", headers)
+
+    override fun popularAnimeSelector() = "div.gallery-grid article"
+
+    override fun popularAnimeFromElement(element: Element) = SAnime.create().apply {
+        setUrlWithoutDomain(element.selectFirst("figure a")!!.attr("href"))
+        title = element.selectFirst("h3.poster-title")?.text()?.trim() ?: ""
+        thumbnail_url = element.selectFirst("picture img")?.attr("src")
+
+        ReportLog.log("LK21Series-Popular", "Parsed: $title", LogLevel.DEBUG)
     }
 
-    override fun popularAnimeSelector(): String = "div.gallery-grid article"
-
-    override fun popularAnimeFromElement(element: Element): SAnime {
-        return SAnime.create().apply {
-            val link = element.selectFirst("a[href]")!!
-            setUrlWithoutDomain(link.attr("href"))
-
-            title = element.selectFirst("h3.poster-title[itemprop=name]")?.text()
-                ?: element.selectFirst("h3.poster-title")?.ownText()
-                ?: ""
-            thumbnail_url = element.selectFirst("picture img")?.attr("src")
-                ?: element.selectFirst("img")?.attr("src")
-                ?: ""
-
-            ReportLog.log("LK21-Popular", "Parsed: $title", LogLevel.DEBUG)
-        }
-    }
-
-    // FIX #1 — Duplicate Filter
-    override fun popularAnimeParse(response: Response): AnimesPage {
-        val seenTitles = mutableSetOf<String>()
-        val document = response.asJsoup()
-        val animes = document.select(popularAnimeSelector())
-            .map { popularAnimeFromElement(it) }
-            .filter { anime ->
-                val normalized = anime.title.trim().lowercase()
-                seenTitles.add(normalized)
-            }
-        val hasNextPage = document.selectFirst(popularAnimeNextPageSelector()) != null
-        return AnimesPage(animes, hasNextPage)
-    }
-
-    override fun popularAnimeNextPageSelector(): String = "ul.pagination li a[href*='/page/']"
+    override fun popularAnimeNextPageSelector() = "nav.pagination-wrapper ul.pagination li a[href*='/page/']"
 
     // =============================== Latest ===============================
 
-    override fun latestUpdatesRequest(page: Int): Request {
-        val url = if (page == 1) "$baseUrl/latest/" else "$baseUrl/latest/page/$page"
-        ReportLog.log("LK21-Latest", "Loading page $page: $url", LogLevel.INFO)
-        return GET(url, headers)
-    }
+    override fun latestUpdatesRequest(page: Int) = GET("$baseUrl/latest/page/$page", headers)
 
-    override fun latestUpdatesSelector(): String = "div.gallery-grid article"
+    override fun latestUpdatesSelector() = popularAnimeSelector()
 
-    override fun latestUpdatesFromElement(element: Element): SAnime = popularAnimeFromElement(element)
+    override fun latestUpdatesFromElement(element: Element) = popularAnimeFromElement(element)
 
-    override fun latestUpdatesNextPageSelector(): String = "ul.pagination li a[href*='/page/']"
-
-    // FIX #1 — Duplicate Filter untuk Latest juga
-    override fun latestUpdatesParse(response: Response): AnimesPage {
-        val seenTitles = mutableSetOf<String>()
-        val document = response.asJsoup()
-        val animes = document.select(latestUpdatesSelector())
-            .map { latestUpdatesFromElement(it) }
-            .filter { anime ->
-                val normalized = anime.title.trim().lowercase()
-                seenTitles.add(normalized)
-            }
-        val hasNextPage = document.selectFirst(latestUpdatesNextPageSelector()) != null
-        return AnimesPage(animes, hasNextPage)
-    }
+    override fun latestUpdatesNextPageSelector() = popularAnimeNextPageSelector()
 
     // =============================== Search ===============================
-    // Search disabled due to Cloudflare protection on API
+    // Search disabled - Cloudflare protection
 
-    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
+    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList) =
         throw UnsupportedOperationException("Search not supported")
-    }
 
-    override fun searchAnimeSelector(): String = throw UnsupportedOperationException("Search not supported")
+    override fun searchAnimeSelector() = throw UnsupportedOperationException("Search not supported")
 
-    override fun searchAnimeFromElement(element: Element): SAnime = throw UnsupportedOperationException("Search not supported")
+    override fun searchAnimeFromElement(element: Element) =
+        throw UnsupportedOperationException("Search not supported")
 
-    override fun searchAnimeNextPageSelector(): String? = null
+    override fun searchAnimeNextPageSelector() = null
 
-    override fun searchAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException("Search not supported")
+    override fun searchAnimeParse(response: Response) =
+        throw UnsupportedOperationException("Search not supported")
 
     // =========================== Anime Details ============================
 
-    override fun animeDetailsParse(document: Document): SAnime {
-        return SAnime.create().apply {
-            title = document.selectFirst("h1[itemprop=name]")?.text() ?: ""
+    override fun animeDetailsParse(document: Document) = SAnime.create().apply {
+        title = document.selectFirst("div.movie-info h1")?.text()?.trim() ?: ""
+        thumbnail_url = document.select("meta[property=og:image]").attr("content")
+        genre = document.select("div.tag-list span a").joinToString(", ") { it.text() }
 
-            // FIX #2 — Poster Mismatch
-            // Ambil slug dari URL halaman, contoh: /our-universe-2026/ → "our-universe-2026"
-            // Lalu validasi poster harus mengandung slug tsb agar tidak keliru
-            thumbnail_url = run {
-                val pageUrl = document.location()
-                val slug = pageUrl.trimEnd('/').substringAfterLast('/')
-
-                ReportLog.log("LK21-Poster", "Page slug: $slug", LogLevel.DEBUG)
-
-                val allImages = document.select("picture img, img[src]")
-
-                // Cari gambar yang src-nya mengandung slug film
-                // Contoh: "film-our-universe-2026-lk21" harus mengandung "our-universe-2026"
-                val matchedPoster = allImages.firstOrNull { img ->
-                    val src = img.attr("src")
-                    src.contains(slug, ignoreCase = true)
-                }
-
-                if (matchedPoster != null) {
-                    ReportLog.log("LK21-Poster", "Matched poster: ${matchedPoster.attr("src")}", LogLevel.INFO)
-                    matchedPoster.attr("src")
-                } else {
-                    // Fallback ke picture img jika tidak ada yang cocok
-                    ReportLog.log("LK21-Poster", "No slug match, using fallback poster", LogLevel.WARN)
-                    document.selectFirst("picture img")?.attr("src") ?: ""
-                }
-            }
-
-            genre = document.select("div.tag-list span.tag a[href*=/genre/]")
-                .joinToString(", ") { it.text() }
-
-            // Check if series or movie
-            val isSeriesElement = document.selectFirst("span.episode")
-            status = if (isSeriesElement != null) {
-                val episodeText = isSeriesElement.text()
-                if (episodeText.contains("complete", ignoreCase = true)) {
-                    SAnime.COMPLETED
-                } else {
-                    SAnime.ONGOING
-                }
-            } else {
-                SAnime.COMPLETED // Movies are always completed
-            }
-
-            description = buildString {
-                document.selectFirst("div.synopsis expanded, div.synopsis")?.text()?.let {
-                    append("Synopsis:\n$it\n\n")
-                }
-
-                document.selectFirst("span.year")?.text()?.let {
-                    append("Year: $it\n")
-                }
-
-                document.selectFirst("span.rating")?.text()?.let {
-                    append("Rating: $it\n")
-                }
-
-                document.selectFirst("span.duration")?.text()?.let {
-                    append("Duration: $it\n")
-                }
-
-                document.selectFirst("span.label")?.text()?.let {
-                    append("Quality: $it\n")
-                }
-
-                // Tambah link trailer jika ada
-                document.selectFirst("a.yt-lightbox[href*=youtube]")?.attr("href")?.let {
-                    append("\nTrailer: $it")
-                }
-            }
-
-            ReportLog.log("LK21-Detail", "Parsed anime: $title (Status: $status)", LogLevel.INFO)
+        // Status dari span.episode atau default completed
+        status = if (document.selectFirst("span.episode.complete") != null) {
+            SAnime.COMPLETED
+        } else {
+            SAnime.ONGOING
         }
+
+        description = buildString {
+            document.selectFirst("div.meta-info")?.text()?.let {
+                append("Synopsis:\n$it\n\n")
+            }
+
+            document.selectFirst("span.year")?.text()?.let {
+                append("Year: $it\n")
+            }
+
+            document.selectFirst("div.info-tag strong")?.text()?.let {
+                append("Rating: $it\n")
+            }
+
+            document.selectFirst("a.yt-lightbox[href*=youtube]")?.attr("href")?.let {
+                append("\nTrailer: $it")
+            }
+        }
+
+        ReportLog.log("LK21Series-Detail", "Parsed: $title (Status: $status)", LogLevel.INFO)
     }
 
     // ============================== Episodes ==============================
 
-    override fun episodeListSelector(): String = "ul.episode-list li a, div.main-player"
+    override fun episodeListSelector() = "script#season-data"
 
     override fun episodeListParse(response: Response): List<SEpisode> {
         val document = response.asJsoup()
         val episodeList = mutableListOf<SEpisode>()
 
-        ReportLog.log("LK21-Episodes", "Parsing episodes from: ${response.request.url}", LogLevel.INFO)
+        ReportLog.log("LK21Series-Episodes", "Parsing from: ${response.request.url}", LogLevel.INFO)
 
-        // Check if this is a series with episode list
-        val episodeElements = document.select("ul.episode-list li a")
+        // Parse JSON dari script#season-data
+        val seasonDataScript = document.selectFirst("script#season-data")?.data()
 
-        if (episodeElements.isNotEmpty()) {
-            // This is a series
-            ReportLog.log("LK21-Episodes", "Found series with ${episodeElements.size} episodes", LogLevel.INFO)
+        if (seasonDataScript.isNullOrEmpty()) {
+            ReportLog.log("LK21Series-Episodes", "No season data found", LogLevel.WARN)
+            return emptyList()
+        }
 
-            episodeElements.forEachIndexed { index, element ->
-                episodeList.add(
-                    SEpisode.create().apply {
-                        val episodeUrl = element.attr("href")
-                        setUrlWithoutDomain(episodeUrl)
+        try {
+            // Parse JSON manually (format: {"1": [{episode_no, slug, s}, ...]})
+            val json = org.json.JSONObject(seasonDataScript)
+            val baseUrlPage = response.request.url.toString().substringBefore("?")
+                .trimEnd('/').substringBeforeLast("/")
 
-                        val episodeNumber = element.text().trim()
-                        name = "Episode $episodeNumber"
-                        episode_number = episodeNumber.toFloatOrNull() ?: (index + 1).toFloat()
-                        date_upload = System.currentTimeMillis()
-                    },
-                )
+            json.keys().forEach { seasonKey ->
+                val seasonArr = json.getJSONArray(seasonKey)
+                for (i in 0 until seasonArr.length()) {
+                    val ep = seasonArr.getJSONObject(i)
+                    val slug = ep.getString("slug")
+                    val episodeNo = ep.optInt("episode_no", i + 1)
+                    val seasonNo = ep.optInt("s", seasonKey.toIntOrNull() ?: 1)
+
+                    episodeList.add(
+                        SEpisode.create().apply {
+                            setUrlWithoutDomain("$baseUrlPage/$slug")
+                            name = "Season $seasonNo Episode $episodeNo"
+                            episode_number = episodeNo.toFloat()
+                            date_upload = System.currentTimeMillis()
+                        },
+                    )
+                }
             }
-        } else {
-            // This is a movie (single episode)
-            ReportLog.log("LK21-Episodes", "This is a movie (single episode)", LogLevel.INFO)
 
-            episodeList.add(
-                SEpisode.create().apply {
-                    setUrlWithoutDomain(response.request.url.toString())
-                    name = "Movie"
-                    episode_number = 1f
-                    date_upload = System.currentTimeMillis()
-                },
-            )
+            ReportLog.log("LK21Series-Episodes", "Found ${episodeList.size} episodes", LogLevel.INFO)
+        } catch (e: Exception) {
+            ReportLog.reportError("LK21Series-Episodes", "JSON parse error: ${e.message}")
         }
 
         return episodeList.reversed()
     }
 
-    override fun episodeFromElement(element: Element): SEpisode = throw UnsupportedOperationException()
+    override fun episodeFromElement(element: Element) = throw UnsupportedOperationException()
 
     // ============================ Video Links =============================
 
     override fun videoListParse(response: Response): List<Video> {
         val document = response.asJsoup()
         val videoList = mutableListOf<Video>()
+        val pageUrl = response.request.url.toString()
 
-        ReportLog.log("LK21-Video", "=== VIDEO PARSE START ===", LogLevel.INFO)
-        ReportLog.log("LK21-Video", "Page URL: ${response.request.url}", LogLevel.INFO)
+        ReportLog.log("LK21Series-Video", "=== VIDEO PARSE START ===", LogLevel.INFO)
+        ReportLog.log("LK21Series-Video", "Page URL: $pageUrl", LogLevel.INFO)
 
-        // Kumpulkan semua player URL dulu
-        val playerItems = document.select("ul#player-list li a")
-        ReportLog.log("LK21-Video", "Found ${playerItems.size} players", LogLevel.INFO)
+        // Ambil player list (dari LayarKacaProvider CloudStream logic)
+        val playerItems = document.select("ul#player-list a[href]")
+        ReportLog.log("LK21Series-Video", "Found ${playerItems.size} player links", LogLevel.INFO)
 
         data class PlayerEntry(val url: String, val name: String)
-
         val playerEntries = mutableListOf<PlayerEntry>()
 
         playerItems.forEach { element ->
             val serverName = element.text().trim()
-            val dataServer = element.attr("data-server")
-            val dataUrl = element.attr("data-url")
+            val href = element.attr("href").trim()
 
-            if (dataUrl.isNotEmpty()) {
-                val playerUrl = when {
-                    dataUrl.startsWith("http") -> dataUrl
-                    else -> "$dataServer/$dataUrl" // format: "cast/slug", "turbovip/slug", "p2p/slug"
+            if (href.isNotEmpty() && href != "#") {
+                val fullUrl = when {
+                    href.startsWith("http") -> href
+                    href.startsWith("/") -> "$baseUrl$href"
+                    else -> "$baseUrl/$href"
                 }
-                playerEntries.add(PlayerEntry(playerUrl, serverName))
-                ReportLog.log("LK21-Video", "Found player: $serverName → $playerUrl", LogLevel.DEBUG)
+                playerEntries.add(PlayerEntry(fullUrl, serverName))
+                ReportLog.log("LK21Series-Video", "Player: $serverName → $fullUrl", LogLevel.DEBUG)
             }
         }
 
-        // Juga tambahkan direct iframe jika ada
-        document.selectFirst("iframe#main-player")?.let { iframe ->
-            val iframeSrc = iframe.attr("src")
-            if (iframeSrc.isNotEmpty()) {
-                playerEntries.add(PlayerEntry(iframeSrc, "Direct Player"))
-                ReportLog.log("LK21-Video", "Found direct iframe: $iframeSrc", LogLevel.INFO)
+        // Fallback direct iframe
+        if (playerEntries.isEmpty()) {
+            ReportLog.log("LK21Series-Video", "No player-list, trying direct iframe", LogLevel.WARN)
+            document.selectFirst("iframe[src]")?.let { iframe ->
+                val iframeSrc = iframe.attr("src").trim()
+                if (iframeSrc.isNotEmpty()) {
+                    playerEntries.add(PlayerEntry(iframeSrc, "Direct Player"))
+                    ReportLog.log("LK21Series-Video", "Direct iframe: $iframeSrc", LogLevel.INFO)
+                }
             }
         }
 
-        // Sort player: Cast → TurboVIP → Hydrax → P2P → lainnya
-        val sortedEntries = playerEntries.sortedBy { entry ->
-            when {
-                entry.url.contains("cast") -> 1
-                entry.url.contains("turbovip") -> 2
-                entry.url.contains("hydrax") -> 3
-                entry.url.contains("p2p") -> 4
-                else -> 5
-            }
-        }
-
-        // Extract video dari setiap player
-        sortedEntries.forEachIndexed { index, entry ->
+        // Extract video dari setiap player (CloudStream logic)
+        playerEntries.forEachIndexed { index, entry ->
             try {
-                ReportLog.log("LK21-Video", "[$index] Extracting: ${entry.name} → ${entry.url}", LogLevel.DEBUG)
-                val videos = extractor.videosFromUrl(entry.url, entry.name)
+                ReportLog.log("LK21Series-Video", "[$index] Following: ${entry.name} → ${entry.url}", LogLevel.DEBUG)
+
+                // Follow link ke halaman intermediate
+                val intermediateDoc = client.newCall(
+                    GET(entry.url, headers.newBuilder().add("Referer", pageUrl).build()),
+                ).execute().asJsoup()
+
+                // Ambil iframe src
+                val iframeSrc = intermediateDoc
+                    .selectFirst("iframe[src]")
+                    ?.attr("src")
+                    ?.trim()
+                    ?: ""
+
+                ReportLog.log("LK21Series-Video", "[$index] Iframe src: $iframeSrc", LogLevel.DEBUG)
+
+                if (iframeSrc.isEmpty()) {
+                    // Kalau tidak ada iframe, coba resolve redirect
+                    val resolvedUrl = resolveRedirect(entry.url)
+                    ReportLog.log("LK21Series-Video", "[$index] No iframe, resolved: $resolvedUrl", LogLevel.WARN)
+                    val videos = extractor.videosFromUrl(resolvedUrl, entry.name)
+                    if (videos.isNotEmpty()) {
+                        videoList.addAll(videos)
+                    } else {
+                        videoList.add(Video(resolvedUrl, "${entry.name} (Iframe)", resolvedUrl))
+                    }
+                    return@forEachIndexed
+                }
+
+                // Normalize iframe URL
+                val finalIframeUrl = when {
+                    iframeSrc.startsWith("//") -> "https:$iframeSrc"
+                    iframeSrc.startsWith("http") -> iframeSrc
+                    else -> iframeSrc
+                }
+
+                // Handle short.icu redirect (dari CloudStream)
+                val resolvedUrl = if (finalIframeUrl.contains("short.icu")) {
+                    resolveRedirect(finalIframeUrl)
+                } else {
+                    finalIframeUrl
+                }
+
+                ReportLog.log("LK21Series-Video", "[$index] Extracting from: $resolvedUrl", LogLevel.INFO)
+
+                // Extract video
+                val videos = extractor.videosFromUrl(resolvedUrl, entry.name)
                 if (videos.isNotEmpty()) {
-                    ReportLog.log("LK21-Video", "[$index] Found ${videos.size} video(s) from ${entry.name}", LogLevel.INFO)
+                    ReportLog.log("LK21Series-Video", "[$index] Found ${videos.size} video(s)", LogLevel.INFO)
                     videoList.addAll(videos)
                 } else {
-                    ReportLog.log("LK21-Video", "[$index] No videos from ${entry.name}, adding iframe fallback", LogLevel.WARN)
-                    videoList.add(Video(entry.url, "${entry.name} (Iframe)", entry.url))
+                    ReportLog.log("LK21Series-Video", "[$index] No videos, iframe fallback", LogLevel.WARN)
+                    videoList.add(Video(resolvedUrl, "${entry.name} (Iframe)", resolvedUrl))
                 }
             } catch (e: Exception) {
-                ReportLog.reportError("LK21-Video", "[$index] Error: ${e.message}")
+                ReportLog.reportError("LK21Series-Video", "[$index] Error: ${e.message}")
             }
         }
 
-        ReportLog.log("LK21-Video", "=== TOTAL VIDEOS: ${videoList.size} ===", LogLevel.INFO)
+        ReportLog.log("LK21Series-Video", "=== TOTAL VIDEOS: ${videoList.size} ===", LogLevel.INFO)
 
         return videoList.ifEmpty {
-            ReportLog.log("LK21-Video", "No videos found, returning WebView option", LogLevel.WARN)
-            listOf(Video(response.request.url.toString(), "Open in WebView", response.request.url.toString()))
+            ReportLog.log("LK21Series-Video", "No videos, WebView fallback", LogLevel.WARN)
+            listOf(Video(pageUrl, "Open in WebView", pageUrl))
         }
     }
 
-    override fun videoListSelector(): String = throw UnsupportedOperationException()
+    private fun resolveRedirect(url: String): String {
+        return try {
+            val response = client.newCall(
+                GET(url, headers.newBuilder().add("Referer", baseUrl).build()),
+            ).execute()
+            val finalUrl = response.request.url.toString()
+            ReportLog.log("LK21Series-Video", "Redirect: $url → $finalUrl", LogLevel.DEBUG)
+            finalUrl
+        } catch (e: Exception) {
+            ReportLog.reportError("LK21Series-Video", "Redirect failed: ${e.message}")
+            url
+        }
+    }
 
-    override fun videoFromElement(element: Element): Video = throw UnsupportedOperationException()
+    override fun videoListSelector() = throw UnsupportedOperationException()
 
-    override fun videoUrlParse(document: Document): String = throw UnsupportedOperationException()
+    override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
+
+    override fun videoUrlParse(document: Document) = throw UnsupportedOperationException()
 
     // ============================== Filters ===============================
 
-    override fun getFilterList(): AnimeFilterList = AnimeFilterList() // No filters for series
+    override fun getFilterList() = AnimeFilterList() // No filters
 
     // ============================== Settings ==============================
 
@@ -376,12 +335,10 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         Lk21Preferences.setupPreferences(
             screen = screen,
             preferences = preferences,
-            defaultBaseUrl = Lk21Preferences.DEFAULT_BASE_URL_SERIES,
+            defaultBaseUrl = baseUrl,
             isMovieExtension = false,
         )
     }
-
-    // ============================= Companion ==============================
 
     companion object {
         private const val PREF_TIMEOUT_KEY = "network_timeout"
