@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.animeextension.id.lk21series
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
@@ -13,8 +14,8 @@ import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
 import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Preferences
-import eu.kanade.tachiyomi.lib.lk21extractor.ReportLog
 import eu.kanade.tachiyomi.lib.lk21extractor.LogLevel
+import eu.kanade.tachiyomi.lib.lk21extractor.ReportLog
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
@@ -26,7 +27,6 @@ import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
-
 class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "LK21Series"
@@ -41,7 +41,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     private val extractor by lazy { Lk21Extractor(client, headers) }
 
     override val baseUrl = "https://tv3.nontondrama.my"
-
 
     /**
      * Fetch main domain from gateway
@@ -140,22 +139,20 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimesPage(animes, hasNextPage)
     }
 
-
     // =============================== Search ===============================
     // Search disabled due to Cloudflare protection on API
-    
+
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         throw UnsupportedOperationException("Search not supported")
     }
-    
-    override fun searchAnimeSelector(): String = throw UnsupportedOperationException("Search not supported")
-    
-    override fun searchAnimeFromElement(element: Element): SAnime = throw UnsupportedOperationException("Search not supported")
-    
-    override fun searchAnimeNextPageSelector(): String? = null
-    
-    override fun searchAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException("Search not supported")
 
+    override fun searchAnimeSelector(): String = throw UnsupportedOperationException("Search not supported")
+
+    override fun searchAnimeFromElement(element: Element): SAnime = throw UnsupportedOperationException("Search not supported")
+
+    override fun searchAnimeNextPageSelector(): String? = null
+
+    override fun searchAnimeParse(response: Response): AnimesPage = throw UnsupportedOperationException("Search not supported")
 
     // =========================== Anime Details ============================
 
