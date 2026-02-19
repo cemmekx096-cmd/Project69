@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.animeextension.id.lk21movies
+package eu.kanade.tachiyomi.animeextension.id.lk21series
 
 import eu.kanade.tachiyomi.animesource.model.AnimeFilter
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
@@ -73,7 +73,7 @@ object LK21Filters {
             Pair("Indonesia", "indonesia"),
             Pair("USA", "usa"),
             Pair("United Kingdom", "united-kingdom"),
-            Pair("Korea", "korea"),
+            Pair("Korea", "south-korea"),
             Pair("Japan", "japan"),
             Pair("China", "china"),
             Pair("Thailand", "thailand"),
