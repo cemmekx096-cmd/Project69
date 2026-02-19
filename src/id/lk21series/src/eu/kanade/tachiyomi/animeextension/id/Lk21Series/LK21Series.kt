@@ -18,7 +18,6 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import org.json.JSONObject
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
@@ -39,7 +38,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     private val extractor by lazy { Lk21Extractor(client, headers) }
 
     override val baseUrl = "https://tv3.nontondrama.my"
-
 
     /**
      * Fetch main domain from gateway
