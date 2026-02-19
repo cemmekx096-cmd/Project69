@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.animeextension.id.lk21series
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
-import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
