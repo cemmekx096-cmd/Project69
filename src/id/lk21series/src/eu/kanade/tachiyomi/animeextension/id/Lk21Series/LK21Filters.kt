@@ -9,7 +9,6 @@ object LK21Filters {
         AnimeFilter.Header("NOTE: Filter tidak bisa digabung!"),
         AnimeFilter.Separator(),
         GenreFilter(),
-        YearFilter(),
         CountryFilter(),
     )
 
@@ -42,30 +41,6 @@ object LK21Filters {
         ),
     )
 
-    class YearFilter : UriPartFilter(
-        "Tahun",
-        arrayOf(
-            Pair("<Pilih>", ""),
-            Pair("2026", "2026"),
-            Pair("2025", "2025"),
-            Pair("2024", "2024"),
-            Pair("2023", "2023"),
-            Pair("2022", "2022"),
-            Pair("2021", "2021"),
-            Pair("2020", "2020"),
-            Pair("2019", "2019"),
-            Pair("2018", "2018"),
-            Pair("2017", "2017"),
-            Pair("2016", "2016"),
-            Pair("2015", "2015"),
-            Pair("2014", "2014"),
-            Pair("2013", "2013"),
-            Pair("2012", "2012"),
-            Pair("2011", "2011"),
-            Pair("2010", "2010"),
-        ),
-    )
-
     class CountryFilter : UriPartFilter(
         "Negara",
         arrayOf(
@@ -94,6 +69,7 @@ object LK21Filters {
     ) : AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
         fun toUriPart() = vals[state].second
     }
+
     fun getFilterList(): AnimeFilterList = FILTER_LIST
 
     // Data class untuk search parameters

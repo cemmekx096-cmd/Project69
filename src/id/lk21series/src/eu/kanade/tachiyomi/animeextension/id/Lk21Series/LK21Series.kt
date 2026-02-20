@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -86,18 +87,28 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Search ===============================
     // Search disabled - Cloudflare protection
 
-    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList) =
-        throw UnsupportedOperationException("Search not supported")
+    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): okhttp3.Request {
+        val params = LK21Filters.getSearchParameters(filters)
 
-    override fun searchAnimeSelector() = throw UnsupportedOperationException("Search not supported")
+        val url = when {
+            params.genre.isNotEmpty() -> {
+                "$baseUrl/genre/${params.genre}/page/$page"
+            }
+            params.country.isNotEmpty() -> {
+                "$baseUrl/country/${params.country}/page/$page"
+            }
+            else -> "$baseUrl/populer/page/$page" // default ke popular
+        }
 
-    override fun searchAnimeFromElement(element: Element) =
-        throw UnsupportedOperationException("Search not supported")
+        ReportLog.log("LK21Series-Search", "Filter: Genre=${params.genre}, Country=${params.country}", LogLevel.DEBUG)
+        return GET(url, headers)
+    }
 
-    override fun searchAnimeNextPageSelector() = null
+    override fun searchAnimeSelector() = popularAnimeSelector()
 
-    override fun searchAnimeParse(response: Response) =
-        throw UnsupportedOperationException("Search not supported")
+    override fun searchAnimeFromElement(element: Element) = popularAnimeFromElement(element)
+
+    override fun searchAnimeNextPageSelector() = popularAnimeNextPageSelector()
 
     // =========================== Anime Details ============================
 
@@ -323,7 +334,7 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     // ============================== Filters ===============================
 
-    override fun getFilterList() = AnimeFilterList() // No filters
+    override fun getFilterList() = LK21Filters.getFilterList()
 
     // ============================== Settings ==============================
 
@@ -334,7 +345,7 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     companion object {
         private const val PREF_TIMEOUT_KEY = "network_timeout"
         private const val PREF_TIMEOUT_DEFAULT = "90"
-
+        
         private const val PREF_USER_AGENT_KEY = "user_agent"
         private const val PREF_USER_AGENT_DEFAULT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
