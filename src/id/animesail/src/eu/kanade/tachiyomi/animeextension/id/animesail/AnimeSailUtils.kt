@@ -54,7 +54,7 @@ object ReportLog {
 
 object LogConfig {
     var isDebugEnabled = true
-    
+
     fun setDebugMode(enabled: Boolean) {
         isDebugEnabled = enabled
     }

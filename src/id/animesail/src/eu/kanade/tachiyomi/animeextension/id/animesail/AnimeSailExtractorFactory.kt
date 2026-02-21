@@ -16,7 +16,7 @@ import org.jsoup.nodes.Document
  * - Krakenfiles → KrakenfilesExtractor
  * - Gofile → GofileExtractor
  * - Acefile → AcefileExtractor
- * 
+ *
  * Handles navigation from episode page → download page → video URLs
  */
 class AnimeSailExtractorFactory(
@@ -52,7 +52,7 @@ class AnimeSailExtractorFactory(
             // Get download page URL
             tracker.debug("Navigating to download page...")
             val downloadPageUrl = getDownloadPageUrl(document)
-            
+
             if (downloadPageUrl.isEmpty()) {
                 tracker.error("Download page URL not found")
                 return emptyList()
@@ -109,7 +109,7 @@ class AnimeSailExtractorFactory(
 
             return fixUrl(altLink, baseUrl)
         }
-        
+
         return fixUrl(downloadLink, baseUrl)
     }
 

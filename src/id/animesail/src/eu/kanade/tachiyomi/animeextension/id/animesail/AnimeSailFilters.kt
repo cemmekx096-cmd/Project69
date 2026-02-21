@@ -35,7 +35,7 @@ object AnimeSailFilters {
             Pair("Sports", "sports"),
             Pair("Supernatural", "supernatural"),
             Pair("Thriller", "thriller"),
-        )
+        ),
     )
 
     class YearFilter : UriPartFilter(
@@ -59,7 +59,7 @@ object AnimeSailFilters {
             Pair("2012", "2012"),
             Pair("2011", "2011"),
             Pair("2010", "2010"),
-        )
+        ),
     )
 
     class TypeFilter : UriPartFilter(
@@ -71,14 +71,14 @@ object AnimeSailFilters {
             Pair("OVA", "ova"),
             Pair("Movie", "movie"),
             Pair("Special", "special"),
-        )
+        ),
     )
 
     // ==================== Base Filter Class ====================
 
     open class UriPartFilter(
         displayName: String,
-        private val vals: Array<Pair<String, String>>
+        private val vals: Array<Pair<String, String>>,
     ) : AnimeFilter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
         fun toUriPart() = vals[state].second
         fun isEmpty() = vals[state].second.isEmpty()
