@@ -1,104 +1,196 @@
 package eu.kanade.tachiyomi.animeextension.id.animesail
 
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
+import androidx.core.content.ContextCompat
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
-import androidx.preference.SwitchPreferenceCompat
 
 /**
  * Preferences for AnimeSail extension
- *
+ * 
  * Provides settings for:
  * - Base URL (custom domain)
  * - Preferred quality
  * - Preferred server
- * - Debug logging
+ * - Connection timeout
+ * - Custom User Agent
  */
 object AnimeSailPreferences {
 
-    // ==================== Preference Keys ====================
+    // =========================================================
+    // Keys
+    // =========================================================
+    const val PREF_BASE_URL_KEY   = "pref_base_url"
+    const val PREF_QUALITY_KEY    = "pref_quality"
+    const val PREF_SERVER_KEY     = "pref_server"
+    const val PREF_USER_AGENT_KEY = "pref_user_agent"
+    const val PREF_TIMEOUT_KEY    = "pref_timeout"
 
-    const val PREF_DOMAIN_KEY = "preferred_domain"
-    const val PREF_DOMAIN_DEFAULT = "https://154.26.137.28"
+    // =========================================================
+    // Defaults
+    // =========================================================
+    const val PREF_BASE_URL_DEFAULT   = "https://154.26.137.28"
+    const val PREF_QUALITY_DEFAULT    = "720p"
+    const val PREF_SERVER_DEFAULT     = "All"
+    const val PREF_USER_AGENT_DEFAULT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/120.0.0.0 Safari/537.36"
+    const val PREF_TIMEOUT_DEFAULT    = "30"
 
-    const val PREF_QUALITY_KEY = "preferred_quality"
-    const val PREF_QUALITY_DEFAULT = "720p"
+    // =========================================================
+    // Options
+    // =========================================================
+    private val QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p", "Semua")
+    private val QUALITY_VALUES  = arrayOf("1080p", "720p", "480p", "360p", "all")
     
-    const val PREF_SERVER_KEY = "preferred_server"
-    const val PREF_SERVER_DEFAULT = "All"
-    
-    const val PREF_DEBUG_KEY = "enable_debug"
-    const val PREF_DEBUG_DEFAULT = true
+    private val SERVER_ENTRIES = arrayOf("Semua", "Krakenfiles", "Gofile", "Acefile")
+    private val SERVER_VALUES  = arrayOf("All", "Krakenfiles", "Gofile", "Acefile")
 
-    // ==================== Setup Preferences ====================
+    private val TIMEOUT_ENTRIES = arrayOf("15 detik", "30 detik", "60 detik", "90 detik", "120 detik")
+    private val TIMEOUT_VALUES  = arrayOf("15", "30", "60", "90", "120")
 
+    // =========================================================
+    // Developer Info
+    // =========================================================
+    private const val DEV_NAME       = "User404"
+    private const val DEV_GITHUB_URL = "https://github.com/cemmekx096-cmd/Project69"
+    private const val DEV_GITHUB_SUMMARY = "github.com/cemmekx096-cmd/Project69"
+
+    // =========================================================
+    // Setup
+    // =========================================================
     fun setupPreferenceScreen(screen: PreferenceScreen, preferences: SharedPreferences) {
-        // Base URL / Domain
-        EditTextPreference(screen.context).apply {
-            key = PREF_DOMAIN_KEY
-            title = "Base URL"
-            summary = "Domain AnimeSail (jika berubah)\nDefault: $PREF_DOMAIN_DEFAULT\nCurrent: %s"
-            dialogTitle = "Masukkan Base URL"
-            dialogMessage = "Contoh: https://154.26.137.28"
-            setDefaultValue(PREF_DOMAIN_DEFAULT)
 
-            setOnPreferenceChangeListener { _, newValue ->
-                val url = newValue as String
-                url.startsWith("http://") || url.startsWith("https://")
+        // ── Developer Card ────────────────────────────────────
+        Preference(screen.context).apply {
+            title   = "🛠 $DEV_NAME"
+            summary = "Tap untuk membuka repositori\n$DEV_GITHUB_SUMMARY"
+            // Note: icon_logo.png harus ada di res/drawable/
+            // icon = ContextCompat.getDrawable(screen.context, R.drawable.icon_logo)
+
+            setOnPreferenceClickListener {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(DEV_GITHUB_URL))
+                screen.context.startActivity(intent)
+                true
             }
         }.also(screen::addPreference)
 
-        // Preferred Quality
-        ListPreference(screen.context).apply {
-            key = PREF_QUALITY_KEY
-            title = "Kualitas Preferensi"
-            summary = "Pilih kualitas video yang diutamakan\nCurrent: %s"
-            entries = arrayOf("1080p", "720p", "480p", "360p", "Semua")
-            entryValues = arrayOf("1080p", "720p", "480p", "360p", "all")
-            setDefaultValue(PREF_QUALITY_DEFAULT)
+        // ── Separator ─────────────────────────────────────────
+        Preference(screen.context).apply {
+            title   = "⚙ Pengaturan AnimeSail"
+            summary = "Sesuaikan extension sesuai kebutuhanmu"
+            isSelectable = false
         }.also(screen::addPreference)
 
-        // Preferred Server
-        ListPreference(screen.context).apply {
-            key = PREF_SERVER_KEY
-            title = "Server Preferensi"
-            summary = "Pilih server video yang diutamakan\nCurrent: %s"
-            entries = arrayOf("Semua", "Krakenfiles", "Gofile", "Acefile")
-            entryValues = arrayOf("All", "Krakenfiles", "Gofile", "Acefile")
-            setDefaultValue(PREF_SERVER_DEFAULT)
-        }.also(screen::addPreference)
+        // ── Base URL ──────────────────────────────────────────
+        EditTextPreference(screen.context).apply {
+            key          = PREF_BASE_URL_KEY
+            title        = "Base URL"
+            summary      = "Ganti domain jika situs diblokir\nSekarang: ${
+                preferences.getString(PREF_BASE_URL_KEY, PREF_BASE_URL_DEFAULT)
+            }"
+            setDefaultValue(PREF_BASE_URL_DEFAULT)
+            dialogTitle   = "Masukkan Base URL"
+            dialogMessage = "Contoh: https://154.26.137.28\nPastikan tidak ada slash (/) di akhir URL."
 
-        // Debug Logging
-        SwitchPreferenceCompat(screen.context).apply {
-            key = PREF_DEBUG_KEY
-            title = "Debug Logging"
-            summary = "Aktifkan log detail untuk debugging"
-            setDefaultValue(PREF_DEBUG_DEFAULT)
-            
             setOnPreferenceChangeListener { _, newValue ->
-                val enabled = newValue as Boolean
-                LogConfig.setDebugMode(enabled)
+                val url = (newValue as String).trimEnd('/')
+                preferences.edit().putString(PREF_BASE_URL_KEY, url).apply()
+                summary = "Ganti domain jika situs diblokir\nSekarang: $url"
+                true
+            }
+        }.also(screen::addPreference)
+
+        // ── Preferred Quality ─────────────────────────────────
+        ListPreference(screen.context).apply {
+            key          = PREF_QUALITY_KEY
+            title        = "Kualitas Video"
+            summary      = "Kualitas yang diprioritaskan: %s"
+            entries      = QUALITY_ENTRIES
+            entryValues  = QUALITY_VALUES
+            setDefaultValue(PREF_QUALITY_DEFAULT)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                preferences.edit().putString(PREF_QUALITY_KEY, newValue as String).apply()
+                true
+            }
+        }.also(screen::addPreference)
+        
+        // ── Preferred Server ──────────────────────────────────
+        ListPreference(screen.context).apply {
+            key          = PREF_SERVER_KEY
+            title        = "Server Video"
+            summary      = "Server yang diprioritaskan: %s"
+            entries      = SERVER_ENTRIES
+            entryValues  = SERVER_VALUES
+            setDefaultValue(PREF_SERVER_DEFAULT)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                preferences.edit().putString(PREF_SERVER_KEY, newValue as String).apply()
+                true
+            }
+        }.also(screen::addPreference)
+
+        // ── Timeout ───────────────────────────────────────────
+        ListPreference(screen.context).apply {
+            key          = PREF_TIMEOUT_KEY
+            title        = "Timeout Koneksi"
+            summary      = "Waktu tunggu sebelum request gagal: %s"
+            entries      = TIMEOUT_ENTRIES
+            entryValues  = TIMEOUT_VALUES
+            setDefaultValue(PREF_TIMEOUT_DEFAULT)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                preferences.edit().putString(PREF_TIMEOUT_KEY, newValue as String).apply()
+                true
+            }
+        }.also(screen::addPreference)
+
+        // ── Custom User Agent ─────────────────────────────────
+        EditTextPreference(screen.context).apply {
+            key          = PREF_USER_AGENT_KEY
+            title        = "Custom User Agent"
+            summary      = "Kosongkan untuk menggunakan default"
+            setDefaultValue(PREF_USER_AGENT_DEFAULT)
+            dialogTitle   = "Masukkan User Agent"
+            dialogMessage = "Kosongkan untuk kembali ke default."
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val ua = (newValue as String).ifBlank { PREF_USER_AGENT_DEFAULT }
+                preferences.edit().putString(PREF_USER_AGENT_KEY, ua).apply()
                 true
             }
         }.also(screen::addPreference)
     }
-
+    
     // ==================== Helper Functions ====================
-
+    
     fun getBaseUrl(preferences: SharedPreferences): String {
-        return preferences.getString(PREF_DOMAIN_KEY, PREF_DOMAIN_DEFAULT) ?: PREF_DOMAIN_DEFAULT
+        return preferences.getString(PREF_BASE_URL_KEY, PREF_BASE_URL_DEFAULT)
+            ?.trimEnd('/') ?: PREF_BASE_URL_DEFAULT
     }
-l
+    
     fun getPreferredQuality(preferences: SharedPreferences): String {
-        return preferences.getString(PREF_QUALITY_KEY, PREF_QUALITY_DEFAULT) ?: PREF_QUALITY_DEFAULT
+        return preferences.getString(PREF_QUALITY_KEY, PREF_QUALITY_DEFAULT) 
+            ?: PREF_QUALITY_DEFAULT
     }
-
+    
     fun getPreferredServer(preferences: SharedPreferences): String {
-        return preferences.getString(PREF_SERVER_KEY, PREF_SERVER_DEFAULT) ?: PREF_SERVER_DEFAULT
+        return preferences.getString(PREF_SERVER_KEY, PREF_SERVER_DEFAULT) 
+            ?: PREF_SERVER_DEFAULT
     }
-
-    fun isDebugEnabled(preferences: SharedPreferences): Boolean {
-        return preferences.getBoolean(PREF_DEBUG_KEY, PREF_DEBUG_DEFAULT)
+    
+    fun getUserAgent(preferences: SharedPreferences): String {
+        return preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT) 
+            ?: PREF_USER_AGENT_DEFAULT
+    }
+    
+    fun getTimeout(preferences: SharedPreferences): Long {
+        return preferences.getString(PREF_TIMEOUT_KEY, PREF_TIMEOUT_DEFAULT)
+            ?.toLongOrNull() ?: PREF_TIMEOUT_DEFAULT.toLong()
     }
 }
