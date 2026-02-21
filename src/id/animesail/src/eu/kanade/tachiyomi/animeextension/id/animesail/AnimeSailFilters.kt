@@ -12,9 +12,9 @@ import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
  * - Type (Anime, Donghua, OVA)
  */
 object AnimeSailFilters {
-    
+
     // ==================== Filter Classes ====================
-    
+
     class GenreFilter : UriPartFilter(
         "Genre",
         arrayOf(
@@ -37,7 +37,7 @@ object AnimeSailFilters {
             Pair("Thriller", "thriller"),
         )
     )
-    
+
     class YearFilter : UriPartFilter(
         "Tahun",
         arrayOf(
@@ -61,7 +61,7 @@ object AnimeSailFilters {
             Pair("2010", "2010"),
         )
     )
-    
+
     class TypeFilter : UriPartFilter(
         "Tipe",
         arrayOf(
@@ -73,9 +73,9 @@ object AnimeSailFilters {
             Pair("Special", "special"),
         )
     )
-    
+
     // ==================== Base Filter Class ====================
-    
+
     open class UriPartFilter(
         displayName: String,
         private val vals: Array<Pair<String, String>>
@@ -83,9 +83,9 @@ object AnimeSailFilters {
         fun toUriPart() = vals[state].second
         fun isEmpty() = vals[state].second.isEmpty()
     }
-    
+
     // ==================== Filter List Builder ====================
-    
+
     fun getFilterList(): AnimeFilterList {
         return AnimeFilterList(
             AnimeFilter.Header("NOTE: Filter diabaikan jika search query tidak kosong!"),

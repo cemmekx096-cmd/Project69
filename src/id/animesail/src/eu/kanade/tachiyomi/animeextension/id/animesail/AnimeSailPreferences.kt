@@ -11,7 +11,7 @@ import androidx.preference.PreferenceScreen
 
 /**
  * Preferences for AnimeSail extension
- * 
+ *
  * Provides settings for:
  * - Base URL (custom domain)
  * - Preferred quality
@@ -46,7 +46,7 @@ object AnimeSailPreferences {
     // =========================================================
     private val QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p", "Semua")
     private val QUALITY_VALUES  = arrayOf("1080p", "720p", "480p", "360p", "all")
-    
+
     private val SERVER_ENTRIES = arrayOf("Semua", "Krakenfiles", "Gofile", "Acefile")
     private val SERVER_VALUES  = arrayOf("All", "Krakenfiles", "Gofile", "Acefile")
 
@@ -64,7 +64,6 @@ object AnimeSailPreferences {
     // Setup
     // =========================================================
     fun setupPreferenceScreen(screen: PreferenceScreen, preferences: SharedPreferences) {
-
         // ── Developer Card ────────────────────────────────────
         Preference(screen.context).apply {
             title   = "🛠 $DEV_NAME"
@@ -119,7 +118,7 @@ object AnimeSailPreferences {
                 true
             }
         }.also(screen::addPreference)
-        
+
         // ── Preferred Server ──────────────────────────────────
         ListPreference(screen.context).apply {
             key          = PREF_SERVER_KEY
@@ -166,29 +165,29 @@ object AnimeSailPreferences {
             }
         }.also(screen::addPreference)
     }
-    
+
     // ==================== Helper Functions ====================
-    
+
     fun getBaseUrl(preferences: SharedPreferences): String {
         return preferences.getString(PREF_BASE_URL_KEY, PREF_BASE_URL_DEFAULT)
             ?.trimEnd('/') ?: PREF_BASE_URL_DEFAULT
     }
-    
+
     fun getPreferredQuality(preferences: SharedPreferences): String {
         return preferences.getString(PREF_QUALITY_KEY, PREF_QUALITY_DEFAULT) 
             ?: PREF_QUALITY_DEFAULT
     }
-    
+
     fun getPreferredServer(preferences: SharedPreferences): String {
         return preferences.getString(PREF_SERVER_KEY, PREF_SERVER_DEFAULT) 
             ?: PREF_SERVER_DEFAULT
     }
-    
+
     fun getUserAgent(preferences: SharedPreferences): String {
         return preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT) 
             ?: PREF_USER_AGENT_DEFAULT
     }
-    
+
     fun getTimeout(preferences: SharedPreferences): Long {
         return preferences.getString(PREF_TIMEOUT_KEY, PREF_TIMEOUT_DEFAULT)
             ?.toLongOrNull() ?: PREF_TIMEOUT_DEFAULT.toLong()

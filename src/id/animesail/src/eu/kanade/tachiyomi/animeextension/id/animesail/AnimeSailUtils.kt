@@ -14,9 +14,9 @@ enum class LogLevel {
 // ======================= ReportLog ==========================
 
 object ReportLog {
-    
+
     private const val GLOBAL_TAG = "AnimeSail"
-    
+
     fun log(tag: String, message: String, level: LogLevel) {
         val fullTag = "$GLOBAL_TAG-$tag"
         when (level) {
@@ -26,11 +26,11 @@ object ReportLog {
             LogLevel.WARN -> Log.w(fullTag, message)
         }
     }
-    
+
     fun reportFeature(tag: String, message: String) {
         log(tag, message, LogLevel.INFO)
     }
-    
+
     fun reportError(tag: String, errorMessage: String, exception: Exception? = null) {
         val fullMessage = if (exception != null) {
             "$errorMessage: ${exception.message}"
@@ -40,11 +40,11 @@ object ReportLog {
         log(tag, fullMessage, LogLevel.ERROR)
         exception?.printStackTrace()
     }
-    
+
     fun reportDebug(tag: String, message: String) {
         log(tag, message, LogLevel.DEBUG)
     }
-    
+
     fun reportWarn(tag: String, message: String) {
         log(tag, message, LogLevel.WARN)
     }
@@ -71,23 +71,23 @@ fun logIfDebug(tag: String, message: String, level: LogLevel = LogLevel.DEBUG) {
 // ================ Feature Tracker ===================
 
 class FeatureTracker(private val featureName: String) {
-    
+
     fun start() {
         ReportLog.reportFeature(featureName, "⏩ Started")
     }
-    
+
     fun success(message: String = "Completed successfully") {
         ReportLog.reportFeature(featureName, "✅ $message")
     }
-    
+
     fun error(errorMessage: String, exception: Exception? = null) {
         ReportLog.reportError(featureName, "❌ $errorMessage", exception)
     }
-    
+
     fun warn(message: String) {
         ReportLog.reportWarn(featureName, "⚠️ $message")
     }
-    
+
     fun debug(message: String) {
         ReportLog.reportDebug(featureName, "🔍 $message")
     }
@@ -97,12 +97,12 @@ class FeatureTracker(private val featureName: String) {
 
 class PerformanceTracker(private val operationName: String) {
     private var startTime: Long = 0
-    
+
     fun start() {
         startTime = System.currentTimeMillis()
         ReportLog.reportDebug("Performance", "⏱️ $operationName started")
     }
-    
+
     fun end() {
         val duration = System.currentTimeMillis() - startTime
         ReportLog.reportDebug("Performance", "⏱️ $operationName completed in ${duration}ms")
