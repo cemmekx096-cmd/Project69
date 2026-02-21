@@ -1,0 +1,15 @@
+ext {
+    extName = 'AnimeSail'
+    extClass = '.AnimeSail'
+    extVersionCode = 1
+}
+
+apply from: "$rootDir/common.gradle"
+
+dependencies {
+    implementation(project(":lib:playlist-utils"))
+    implementation(project(":lib:acefile-extractor"))
+    implementation(project(":lib:gofile-extractor"))
+    implementation(project(":lib:krakenfiles-extractor"))
+    implementation(project(":lib:cloudflare-interceptor"))
+}
