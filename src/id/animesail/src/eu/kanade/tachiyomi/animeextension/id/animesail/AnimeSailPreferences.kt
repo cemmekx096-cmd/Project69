@@ -65,7 +65,7 @@ object AnimeSailPreferences {
     fun setupPreferenceScreen(screen: PreferenceScreen, preferences: SharedPreferences) {
         // ── Developer Card ────────────────────────────────────
         Preference(screen.context).apply {
-            title   = "🛠 $DEV_NAME"
+            title = "🛠 $DEV_NAME"
             summary = "Tap untuk membuka repositori\n$DEV_GITHUB_SUMMARY"
             // Note: icon_logo.png harus ada di res/drawable/
             // icon = ContextCompat.getDrawable(screen.context, R.drawable.icon_logo)
@@ -79,7 +79,7 @@ object AnimeSailPreferences {
 
         // ── Separator ─────────────────────────────────────────
         Preference(screen.context).apply {
-            title   = "⚙ Pengaturan AnimeSail"
+            title = "⚙ Pengaturan AnimeSail"
             summary = "Sesuaikan extension sesuai kebutuhanmu"
             isSelectable = false
         }.also(screen::addPreference)

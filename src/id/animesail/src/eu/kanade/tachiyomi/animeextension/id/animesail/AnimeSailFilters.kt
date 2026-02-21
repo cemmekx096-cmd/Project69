@@ -5,7 +5,7 @@ import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 
 /**
  * Filters for AnimeSail extension
- * 
+ *
  * Provides filtering options for:
  * - Genre (Action, Comedy, etc)
  * - Year (2024, 2023, etc)
