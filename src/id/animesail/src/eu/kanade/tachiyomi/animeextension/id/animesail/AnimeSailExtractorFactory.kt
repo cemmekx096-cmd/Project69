@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.lib.acefileextractor.AcefileExtractor
 import eu.kanade.tachiyomi.lib.gofileextractor.GofileExtractor
 import eu.kanade.tachiyomi.lib.krakenfilesextractor.KrakenfilesExtractor
+import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Response
