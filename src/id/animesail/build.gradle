@@ -11,5 +11,7 @@ dependencies {
     implementation(project(":lib:acefile-extractor"))
     implementation(project(":lib:gofile-extractor"))
     implementation(project(":lib:krakenfiles-extractor"))
+    implementation(project(":lib:mp4uploadextractor"))
+    implementation(project(":lib:mixdropextractor"))
     implementation(project(":lib:cloudflare-interceptor"))
 }
