@@ -67,16 +67,16 @@ class AnimeSailExtractorFactory(
                     val base64Data = option.attr("data-em")
                     if (base64Data.isNotBlank()) {
                         val decodedUrl = String(Base64.decode(base64Data, Base64.DEFAULT))
-                tracker.debug("[$index] Decoded mirror: $decodedUrl")
+                        tracker.debug("[$index] Decoded mirror: $decodedUrl")
 
-                // Extract URL dari iframe tag jika ada
-                val actualUrl = if (decodedUrl.contains("<iframe")) {
-                    decodedUrl.substringAfter("src=\"").substringBefore("\"")
-                } else {
-                    decodedUrl
-                }
+                        // Extract URL dari iframe tag jika ada
+                        val actualUrl = if (decodedUrl.contains("<iframe")) {
+                            decodedUrl.substringAfter("src=\"").substringBefore("\"")
+                        } else {
+                            decodedUrl
+                        }
 
-                processVideoLink(actualUrl, index + 1, videos, processedUrls)
+                        processVideoLink(actualUrl, index + 1, videos, processedUrls)
                     }
                 } catch (e: Exception) {
                     tracker.error("[$index] Failed to decode mirror", e)
