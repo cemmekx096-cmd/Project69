@@ -64,26 +64,27 @@ object AnimeSailPreferences {
     // =========================================================
     fun setupPreferenceScreen(screen: PreferenceScreen, preferences: SharedPreferences) {
         // ── Developer Card ────────────────────────────────────
-        object : Preference(screen.context) {
-            override fun onClick() {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(DEV_GITHUB_URL))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            }
-        }.apply {
+        Preference(screen.context, null).apply {
             key = "pref_developer_card"
             title = "🛠 $DEV_NAME"
             summary = "Tap untuk membuka repositori\n$DEV_GITHUB_SUMMARY"
             // Note: icon_logo.png harus ada di res/drawable/
-            // icon = ContextCompat.getDrawable(context, R.drawable.icon_logo)
+            // icon = ContextCompat.getDrawable(screen.context, R.drawable.icon_logo)
+
+            setOnPreferenceClickListener {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(DEV_GITHUB_URL))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                screen.context.startActivity(intent)
+                true
+            }
         }.also(screen::addPreference)
 
         // ── Separator ─────────────────────────────────────────
-        object : Preference(screen.context) {}.apply {
+        Preference(screen.context, null).apply {
             key = "pref_separator"
             title = "⚙ Pengaturan AnimeSail"
             summary = "Sesuaikan extension sesuai kebutuhanmu"
-            isSelectable = false
+            isClickable = false
         }.also(screen::addPreference)
 
         // ── Base URL ──────────────────────────────────────────
