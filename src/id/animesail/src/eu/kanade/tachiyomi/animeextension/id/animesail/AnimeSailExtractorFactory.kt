@@ -1,24 +1,23 @@
 package eu.kanade.tachiyomi.animeextension.id.animesail
 
+import android.util.Base64
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.lib.acefileextractor.AcefileExtractor
 import eu.kanade.tachiyomi.lib.gofileextractor.GofileExtractor
+import eu.kanade.tachiyomi.lib.hexuploadextractor.HexuploadExtractor
 import eu.kanade.tachiyomi.lib.krakenfilesextractor.KrakenfilesExtractor
+import eu.kanade.tachiyomi.lib.lokalextractor.LokalExtractor
+import eu.kanade.tachiyomi.lib.mixdropextractor.MixdropExtractor
+import eu.kanade.tachiyomi.lib.mp4uploadextractor.Mp4uploadExtractor
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Response
-import org.jsoup.nodes.Document
 
 /**
  * AnimeSail Extractor Factory
  *
- * Routes video extraction to appropriate library based on URL:
- * - Krakenfiles → KrakenfilesExtractor
- * - Gofile → GofileExtractor
- * - Acefile → AcefileExtractor
- *
- * Handles navigation from episode page → download page → video URLs
+ * Extracts video sources directly from episode page iframes and mirror options
  */
 class AnimeSailExtractorFactory(
     private val client: OkHttpClient,
@@ -32,15 +31,19 @@ class AnimeSailExtractorFactory(
     private val krakenfilesExtractor = KrakenfilesExtractor(client)
     private val gofileExtractor = GofileExtractor(client)
     private val acefileExtractor = AcefileExtractor(client)
+    private val mp4uploadExtractor = Mp4uploadExtractor(client)
+    private val hexuploadExtractor = HexuploadExtractor(client)
+    private val lokalExtractor = LokalExtractor(client)
+    private val mixdropExtractor = MixdropExtractor(client)
 
     /**
      * Extract videos from episode page
-     *
+     * 
      * Flow:
-     * 1. Parse episode page
-     * 2. Navigate to download page
-     * 3. Extract video links from download page
-     * 4. Route each link to appropriate extractor
+     * 1. Get default iframe from episode page
+     * 2. Get mirror options from select dropdown
+     * 3. Decode base64 mirror URLs
+     * 4. Route each URL to appropriate extractor
      */
     fun extractVideos(response: Response): List<Video> {
         val perf = PerformanceTracker("ExtractVideos")
@@ -49,35 +52,32 @@ class AnimeSailExtractorFactory(
 
         try {
             val document = response.asJsoup()
+            val videos = mutableListOf<Video>()
+            val processedUrls = mutableSetOf<String>()
 
-            // Get download page URL
-            tracker.debug("Navigating to download page...")
-            val downloadPageUrl = getDownloadPageUrl(document)
-
-            if (downloadPageUrl.isEmpty()) {
-                tracker.error("Download page URL not found")
-                return emptyList()
+            // 1. Get default iframe
+            val defaultIframe = document.selectFirst("div.player-embed iframe[src]")?.attr("src")
+            if (!defaultIframe.isNullOrBlank()) {
+                tracker.debug("Default iframe: $defaultIframe")
+                processVideoLink(defaultIframe, 0, videos, processedUrls)
             }
 
-            tracker.debug("Download page: $downloadPageUrl")
+            // 2. Get mirror options from select dropdown
+            val mirrors = document.select("select.mirror option[data-em]")
+            tracker.debug("Found ${mirrors.size} mirror options")
 
-            // Fetch download page
-            val downloadPageResponse = client.newCall(
-                okhttp3.Request.Builder()
-                    .url(downloadPageUrl)
-                    .headers(headers)
-                    .build(),
-            ).execute()
-
-            if (!downloadPageResponse.isSuccessful) {
-                tracker.error("Failed to fetch download page: ${downloadPageResponse.code}")
-                return emptyList()
+            mirrors.forEachIndexed { index, option ->
+                try {
+                    val base64Data = option.attr("data-em")
+                    if (base64Data.isNotBlank()) {
+                        val decodedUrl = String(Base64.decode(base64Data, Base64.DEFAULT))
+                        tracker.debug("[$index] Decoded mirror: $decodedUrl")
+                        processVideoLink(decodedUrl, index + 1, videos, processedUrls)
+                    }
+                } catch (e: Exception) {
+                    tracker.error("[$index] Failed to decode mirror", e)
+                }
             }
-
-            val downloadPage = downloadPageResponse.asJsoup()
-
-            // Extract video links
-            val videos = extractVideosFromDownloadPage(downloadPage)
 
             tracker.success("Extracted ${videos.size} videos")
             perf.end()
@@ -91,67 +91,19 @@ class AnimeSailExtractorFactory(
     }
 
     /**
-     * Get download page URL from episode page
+     * Process single video URL and route to appropriate extractor
      */
-    private fun getDownloadPageUrl(document: Document): String {
-        // Find download link (based on CloudStream pattern)
-        val downloadLink = document.selectFirst("center:has(a.singledl) a")?.attr("href")
-
-        if (downloadLink.isNullOrBlank()) {
-            tracker.warn("Download link not found with primary selector")
-
-            // Try alternative selectors
-            val altLink = document.selectFirst("a.singledl")?.attr("href")
-                ?: document.selectFirst("a[href*=download]")?.attr("href")
-
-            if (altLink.isNullOrBlank()) {
-                return ""
-            }
-
-            return fixUrl(altLink, baseUrl)
-        }
-
-        return fixUrl(downloadLink, baseUrl)
-    }
-
-    /**
-     * Extract videos from download page
-     */
-    private fun extractVideosFromDownloadPage(document: Document): List<Video> {
-        val videos = mutableListOf<Video>()
-
-        // Find all video links in table
-        val videoLinks = document.select("table a")
-        tracker.debug("Found ${videoLinks.size} video links")
-
-        if (videoLinks.isEmpty()) {
-            tracker.warn("No video links found in download page")
-            // Try alternative selector
-            val altLinks = document.select("a[data-href], a[href*=gofile], a[href*=acefile], a[href*=krakenfiles]")
-            tracker.debug("Alternative selector found ${altLinks.size} links")
-
-            altLinks.forEachIndexed { index, link ->
-                processVideoLink(link.attr("data-href").ifEmpty { link.attr("href") }, index, videos)
-            }
-        } else {
-            videoLinks.forEachIndexed { index, link ->
-                val url = link.attr("data-href").ifEmpty { link.attr("href") }
-                processVideoLink(url, index, videos)
-            }
-        }
-
-        return videos
-    }
-
-    /**
-     * Process single video link and route to appropriate extractor
-     */
-    private fun processVideoLink(url: String, index: Int, videos: MutableList<Video>) {
-        if (url.isBlank()) {
-            tracker.warn("[$index] Empty URL, skipping")
+    private fun processVideoLink(
+        url: String,
+        index: Int,
+        videos: MutableList<Video>,
+        processedUrls: MutableSet<String>,
+    ) {
+        if (url.isBlank() || url in processedUrls) {
             return
         }
 
+        processedUrls.add(url)
         tracker.debug("[$index] Processing: $url")
 
         try {
@@ -175,6 +127,34 @@ class AnimeSailExtractorFactory(
                     val extractedVideos = acefileExtractor.videosFromUrl(url, headers)
                     videos.addAll(extractedVideos)
                     tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Acefile")
+                }
+
+                "mp4upload" in url.lowercase() -> {
+                    tracker.debug("[$index] Using Mp4upload extractor")
+                    val extractedVideos = mp4uploadExtractor.videosFromUrl(url, headers)
+                    videos.addAll(extractedVideos)
+                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Mp4upload")
+                }
+
+                "hexupload" in url.lowercase() -> {
+                    tracker.debug("[$index] Using Hexupload extractor")
+                    val extractedVideos = hexuploadExtractor.videosFromUrl(url, headers)
+                    videos.addAll(extractedVideos)
+                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Hexupload")
+                }
+
+                "aghanim.xyz" in url.lowercase() -> {
+                    tracker.debug("[$index] Using Lokal extractor")
+                    val extractedVideos = lokalExtractor.videosFromUrl(url, headers)
+                    videos.addAll(extractedVideos)
+                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Lokal")
+                }
+
+                "mixdrop" in url.lowercase() -> {
+                    tracker.debug("[$index] Using Mixdrop extractor")
+                    val extractedVideos = mixdropExtractor.videosFromUrl(url, headers)
+                    videos.addAll(extractedVideos)
+                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Mixdrop")
                 }
 
                 else -> {
