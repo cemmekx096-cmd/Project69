@@ -1,11 +1,8 @@
 package eu.kanade.tachiyomi.animeextension.id.animesail
 
-import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
-import androidx.preference.Preference
 import androidx.preference.PreferenceScreen
 
 /**
