@@ -5,10 +5,12 @@ import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
+import eu.kanade.tachiyomi.lib.cloudflareinterceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
@@ -48,7 +50,11 @@ class AnimeSail : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val baseUrl: String
         get() = AnimeSailPreferences.getBaseUrl(preferences)
 
-    override val client: OkHttpClient = network.cloudflareClient
+    override val client: OkHttpClient by lazy {
+        network.cloudflareClient.newBuilder()
+            .addInterceptor(CloudflareInterceptor(network.cloudflareClient))
+            .build()
+    }
 
     override fun headersBuilder(): Headers.Builder {
         return super.headersBuilder().apply {
