@@ -38,7 +38,7 @@ class AnimeSailExtractorFactory(
 
     /**
      * Extract videos from episode page
-     * 
+     *
      * Flow:
      * 1. Get default iframe from episode page
      * 2. Get mirror options from select dropdown
