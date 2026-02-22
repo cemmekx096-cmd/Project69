@@ -4,10 +4,8 @@ import android.util.Base64
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.lib.acefileextractor.AcefileExtractor
 import eu.kanade.tachiyomi.lib.gofileextractor.GofileExtractor
-import eu.kanade.tachiyomi.lib.hexuploadextractor.HexuploadExtractor
 import eu.kanade.tachiyomi.lib.krakenfilesextractor.KrakenfilesExtractor
-import eu.kanade.tachiyomi.lib.lokalextractor.LokalExtractor
-import eu.kanade.tachiyomi.lib.mixdropextractor.MixdropExtractor
+import eu.kanade.tachiyomi.lib.mixdropextractor.MixDropExtractor
 import eu.kanade.tachiyomi.lib.mp4uploadextractor.Mp4uploadExtractor
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
@@ -32,9 +30,7 @@ class AnimeSailExtractorFactory(
     private val gofileExtractor = GofileExtractor(client)
     private val acefileExtractor = AcefileExtractor(client)
     private val mp4uploadExtractor = Mp4uploadExtractor(client)
-    private val hexuploadExtractor = HexuploadExtractor(client)
-    private val lokalExtractor = LokalExtractor(client)
-    private val mixdropExtractor = MixdropExtractor(client)
+    private val mixdropExtractor = MixDropExtractor(client)
 
     /**
      * Extract videos from episode page
@@ -136,25 +132,22 @@ class AnimeSailExtractorFactory(
                     tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Mp4upload")
                 }
 
-                "hexupload" in url.lowercase() -> {
-                    tracker.debug("[$index] Using Hexupload extractor")
-                    val extractedVideos = hexuploadExtractor.videosFromUrl(url, headers)
+                "mixdrop" in url.lowercase() -> {
+                    tracker.debug("[$index] Using Mixdrop extractor")
+                    val extractedVideos = mixdropExtractor.videosFromUrl(url)
                     videos.addAll(extractedVideos)
-                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Hexupload")
+                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Mixdrop")
+                }
+
+                // Fallback untuk extractor yang belum ada
+                "hexupload" in url.lowercase() -> {
+                    tracker.warn("[$index] Hexupload extractor not available yet")
+                    videos.add(Video(url, "Hexupload (Manual)", url))
                 }
 
                 "aghanim.xyz" in url.lowercase() -> {
-                    tracker.debug("[$index] Using Lokal extractor")
-                    val extractedVideos = lokalExtractor.videosFromUrl(url, headers)
-                    videos.addAll(extractedVideos)
-                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Lokal")
-                }
-
-                "mixdrop" in url.lowercase() -> {
-                    tracker.debug("[$index] Using Mixdrop extractor")
-                    val extractedVideos = mixdropExtractor.videosFromUrl(url, headers)
-                    videos.addAll(extractedVideos)
-                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Mixdrop")
+                    tracker.warn("[$index] Lokal extractor not available yet")
+                    videos.add(Video(url, "Lokal (Manual)", url))
                 }
 
                 else -> {
