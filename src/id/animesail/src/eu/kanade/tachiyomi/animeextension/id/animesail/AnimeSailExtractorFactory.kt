@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.id.animesail
 
+import android.content.SharedPreferences
 import android.util.Base64
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.lib.acefileextractor.AcefileExtractor
@@ -7,6 +8,7 @@ import eu.kanade.tachiyomi.lib.gofileextractor.GofileExtractor
 import eu.kanade.tachiyomi.lib.krakenfilesextractor.KrakenfilesExtractor
 import eu.kanade.tachiyomi.lib.mixdropextractor.MixDropExtractor
 import eu.kanade.tachiyomi.lib.mp4uploadextractor.Mp4uploadExtractor
+import eu.kanade.tachiyomi.lib.youruploadextractor.YourUploadExtractor
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
 import okhttp3.OkHttpClient
@@ -16,11 +18,13 @@ import okhttp3.Response
  * AnimeSail Extractor Factory
  *
  * Extracts video sources directly from episode page iframes and mirror options
+ * with quality filtering and server whitelist support
  */
 class AnimeSailExtractorFactory(
     private val client: OkHttpClient,
     private val headers: Headers,
     private val baseUrl: String,
+    private val preferences: SharedPreferences,
 ) {
 
     private val tracker = FeatureTracker("ExtractorFactory")
@@ -31,6 +35,17 @@ class AnimeSailExtractorFactory(
     private val acefileExtractor = AcefileExtractor(client)
     private val mp4uploadExtractor = Mp4uploadExtractor(client)
     private val mixdropExtractor = MixDropExtractor(client)
+    private val youruploadExtractor = YourUploadExtractor(client)
+
+    // Supported hosts whitelist
+    private val supportedHosts = setOf(
+        "acefile",
+        "gofile",
+        "mixdrop",
+        "krakenfiles",
+        "mp4upload",
+        "yourupload"
+    )
 
     /**
      * Extract videos from episode page
@@ -40,6 +55,7 @@ class AnimeSailExtractorFactory(
      * 2. Get mirror options from select dropdown
      * 3. Decode base64 mirror URLs
      * 4. Route each URL to appropriate extractor
+     * 5. Filter by quality preference
      */
     fun extractVideos(response: Response): List<Video> {
         val perf = PerformanceTracker("ExtractVideos")
@@ -83,10 +99,13 @@ class AnimeSailExtractorFactory(
                 }
             }
 
-            tracker.success("Extracted ${videos.size} videos")
+            // 3. Filter by quality preference
+            val filteredVideos = filterVideosByQuality(videos)
+
+            tracker.success("Extracted ${filteredVideos.size} videos (${videos.size} before quality filter)")
             perf.end()
 
-            return videos.distinctBy { it.url }
+            return filteredVideos.distinctBy { it.url }
         } catch (e: Exception) {
             tracker.error("Video extraction failed", e)
             perf.end()
@@ -104,6 +123,13 @@ class AnimeSailExtractorFactory(
         processedUrls: MutableSet<String>,
     ) {
         if (url.isBlank() || url in processedUrls) {
+            return
+        }
+
+        // Check whitelist preference
+        val serverPref = AnimeSailPreferences.getPreferredServer(preferences)
+        if (serverPref == "supported" && !isSupportedHost(url)) {
+            tracker.debug("[$index] Skipped (whitelist enabled): $url")
             return
         }
 
@@ -147,6 +173,13 @@ class AnimeSailExtractorFactory(
                     tracker.debug("[$index] Extracted ${extractedVideos.size} videos from Mixdrop")
                 }
 
+                "yourupload" in url.lowercase() -> {
+                    tracker.debug("[$index] Using YourUpload extractor")
+                    val extractedVideos = youruploadExtractor.videoFromUrl(url, headers)
+                    videos.addAll(extractedVideos)
+                    tracker.debug("[$index] Extracted ${extractedVideos.size} videos from YourUpload")
+                }
+
                 // Fallback untuk extractor yang belum ada
                 "hexupload" in url.lowercase() -> {
                     tracker.warn("[$index] Hexupload extractor not available yet")
@@ -164,6 +197,39 @@ class AnimeSailExtractorFactory(
             }
         } catch (e: Exception) {
             tracker.error("[$index] Failed to extract from $url", e)
+        }
+    }
+
+    /**
+     * Check if URL is from supported host
+     */
+    private fun isSupportedHost(url: String): Boolean {
+        return supportedHosts.any { url.lowercase().contains(it) }
+    }
+
+    /**
+     * Filter videos by quality preference
+     */
+    private fun filterVideosByQuality(videos: List<Video>): List<Video> {
+        val qualityPref = AnimeSailPreferences.getPreferredQuality(preferences)
+        
+        if (qualityPref == "auto") {
+            // Return all videos, let user choose
+            return videos
+        }
+
+        // Filter by specific quality
+        val filtered = videos.filter { video ->
+            video.quality.contains(qualityPref, ignoreCase = true)
+        }
+
+        // If no videos match preferred quality, return all (fallback)
+        return if (filtered.isNotEmpty()) {
+            tracker.debug("Filtered to ${filtered.size} videos with quality: $qualityPref")
+            filtered
+        } else {
+            tracker.warn("No videos found with quality $qualityPref, returning all")
+            videos
         }
     }
 }

@@ -30,8 +30,8 @@ object AnimeSailPreferences {
     // Defaults
     // =========================================================
     const val PREF_BASE_URL_DEFAULT = "https://154.26.137.28"
-    const val PREF_QUALITY_DEFAULT = "720p"
-    const val PREF_SERVER_DEFAULT = "All"
+    const val PREF_QUALITY_DEFAULT = "auto"
+    const val PREF_SERVER_DEFAULT = "supported"
     const val PREF_USER_AGENT_DEFAULT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
         "AppleWebKit/537.36 (KHTML, like Gecko) " +
         "Chrome/120.0.0.0 Safari/537.36"
@@ -40,11 +40,11 @@ object AnimeSailPreferences {
     // =========================================================
     // Options
     // =========================================================
-    private val QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p", "Semua")
-    private val QUALITY_VALUES = arrayOf("1080p", "720p", "480p", "360p", "all")
+    private val QUALITY_ENTRIES = arrayOf("Auto", "1080p", "720p", "480p", "360p")
+    private val QUALITY_VALUES = arrayOf("auto", "1080p", "720p", "480p", "360p")
 
-    private val SERVER_ENTRIES = arrayOf("Semua", "Krakenfiles", "Gofile", "Acefile")
-    private val SERVER_VALUES = arrayOf("All", "Krakenfiles", "Gofile", "Acefile")
+    private val SERVER_ENTRIES = arrayOf("Semua Player", "Player yang Didukung")
+    private val SERVER_VALUES = arrayOf("all", "supported")
 
     private val TIMEOUT_ENTRIES = arrayOf("15 detik", "30 detik", "60 detik", "90 detik", "120 detik")
     private val TIMEOUT_VALUES = arrayOf("15", "30", "60", "90", "120")
