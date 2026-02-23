@@ -228,7 +228,7 @@ class AnimeSail : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // ============================== Video Links ==============================
 
     override fun videoListParse(response: Response): List<Video> {
-        val factory = AnimeSailExtractorFactory(client, headers, baseUrl)
+        val factory = AnimeSailExtractorFactory(client, headers, baseUrl, preferences)
         return factory.extractVideos(response)
     }
 
