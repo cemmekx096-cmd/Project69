@@ -44,7 +44,7 @@ class AnimeSailExtractorFactory(
         "mixdrop",
         "krakenfiles",
         "mp4upload",
-        "yourupload"
+        "yourupload",
     )
 
     /**
@@ -212,7 +212,7 @@ class AnimeSailExtractorFactory(
      */
     private fun filterVideosByQuality(videos: List<Video>): List<Video> {
         val qualityPref = AnimeSailPreferences.getPreferredQuality(preferences)
-        
+
         if (qualityPref == "auto") {
             // Return all videos, let user choose
             return videos
