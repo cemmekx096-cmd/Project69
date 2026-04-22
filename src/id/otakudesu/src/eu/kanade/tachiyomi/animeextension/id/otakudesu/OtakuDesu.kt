@@ -174,13 +174,7 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         tracker.start()
         val doc = response.asJsoup()
 
-        // Cari script yang spesifik punya nonce OtakuDesu
-        val script = doc.select("script:containsData(action:)")
-            .firstOrNull {
-                it.data().contains("nonce") &&
-                    !it.data().contains("tolstoy") &&
-                    !it.data().contains("function ")
-            }
+        val script = doc.selectFirst("script:containsData({action:)")
         if (script == null) {
             tracker.error("videoListParse: script {action:} tidak ditemukan di halaman")
             return emptyList()
@@ -208,6 +202,12 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
     }
 
+    private val ajaxHeaders by lazy {
+        headers.newBuilder()
+            .add("X-Requested-With", "XMLHttpRequest")
+            .build()
+    }
+
     private fun getEmbedLinks(element: Element, action: String, nonce: String): Pair<String, String> {
         val rawData = element.attr("data-content")
         tracker.debug("getEmbedLinks: raw data-content=$rawData")
@@ -228,7 +228,7 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             add("action", action)
         }.build()
 
-        val responseBody = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", body = form))
+        val responseBody = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", ajaxHeaders, body = form))
             .execute()
             .body.string()
         tracker.debug("getEmbedLinks: ajax response=$responseBody")
@@ -305,11 +305,11 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     private fun getNonce(action: String): String {
         val form = FormBody.Builder().add("action", action).build()
-        val result = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", body = form))
+        val rawResponse = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", ajaxHeaders, body = form))
             .execute()
             .body.string()
-            .substringAfter(":\"")
-            .substringBefore('"')
+        tracker.debug("getNonce: raw response=$rawResponse")
+        val result = rawResponse.substringAfter(":\"").substringBefore('"')
         tracker.debug("getNonce: action=$action → nonce=$result")
         return result
     }
