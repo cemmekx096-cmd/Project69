@@ -217,9 +217,11 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return Pair(quality, url)
     }
 
+    // ========================= Extractor Instances ========================
     private val filelionsExtractor by lazy { StreamWishExtractor(client, headers) }
     private val yourUploadExtractor by lazy { YourUploadExtractor(client) }
     private val streamHideVidExtractor by lazy { StreamHideVidExtractor(client, headers) }
+    private val desuStreamExtractor by lazy { DesuStreamExtractor(client, headers) }
 
     private fun getVideosFromEmbed(quality: String, link: String): List<Video> {
         return when {
@@ -232,14 +234,7 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 yourUploadExtractor.videoFromUrl(url, headers, "YourUpload - $quality")
             }
             "desustream" in link -> {
-                client.newCall(GET(link, headers)).execute().let {
-                    val doc = it.asJsoup()
-                    val script = doc.selectFirst("script:containsData(sources)")!!.data()
-                    val videoUrl = script.substringAfter("sources:[{")
-                        .substringAfter("file':'")
-                        .substringBefore("'")
-                    listOf(Video(videoUrl, "DesuStream - $quality", videoUrl, headers))
-                }
+                desuStreamExtractor.videosFromUrl(link, quality)
             }
             "mp4upload" in link -> {
                 client.newCall(GET(link, headers)).execute().let {
@@ -251,6 +246,10 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
             "vidhide" in link -> {
                 streamHideVidExtractor.videosFromUrl(link)
+            }
+            "mega.nz" in link || "mega.co.nz" in link -> {
+                // Mega tidak bisa di-stream langsung, kembalikan link untuk dibuka manual
+                listOf(Video(link, "Mega - $quality (Open in browser)", link, headers))
             }
             else -> emptyList()
         }
