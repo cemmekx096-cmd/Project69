@@ -15,15 +15,12 @@ import eu.kanade.tachiyomi.lib.streamhidevidextractor.StreamHideVidExtractor
 import eu.kanade.tachiyomi.lib.streamwishextractor.StreamWishExtractor
 import eu.kanade.tachiyomi.lib.youruploadextractor.YourUploadExtractor
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.util.asJsoup
 import eu.kanade.tachiyomi.util.parallelCatchingFlatMapBlocking
 import eu.kanade.tachiyomi.util.parallelMapNotNullBlocking
 import extensions.utils.getPreferencesLazy
-import okhttp3.FormBody
 import okhttp3.Request
 import okhttp3.Response
-import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.text.SimpleDateFormat
@@ -192,16 +189,25 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             .substringBefore('"')
         tracker.debug("videoListParse: nonceAction=$nonceAction | action=$action")
 
-        val nonce = getNonce(nonceAction)
+        val nonce = otakuDesuExtractor.getNonce(nonceAction)
         tracker.debug("videoListParse: nonce=$nonce")
 
         val videoElements = doc.select(videoListSelector())
         tracker.debug("videoListParse: ditemukan ${videoElements.size} mirror")
 
         return videoElements
-            .parallelMapNotNullBlocking {
-                runCatching { getEmbedLinks(it, action, nonce) }
-                    .onFailure { e -> tracker.error("getEmbedLinks gagal: ${e.message}") }
+            .parallelMapNotNullBlocking { element ->
+                val rawData = element.attr("data-content")
+                val decoded = rawData.b64Decode().drop(1).dropLast(1)
+                val parts = decoded.split(",").map { it.substringAfter(":").replace("\"", "") }
+                val id = parts[0]
+                val mirror = parts[1]
+                val quality = parts[2]
+                tracker.debug("mirror: id=$id mirror=$mirror quality=$quality")
+                runCatching {
+                    otakuDesuExtractor.getEmbedUrl(id, mirror, quality, nonce, action)
+                }
+                    .onFailure { e -> tracker.error("getEmbedUrl gagal: ${e.message}") }
                     .getOrNull()
             }
             .parallelCatchingFlatMapBlocking {
@@ -209,54 +215,9 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
     }
 
-    private val ajaxHeaders by lazy {
-        headers.newBuilder()
-            .add("X-Requested-With", "XMLHttpRequest")
-            .build()
-    }
-
-    private fun getEmbedLinks(element: Element, action: String, nonce: String): Pair<String, String> {
-        val rawData = element.attr("data-content")
-        tracker.debug("getEmbedLinks: raw data-content=$rawData")
-
-        val decodedData = rawData.b64Decode().drop(1).dropLast(1)
-        tracker.debug("getEmbedLinks: decoded=$decodedData")
-
-        val (id, mirror, quality) = decodedData.split(",").map {
-            it.substringAfter(":").replace("\"", "")
-        }
-        tracker.debug("getEmbedLinks: id=$id | mirror=$mirror | quality=$quality")
-
-        val form = FormBody.Builder().apply {
-            add("id", id)
-            add("i", mirror)
-            add("q", quality)
-            add("nonce", nonce)
-            add("action", action)
-        }.build()
-
-        val responseBody = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", ajaxHeaders, body = form))
-            .execute()
-            .body.string()
-        tracker.debug("getEmbedLinks: ajax response=$responseBody")
-
-        // Response format: {"data":"base64EncodedHtml"}
-        val iframeHtml = responseBody
-            .substringAfter("\"data\":\"")
-            .substringBefore('"')
-            .b64Decode()
-        tracker.debug("getEmbedLinks: iframe html decoded=$iframeHtml")
-
-        val url = Jsoup.parse(iframeHtml).selectFirst("iframe")?.attr("src") ?: run {
-            tracker.error("getEmbedLinks: iframe src tidak ditemukan! html=$iframeHtml")
-            throw Exception("iframe src not found")
-        }
-        tracker.debug("getEmbedLinks: final iframe url=$url")
-
-        return Pair(quality, url)
-    }
 
     // ========================= Extractor Instances ========================
+    private val otakuDesuExtractor by lazy { OtakuDesuExtractor(client, headers, baseUrl) }
     private val filelionsExtractor by lazy { StreamWishExtractor(client, headers) }
     private val yourUploadExtractor by lazy { YourUploadExtractor(client) }
     private val streamHideVidExtractor by lazy { StreamHideVidExtractor(client, headers) }
@@ -311,17 +272,6 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
     }
 
-    private fun getNonce(action: String): String {
-        val form = FormBody.Builder().add("action", action).build()
-        val rawResponse = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", ajaxHeaders, body = form))
-            .execute()
-            .body.string()
-        tracker.debug("getNonce: raw response=$rawResponse")
-        // Response format: {"data":"nonceValue"}
-        val result = rawResponse.substringAfter("\"data\":\"").substringBefore('"')
-        tracker.debug("getNonce: action=$action → nonce=$result")
-        return result
-    }
 
     override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
     override fun videoUrlParse(document: Document) = throw UnsupportedOperationException()
