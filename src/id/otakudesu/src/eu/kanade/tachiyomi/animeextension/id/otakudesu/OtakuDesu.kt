@@ -179,10 +179,13 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
 
         val scriptData = script.data()
-        // nonceAction = action untuk fetch nonce (ada di: data:{action:"<hash>"})
-        val nonceAction = scriptData
-            .substringAfter("data:{action:\"")
-            .substringBefore('"')
+        // nonceAction = action untuk fetch nonce (ada di: data:{action:"<hash>"} yang terakhir)
+        // Pakai regex findAll + last() karena ada dua data:{action:...} di script,
+        // yang pertama adalah action embed, yang terakhir adalah action nonce
+        val nonceAction = Regex("""data:\{action:"([a-f0-9]+)"\}""")
+            .findAll(scriptData)
+            .last()
+            .groupValues[1]
         // action = action untuk fetch embed (ada di: nonce:a,action:"<hash>")
         val action = scriptData
             .substringAfter("nonce:a,action:\"")
