@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.id.otakudesu
 
 import eu.kanade.tachiyomi.network.POST
-import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.OkHttpClient

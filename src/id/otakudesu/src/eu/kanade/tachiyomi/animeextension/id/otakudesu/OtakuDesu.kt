@@ -214,8 +214,6 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 getVideosFromEmbed(it.first, it.second)
             }
     }
-
-
     // ========================= Extractor Instances ========================
     private val otakuDesuExtractor by lazy { OtakuDesuExtractor(client, headers, baseUrl) }
     private val filelionsExtractor by lazy { StreamWishExtractor(client, headers) }
@@ -271,7 +269,6 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             tracker.debug("getVideosFromEmbed: hasil ${videos.size} video dari $link")
         }
     }
-
 
     override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
     override fun videoUrlParse(document: Document) = throw UnsupportedOperationException()
