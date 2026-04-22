@@ -174,15 +174,22 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         tracker.start()
         val doc = response.asJsoup()
 
-        val script = doc.selectFirst("script:containsData({action:)")
+        // Cari script spesifik OtakuDesu yang punya __x__nonce
+        val script = doc.selectFirst("script:containsData(__x__nonce)")
         if (script == null) {
-            tracker.error("videoListParse: script {action:} tidak ditemukan di halaman")
+            tracker.error("videoListParse: script __x__nonce tidak ditemukan di halaman")
             return emptyList()
         }
 
         val scriptData = script.data()
-        val nonceAction = scriptData.substringAfter("{action:\"").substringBefore('"')
-        val action = scriptData.substringAfter("action:\"").substringBefore('"')
+        // nonceAction = action untuk fetch nonce (ada di: data:{action:"<hash>"})
+        val nonceAction = scriptData
+            .substringAfter("data:{action:\"")
+            .substringBefore('"')
+        // action = action untuk fetch embed (ada di: nonce:a,action:"<hash>")
+        val action = scriptData
+            .substringAfter("nonce:a,action:\"")
+            .substringBefore('"')
         tracker.debug("videoListParse: nonceAction=$nonceAction | action=$action")
 
         val nonce = getNonce(nonceAction)
@@ -233,8 +240,9 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             .body.string()
         tracker.debug("getEmbedLinks: ajax response=$responseBody")
 
+        // Response format: {"data":"base64EncodedHtml"}
         val iframeHtml = responseBody
-            .substringAfter(":\"")
+            .substringAfter("\"data\":\"")
             .substringBefore('"')
             .b64Decode()
         tracker.debug("getEmbedLinks: iframe html decoded=$iframeHtml")
@@ -309,7 +317,8 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             .execute()
             .body.string()
         tracker.debug("getNonce: raw response=$rawResponse")
-        val result = rawResponse.substringAfter(":\"").substringBefore('"')
+        // Response format: {"data":"nonceValue"}
+        val result = rawResponse.substringAfter("\"data\":\"").substringBefore('"')
         tracker.debug("getNonce: action=$action → nonce=$result")
         return result
     }
