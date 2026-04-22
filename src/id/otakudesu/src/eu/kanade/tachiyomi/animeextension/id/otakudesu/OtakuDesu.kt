@@ -214,7 +214,7 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 getVideosFromEmbed(it.first, it.second)
             }
     }
-    // ========================= Extractor Instances ========================
+// ========================= Extractor Instances ========================
     private val otakuDesuExtractor by lazy { OtakuDesuExtractor(client, headers, baseUrl) }
     private val filelionsExtractor by lazy { StreamWishExtractor(client, headers) }
     private val yourUploadExtractor by lazy { YourUploadExtractor(client) }
