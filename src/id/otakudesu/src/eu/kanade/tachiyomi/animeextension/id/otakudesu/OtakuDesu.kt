@@ -192,7 +192,7 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             .substringBefore('"')
         tracker.debug("videoListParse: nonceAction=$nonceAction | action=$action")
 
-        val nonce = otakuDesuExtractor.getNonce(nonceAction)
+        val nonce = otakuDesuExtractor.getNonce(nonceAction, response.request.url.toString())
         tracker.debug("videoListParse: nonce=$nonce")
 
         val videoElements = doc.select(videoListSelector())
@@ -208,7 +208,7 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 val quality = parts[2]
                 tracker.debug("mirror: id=$id mirror=$mirror quality=$quality")
                 runCatching {
-                    otakuDesuExtractor.getEmbedUrl(id, mirror, quality, nonce, action)
+                    otakuDesuExtractor.getEmbedUrl(id, mirror, quality, nonce, action, response.request.url.toString())
                 }
                     .onFailure { e -> tracker.error("getEmbedUrl gagal: ${e.message}") }
                     .getOrNull()

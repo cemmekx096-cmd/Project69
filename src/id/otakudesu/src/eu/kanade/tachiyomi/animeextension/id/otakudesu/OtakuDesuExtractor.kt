@@ -20,12 +20,16 @@ class OtakuDesuExtractor(
 
     // ===================== Nonce =====================
 
-    fun getNonce(nonceAction: String): String {
+    fun getNonce(nonceAction: String, referer: String): String {
+        val headers = ajaxHeaders.newBuilder()
+            .add("Referer", referer)
+            .build()
+
         val form = FormBody.Builder()
             .add("action", nonceAction)
             .build()
 
-        val raw = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", ajaxHeaders, body = form))
+        val raw = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", headers, body = form))
             .execute()
             .body.string()
 
@@ -45,7 +49,12 @@ class OtakuDesuExtractor(
         quality: String,
         nonce: String,
         action: String,
+        referer: String,
     ): Pair<String, String> {
+        val headers = ajaxHeaders.newBuilder()
+            .add("Referer", referer)
+            .build()
+
         val form = FormBody.Builder().apply {
             add("id", id)
             add("i", mirror)
@@ -54,7 +63,7 @@ class OtakuDesuExtractor(
             add("action", action)
         }.build()
 
-        val raw = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", ajaxHeaders, body = form))
+        val raw = client.newCall(POST("$baseUrl/wp-admin/admin-ajax.php", headers, body = form))
             .execute()
             .body.string()
 
