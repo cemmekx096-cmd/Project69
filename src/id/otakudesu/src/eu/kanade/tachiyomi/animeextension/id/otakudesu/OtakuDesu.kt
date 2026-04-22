@@ -174,7 +174,13 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         tracker.start()
         val doc = response.asJsoup()
 
-        val script = doc.selectFirst("script:containsData({action:)")
+        // Cari script yang spesifik punya nonce OtakuDesu
+        val script = doc.select("script:containsData(action:)")
+            .firstOrNull { 
+                it.data().contains("nonce") && 
+                !it.data().contains("tolstoy") &&
+                !it.data().contains("function ")
+            }
         if (script == null) {
             tracker.error("videoListParse: script {action:} tidak ditemukan di halaman")
             return emptyList()
