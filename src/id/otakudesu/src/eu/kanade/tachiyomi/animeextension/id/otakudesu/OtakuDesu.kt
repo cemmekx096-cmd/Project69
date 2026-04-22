@@ -176,8 +176,8 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         // Cari script yang spesifik punya nonce OtakuDesu
         val script = doc.select("script:containsData(action:)")
-            .firstOrNull { 
-                it.data().contains("nonce") && 
+            .firstOrNull {
+                it.data().contains("nonce") &&
                 !it.data().contains("tolstoy") &&
                 !it.data().contains("function ")
             }
