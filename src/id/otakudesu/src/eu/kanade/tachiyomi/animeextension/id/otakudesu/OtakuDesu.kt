@@ -178,8 +178,8 @@ class OtakuDesu : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val script = doc.select("script:containsData(action:)")
             .firstOrNull {
                 it.data().contains("nonce") &&
-                !it.data().contains("tolstoy") &&
-                !it.data().contains("function ")
+                    !it.data().contains("tolstoy") &&
+                    !it.data().contains("function ")
             }
         if (script == null) {
             tracker.error("videoListParse: script {action:} tidak ditemukan di halaman")
