@@ -19,13 +19,6 @@ import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
-// Sistem Logging Terintegrasi
-object ReportLog {
-    fun log(tag: String, message: String) {
-        Log.d("EROME-DEBUG", "[$tag] $message")
-    }
-}
-
 class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "Erome"
@@ -35,6 +28,7 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     private val preferences by getPreferencesLazy()
 
+    // Menggunakan User-Agent yang lebih umum digunakan aplikasi mobile
     override fun headersBuilder(): Headers.Builder = super.headersBuilder()
         .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .add("Referer", "$baseUrl/")
@@ -42,10 +36,8 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     private fun videoHeaders() = Headers.Builder()
         .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .add("Referer", "$baseUrl/")
-        .add("Accept", "video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5")
         .build()
 
-    // =============================== Popular & Latest ===============================
     override fun popularAnimeRequest(page: Int): Request {
         val url = if (page <= 1) "$baseUrl/explore" else "$baseUrl/explore?page=$page"
         return GET(url, headers)
@@ -68,7 +60,6 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun latestUpdatesFromElement(element: Element) = popularAnimeFromElement(element)
     override fun latestUpdatesNextPageSelector() = popularAnimeNextPageSelector()
 
-    // =============================== Search ================================
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         return GET("$baseUrl/search?q=$query&page=$page", headers)
     }
@@ -78,7 +69,6 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun searchAnimeFromElement(element: Element) = element.toSAnime()!!
     override fun searchAnimeNextPageSelector() = ".pagination a.next"
 
-    // ============================= Details =================================
     override fun animeDetailsParse(document: Document): SAnime = SAnime.create().apply {
         title = document.selectFirst("h1")?.text()?.trim().orEmpty()
         thumbnail_url = document.selectFirst("meta[property=og:image]")?.attr("content")
@@ -89,15 +79,11 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         status = SAnime.COMPLETED
     }
 
-    // ============================= Episodes ================================
     override fun episodeListParse(response: Response): List<SEpisode> {
         val doc = response.asJsoup()
         val videoElements = doc.select("div.video video")
 
-        ReportLog.log("EPISODE", "Ditemukan ${videoElements.size} elemen video di halaman")
-
         if (videoElements.isEmpty()) {
-            ReportLog.log("EPISODE", "Video kosong, menggunakan mode album dummy")
             return listOf(
                 SEpisode.create().apply {
                     setUrlWithoutDomain(response.request.url.toString())
@@ -112,18 +98,13 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 videoTag.selectFirst("source")?.attr("src") ?: ""
             }.trim()
 
-            if (src.isBlank()) {
-                ReportLog.log("EPISODE", "Gagal mengambil src pada video ke-$idx")
-                return@mapIndexedNotNull null
-            }
+            if (src.isBlank()) return@mapIndexedNotNull null
 
             val absoluteUrl = when {
                 src.startsWith("//") -> "https:$src"
                 src.startsWith("/") -> "$baseUrl$src"
                 else -> src
             }
-
-            ReportLog.log("EPISODE", "Berhasil mapping: $absoluteUrl")
 
             SEpisode.create().apply {
                 url = absoluteUrl
@@ -136,22 +117,18 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun episodeListSelector() = throw UnsupportedOperationException()
     override fun episodeFromElement(element: Element): SEpisode = throw UnsupportedOperationException()
 
-    // ============================= Video Links =============================
     override fun videoListParse(response: Response): List<Video> {
         val url = response.request.url.toString()
         val playHeaders = videoHeaders()
 
-        ReportLog.log("VIDEOLIST", "Mencoba memproses URL: $url")
+        // Log untuk memantau link yang masuk ke player
+        Log.d("EROME-DEBUG", "[VIDEOLIST] Memproses: $url")
 
-        // Jika URL adalah link video langsung (Hasil dari episodeListParse)
         if (url.contains(".mp4") || url.contains(".m3u8")) {
-            ReportLog.log("VIDEOLIST", "Link langsung terdeteksi")
             val quality = inferQualityFromUrl(url) ?: "HD"
             return listOf(Video(url, quality, url, playHeaders))
         }
 
-        // Fallback jika yang diputar adalah URL album
-        ReportLog.log("VIDEOLIST", "URL bukan video, melakukan scraping ulang halaman...")
         val doc = response.asJsoup()
         return doc.select("div.video video").mapIndexedNotNull { idx, videoTag ->
             val src = videoTag.attr("src").ifBlank {
@@ -167,7 +144,6 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
 
             val label = inferQualityFromUrl(videoUrl) ?: "Video ${idx + 1}"
-            ReportLog.log("VIDEOLIST", "Ditemukan link: $videoUrl")
             Video(videoUrl, label, videoUrl, playHeaders)
         }
     }
@@ -176,7 +152,6 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
     override fun videoUrlParse(document: Document) = throw UnsupportedOperationException()
 
-    // ============================== Settings ==============================
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val videoQualityPref = ListPreference(screen.context).apply {
             key = PREF_QUALITY_KEY
@@ -200,7 +175,6 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return sortedWith(compareByDescending { it.quality.contains(quality) })
     }
 
-    // ============================= Utilities ==============================
     private fun Element.toSAnime(): SAnime? {
         val titleElement = selectFirst("a.album-title") ?: return null
         val title = titleElement.text().trim()
