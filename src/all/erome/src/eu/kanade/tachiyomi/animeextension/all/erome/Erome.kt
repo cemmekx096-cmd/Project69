@@ -27,14 +27,12 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     private val preferences by getPreferencesLazy()
 
-    // Header standar untuk bypass bot detection dasar
     override fun headersBuilder(): Headers.Builder = super.headersBuilder()
         .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
         .add("Accept-Language", "en-US,en;q=0.9")
         .add("Referer", "$baseUrl/")
 
-    // Header khusus untuk pemutar video (Sangat Penting untuk Erome)
     private fun videoHeaders() = Headers.Builder()
         .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .add("Referer", "$baseUrl/")
@@ -101,11 +99,13 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val videoElements = doc.select("div.video video")
 
         if (videoElements.isEmpty()) {
-            return listOf(SEpisode.create().apply {
-                setUrlWithoutDomain(response.request.url.toString())
-                name = "Full Album"
-                episode_number = 1F
-            })
+            return listOf(
+                SEpisode.create().apply {
+                    setUrlWithoutDomain(response.request.url.toString())
+                    name = "Full Album"
+                    episode_number = 1F
+                },
+            )
         }
 
         return videoElements.mapIndexedNotNull { idx, videoTag ->
@@ -115,7 +115,6 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
             if (src.isBlank()) return@mapIndexedNotNull null
 
-            // Normalisasi URL untuk mencegah NXDOMAIN
             val absoluteUrl = when {
                 src.startsWith("//") -> "https:$src"
                 src.startsWith("/") -> "$baseUrl$src"
@@ -125,11 +124,11 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             val label = inferQualityFromUrl(absoluteUrl) ?: "Video ${idx + 1}"
 
             SEpisode.create().apply {
-                url = absoluteUrl // Simpan URL lengkap
+                url = absoluteUrl
                 name = label
                 episode_number = (idx + 1).toFloat()
             }
-        }.reversed() // Biasanya urutan video di album dari lama ke baru
+        }.reversed()
     }
 
     override fun episodeListSelector() = "div.video video"
@@ -140,13 +139,11 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val url = response.request.url.toString()
         val headers = videoHeaders()
 
-        // Jika URL episode sudah merupakan link video langsung (.mp4)
         if (url.contains(".mp4") || url.contains(".m3u8")) {
             val quality = inferQualityFromUrl(url) ?: "HD"
             return listOf(Video(url, quality, url, headers))
         }
 
-        // Jika URL adalah halaman album, parse ulang videonya
         val doc = response.asJsoup()
         return doc.select("div.video video").mapIndexedNotNull { idx, videoTag ->
             var src = videoTag.attr("src").ifBlank {
