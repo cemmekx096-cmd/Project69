@@ -1,7 +1,8 @@
 ext {
     extName = 'JavRank'
     extClass = '.JavRank'
-    extVersionCode = 1
+    extVersionCode = 2
+    isNsfw = true
 }
 
 apply from: "$rootDir/common.gradle"

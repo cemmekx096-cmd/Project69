@@ -30,11 +30,11 @@ class EromeExtractor(private val client: OkHttpClient, private val headers: Head
      */
     fun videosFromDocument(doc: org.jsoup.nodes.Document): List<Video> {
         return doc.select("div.video video").mapIndexedNotNull { idx, videoTag ->
-            val source = videoTag.selectFirst("source") ?: return@mapIndexedNotNull null
-            val src = source.attr("src").trim()
+            val src = videoTag.attr("src").ifBlank {
+                videoTag.selectFirst("source")?.attr("src") ?: ""
+            }.trim()
             if (src.isBlank()) return@mapIndexedNotNull null
-
-            val label = source.attr("label").ifBlank { inferQualityFromUrl(src) ?: "Video ${idx + 1}" }
+            val label = inferQualityFromUrl(src) ?: "Video ${idx + 1}"
             Video(src, label, src, playHeaders)
         }
     }

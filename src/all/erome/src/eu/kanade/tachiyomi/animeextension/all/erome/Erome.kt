@@ -22,7 +22,7 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "Erome"
     override val baseUrl = "https://www.erome.com"
-    override val lang = "en"
+    override val lang = "all"
     override val supportsLatest = true
 
     private val preferences by getPreferencesLazy()
@@ -121,8 +121,9 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
 
         return videos.mapIndexedNotNull { idx, videoTag ->
-            val source = videoTag.selectFirst("source") ?: return@mapIndexedNotNull null
-            val src = source.attr("src").trim()
+            val src = videoTag.attr("src").ifBlank {
+                videoTag.selectFirst("source")?.attr("src") ?: ""
+            }.trim()
             if (src.isBlank()) return@mapIndexedNotNull null
 
             val label = source.attr("label").ifBlank {

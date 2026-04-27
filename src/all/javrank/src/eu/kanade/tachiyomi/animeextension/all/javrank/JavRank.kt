@@ -23,7 +23,7 @@ class JavRank : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override val name = "JavRank"
     override val baseUrl = "https://javrank.com"
-    override val lang = "en"
+    override val lang = "all"
     override val supportsLatest = true
 
     private val preferences by getPreferencesLazy()
@@ -39,7 +39,7 @@ class JavRank : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // =============================== Popular ===============================
     // Popular = Korean JB category (most viewed)
     override fun popularAnimeRequest(page: Int): Request =
-        GET("$baseUrl/category/korean-jb?sort=views&page=$page", headers)
+        GET("$baseUrl/category/korean-bj?sort=views&page=$page", headers)
 
     override fun popularAnimeParse(response: Response): AnimesPage {
         val doc = response.asJsoup()
