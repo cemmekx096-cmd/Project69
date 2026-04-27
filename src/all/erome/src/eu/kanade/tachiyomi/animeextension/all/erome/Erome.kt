@@ -27,17 +27,21 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     private val preferences by getPreferencesLazy()
 
-    // Headers untuk browse — butuh Referer dan User-Agent
+    // Header standar untuk bypass bot detection dasar
     override fun headersBuilder(): Headers.Builder = super.headersBuilder()
-        .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+        .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
         .add("Accept-Language", "en-US,en;q=0.9")
         .add("Referer", "$baseUrl/")
 
-    private val eromeExtractor by lazy { EromeExtractor(client, headers) }
+    // Header khusus untuk pemutar video (Sangat Penting untuk Erome)
+    private fun videoHeaders() = Headers.Builder()
+        .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .add("Referer", "$baseUrl/")
+        .add("Accept", "video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5")
+        .build()
 
-    // =============================== Popular ===============================
-    // Popular = Hot explore page
+    // =============================== Popular & Latest ===============================
     override fun popularAnimeRequest(page: Int): Request {
         val url = if (page <= 1) "$baseUrl/explore" else "$baseUrl/explore?page=$page"
         return GET(url, headers)
@@ -46,17 +50,10 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun popularAnimeParse(response: Response): AnimesPage {
         val doc = response.asJsoup()
         val animes = doc.select("div.album").mapNotNull { it.toSAnime() }
-        val hasNext = animes.isNotEmpty() &&
-            doc.selectFirst(".pagination a.next") != null
+        val hasNext = doc.selectFirst(".pagination a.next") != null
         return AnimesPage(animes, hasNext)
     }
 
-    override fun popularAnimeSelector() = "div.album"
-    override fun popularAnimeFromElement(element: Element) = element.toSAnime()!!
-    override fun popularAnimeNextPageSelector() = ".pagination a.next"
-
-    // =============================== Latest ================================
-    // Latest = New explore page
     override fun latestUpdatesRequest(page: Int): Request {
         val url = if (page <= 1) "$baseUrl/explore/new" else "$baseUrl/explore/new?page=$page"
         return GET(url, headers)
@@ -64,6 +61,9 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
+    override fun popularAnimeSelector() = "div.album"
+    override fun popularAnimeFromElement(element: Element) = element.toSAnime()!!
+    override fun popularAnimeNextPageSelector() = ".pagination a.next"
     override fun latestUpdatesSelector() = popularAnimeSelector()
     override fun latestUpdatesFromElement(element: Element) = popularAnimeFromElement(element)
     override fun latestUpdatesNextPageSelector() = popularAnimeNextPageSelector()
@@ -75,14 +75,8 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun searchAnimeParse(response: Response): AnimesPage {
         val doc = response.asJsoup()
-        val animes = doc.select("div#albums > div").mapNotNull { element ->
-            // Filter: skip album yang tidak punya video
-            val rawCount = element.selectFirst("span.album-videos")?.text()?.trim().orEmpty()
-            val videoCount = parseVideoCount(rawCount)
-            if (videoCount == 0) return@mapNotNull null
-            element.toSAnime()
-        }
-        val hasNext = doc.selectFirst(".pagination a.next") != null || animes.isNotEmpty()
+        val animes = doc.select("div#albums > div").mapNotNull { it.toSAnime() }
+        val hasNext = doc.selectFirst(".pagination a.next") != null
         return AnimesPage(animes, hasNext)
     }
 
@@ -91,71 +85,85 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun searchAnimeNextPageSelector() = ".pagination a.next"
 
     // ============================= Details =================================
-    override fun animeDetailsParse(document: Document): SAnime {
-        return SAnime.create().apply {
-            title = document.selectFirst("h1")?.text()?.trim().orEmpty()
-            thumbnail_url = document.selectFirst("meta[property=og:image]")?.attr("content")
-            author = document.selectFirst("a#user_name")?.text()?.trim()
-            genre = document.select("p.mt-10 a")
-                .joinToString(", ") { it.text().trim().replace(Regex("^#+\\s*"), "") }
-                .let { if (it.isBlank()) "+18" else "$it, +18" }
-            status = SAnime.COMPLETED
-        }
+    override fun animeDetailsParse(document: Document): SAnime = SAnime.create().apply {
+        title = document.selectFirst("h1")?.text()?.trim().orEmpty()
+        thumbnail_url = document.selectFirst("meta[property=og:image]")?.attr("content")
+        author = document.selectFirst("a#user_name")?.text()?.trim()
+        genre = document.select("p.mt-10 a")
+            .joinToString(", ") { it.text().trim().replace(Regex("^#+\\s*"), "") }
+            .let { if (it.isBlank()) "+18" else "$it, +18" }
+        status = SAnime.COMPLETED
     }
 
     // ============================= Episodes ================================
-    // Setiap video dalam album = 1 episode
     override fun episodeListParse(response: Response): List<SEpisode> {
         val doc = response.asJsoup()
-        val videos = doc.select("div.video video")
+        val videoElements = doc.select("div.video video")
 
-        if (videos.isEmpty()) {
-            // Tidak ada video di halaman, kembalikan 1 episode dummy dengan URL album
-            return listOf(
-                SEpisode.create().apply {
-                    setUrlWithoutDomain(response.request.url.toString())
-                    name = "Episode 1"
-                    episode_number = 1F
-                },
-            )
+        if (videoElements.isEmpty()) {
+            return listOf(SEpisode.create().apply {
+                setUrlWithoutDomain(response.request.url.toString())
+                name = "Full Album"
+                episode_number = 1F
+            })
         }
 
-        return videos.mapIndexedNotNull { idx, videoTag ->
-            val src = videoTag.attr("src").ifBlank {
+        return videoElements.mapIndexedNotNull { idx, videoTag ->
+            var src = videoTag.attr("src").ifBlank {
                 videoTag.selectFirst("source")?.attr("src") ?: ""
             }.trim()
+
             if (src.isBlank()) return@mapIndexedNotNull null
 
-            val label = inferQualityFromUrl(src) ?: "Video ${idx + 1}"
+            // Normalisasi URL untuk mencegah NXDOMAIN
+            val absoluteUrl = when {
+                src.startsWith("//") -> "https:$src"
+                src.startsWith("/") -> "$baseUrl$src"
+                else -> src
+            }
+
+            val label = inferQualityFromUrl(absoluteUrl) ?: "Video ${idx + 1}"
 
             SEpisode.create().apply {
-                // Simpan src langsung sebagai URL episode
-                url = src
+                url = absoluteUrl // Simpan URL lengkap
                 name = label
                 episode_number = (idx + 1).toFloat()
             }
-        }
+        }.reversed() // Biasanya urutan video di album dari lama ke baru
     }
 
     override fun episodeListSelector() = "div.video video"
-
     override fun episodeFromElement(element: Element): SEpisode = throw UnsupportedOperationException()
 
     // ============================= Video Links =============================
     override fun videoListParse(response: Response): List<Video> {
         val url = response.request.url.toString()
+        val headers = videoHeaders()
 
-        // Kalau URL langsung mp4/m3u8 → return langsung
+        // Jika URL episode sudah merupakan link video langsung (.mp4)
         if (url.contains(".mp4") || url.contains(".m3u8")) {
             val quality = inferQualityFromUrl(url) ?: "HD"
-            val playHeaders = headers.newBuilder()
-                .set("Referer", "$baseUrl/")
-                .build()
-            return listOf(Video(url, quality, url, playHeaders))
+            return listOf(Video(url, quality, url, headers))
         }
 
-        // Kalau URL album → parse video dari halaman
-        return eromeExtractor.videosFromDocument(response.asJsoup())
+        // Jika URL adalah halaman album, parse ulang videonya
+        val doc = response.asJsoup()
+        return doc.select("div.video video").mapIndexedNotNull { idx, videoTag ->
+            var src = videoTag.attr("src").ifBlank {
+                videoTag.selectFirst("source")?.attr("src") ?: ""
+            }.trim()
+
+            if (src.isBlank()) return@mapIndexedNotNull null
+
+            val videoUrl = when {
+                src.startsWith("//") -> "https:$src"
+                src.startsWith("/") -> "$baseUrl$src"
+                else -> src
+            }
+
+            val label = inferQualityFromUrl(videoUrl) ?: "Video ${idx + 1}"
+            Video(videoUrl, label, videoUrl, headers)
+        }
     }
 
     override fun videoListSelector() = "div.video video source"
@@ -192,7 +200,6 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val title = titleElement.text().trim()
         val href = titleElement.attr("href").takeIf { it.isNotBlank() } ?: return null
 
-        // Filter: skip album tanpa video
         val rawCount = selectFirst("span.album-videos")?.text()?.trim().orEmpty()
         if (parseVideoCount(rawCount) == 0) return null
 
@@ -208,10 +215,8 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         val numeric = raw.replace(Regex("[^0-9KMkm]"), "")
         return when {
             numeric.isBlank() -> 0
-            numeric.contains(Regex("[Kk]")) ->
-                (numeric.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0) * 1000
-            numeric.contains(Regex("[Mm]")) ->
-                (numeric.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0) * 1_000_000
+            numeric.contains(Regex("[Kk]")) -> (numeric.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0) * 1000
+            numeric.contains(Regex("[Mm]")) -> (numeric.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0) * 1000000
             else -> numeric.toIntOrNull() ?: 0
         }
     }
