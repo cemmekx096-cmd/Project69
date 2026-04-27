@@ -126,9 +126,7 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }.trim()
             if (src.isBlank()) return@mapIndexedNotNull null
 
-            val label = source.attr("label").ifBlank {
-                inferQualityFromUrl(src) ?: "Video ${idx + 1}"
-            }
+            val label = inferQualityFromUrl(src) ?: "Video ${idx + 1}"
 
             SEpisode.create().apply {
                 // Simpan src langsung sebagai URL episode
