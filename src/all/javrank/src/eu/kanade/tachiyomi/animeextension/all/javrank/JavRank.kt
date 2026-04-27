@@ -141,17 +141,12 @@ class JavRank : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         arrayOf(
             Pair("<select>", ""),
             Pair("Korean Porn", "korean-porn"),
-            Pair("Korean JB", "korean-jb"),
             Pair("Korean BJ", "korean-bj"),
-            Pair("Korean Couple", "korean-couple"),
-            Pair("Korean Amateur", "korean-amateur"),
-            Pair("Korean Massage", "korean-massage"),
-            Pair("Korean Teen", "korean-teen"),
-            Pair("Korean Webcam", "korean-webcam"),
-            Pair("Korean Anal", "korean-anal"),
-            Pair("Korean Blowjob", "korean-blowjob"),
-            Pair("Korean Lesbian", "korean-lesbian"),
-            Pair("Korean Office", "korean-office"),
+            Pair("IPCAM", "ipcam"),
+            Pair("Uncensored", "uncensored"),
+            Pair("Censored", "censored"),
+            Pair("Hot", "hot"),
+            Pair("VIP", "vip"),
         ),
     )
 

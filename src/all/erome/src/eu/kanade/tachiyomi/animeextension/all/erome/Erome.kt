@@ -17,6 +17,14 @@ import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import android.util.Log
+
+// Sistem Logging Terintegrasi
+object ReportLog {
+    fun log(tag: String, message: String) {
+        Log.d("EROME-DEBUG", "[$tag] $message")
+    }
+}
 
 class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
@@ -29,8 +37,6 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun headersBuilder(): Headers.Builder = super.headersBuilder()
         .add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
-        .add("Accept-Language", "en-US,en;q=0.9")
         .add("Referer", "$baseUrl/")
 
     private fun videoHeaders() = Headers.Builder()
@@ -52,11 +58,7 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return AnimesPage(animes, hasNext)
     }
 
-    override fun latestUpdatesRequest(page: Int): Request {
-        val url = if (page <= 1) "$baseUrl/explore/new" else "$baseUrl/explore/new?page=$page"
-        return GET(url, headers)
-    }
-
+    override fun latestUpdatesRequest(page: Int): Request = popularAnimeRequest(page)
     override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
     override fun popularAnimeSelector() = "div.album"
@@ -71,13 +73,7 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         return GET("$baseUrl/search?q=$query&page=$page", headers)
     }
 
-    override fun searchAnimeParse(response: Response): AnimesPage {
-        val doc = response.asJsoup()
-        val animes = doc.select("div#albums > div").mapNotNull { it.toSAnime() }
-        val hasNext = doc.selectFirst(".pagination a.next") != null
-        return AnimesPage(animes, hasNext)
-    }
-
+    override fun searchAnimeParse(response: Response) = popularAnimeParse(response)
     override fun searchAnimeSelector() = "div#albums > div"
     override fun searchAnimeFromElement(element: Element) = element.toSAnime()!!
     override fun searchAnimeNextPageSelector() = ".pagination a.next"
@@ -97,8 +93,11 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun episodeListParse(response: Response): List<SEpisode> {
         val doc = response.asJsoup()
         val videoElements = doc.select("div.video video")
+        
+        ReportLog.log("EPISODE", "Ditemukan ${videoElements.size} elemen video di halaman")
 
         if (videoElements.isEmpty()) {
+            ReportLog.log("EPISODE", "Video kosong, menggunakan mode album dummy")
             return listOf(
                 SEpisode.create().apply {
                     setUrlWithoutDomain(response.request.url.toString())
@@ -113,7 +112,10 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 videoTag.selectFirst("source")?.attr("src") ?: ""
             }.trim()
 
-            if (src.isBlank()) return@mapIndexedNotNull null
+            if (src.isBlank()) {
+                ReportLog.log("EPISODE", "Gagal mengambil src pada video ke-$idx")
+                return@mapIndexedNotNull null
+            }
 
             val absoluteUrl = when {
                 src.startsWith("//") -> "https:$src"
@@ -121,32 +123,38 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 else -> src
             }
 
-            val label = inferQualityFromUrl(absoluteUrl) ?: "Video ${idx + 1}"
+            ReportLog.log("EPISODE", "Berhasil mapping: $absoluteUrl")
 
             SEpisode.create().apply {
                 url = absoluteUrl
-                name = label
+                name = inferQualityFromUrl(absoluteUrl) ?: "Video ${idx + 1}"
                 episode_number = (idx + 1).toFloat()
             }
         }.reversed()
     }
 
-    override fun episodeListSelector() = "div.video video"
+    override fun episodeListSelector() = throw UnsupportedOperationException()
     override fun episodeFromElement(element: Element): SEpisode = throw UnsupportedOperationException()
 
     // ============================= Video Links =============================
     override fun videoListParse(response: Response): List<Video> {
         val url = response.request.url.toString()
-        val headers = videoHeaders()
+        val playHeaders = videoHeaders()
+        
+        ReportLog.log("VIDEOLIST", "Mencoba memproses URL: $url")
 
+        // Jika URL adalah link video langsung (Hasil dari episodeListParse)
         if (url.contains(".mp4") || url.contains(".m3u8")) {
+            ReportLog.log("VIDEOLIST", "Link langsung terdeteksi")
             val quality = inferQualityFromUrl(url) ?: "HD"
-            return listOf(Video(url, quality, url, headers))
+            return listOf(Video(url, quality, url, playHeaders))
         }
 
+        // Fallback jika yang diputar adalah URL album
+        ReportLog.log("VIDEOLIST", "URL bukan video, melakukan scraping ulang halaman...")
         val doc = response.asJsoup()
         return doc.select("div.video video").mapIndexedNotNull { idx, videoTag ->
-            var src = videoTag.attr("src").ifBlank {
+            val src = videoTag.attr("src").ifBlank {
                 videoTag.selectFirst("source")?.attr("src") ?: ""
             }.trim()
 
@@ -159,11 +167,12 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
 
             val label = inferQualityFromUrl(videoUrl) ?: "Video ${idx + 1}"
-            Video(videoUrl, label, videoUrl, headers)
+            ReportLog.log("VIDEOLIST", "Ditemukan link: $videoUrl")
+            Video(videoUrl, label, videoUrl, playHeaders)
         }
     }
 
-    override fun videoListSelector() = "div.video video source"
+    override fun videoListSelector() = throw UnsupportedOperationException()
     override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
     override fun videoUrlParse(document: Document) = throw UnsupportedOperationException()
 
