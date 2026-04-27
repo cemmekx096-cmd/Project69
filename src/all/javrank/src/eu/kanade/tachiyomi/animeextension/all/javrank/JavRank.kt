@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.animeextension.en.javrank
+package eu.kanade.tachiyomi.animeextension.all.javrank
 
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen

@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.animeextension.en.javrank
+package eu.kanade.tachiyomi.animeextension.all.javrank
 
 import android.util.Base64
 import eu.kanade.tachiyomi.animesource.model.Video
