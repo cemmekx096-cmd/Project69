@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.animeextension.all.erome
 
+import android.util.Log
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
@@ -17,7 +18,6 @@ import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import android.util.Log
 
 // Sistem Logging Terintegrasi
 object ReportLog {
@@ -93,7 +93,7 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun episodeListParse(response: Response): List<SEpisode> {
         val doc = response.asJsoup()
         val videoElements = doc.select("div.video video")
-        
+
         ReportLog.log("EPISODE", "Ditemukan ${videoElements.size} elemen video di halaman")
 
         if (videoElements.isEmpty()) {
@@ -140,7 +140,7 @@ class Erome : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun videoListParse(response: Response): List<Video> {
         val url = response.request.url.toString()
         val playHeaders = videoHeaders()
-        
+
         ReportLog.log("VIDEOLIST", "Mencoba memproses URL: $url")
 
         // Jika URL adalah link video langsung (Hasil dari episodeListParse)
