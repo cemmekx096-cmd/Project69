@@ -227,22 +227,22 @@ class Oploverz : ConfigurableAnimeSource, AnimeHttpSource() {
 
     override fun episodeListParse(response: Response): List<SEpisode> {
         val series = json.decodeFromString<SeriesDetailResponse>(response.body.string()).data
-        tracker.debug("episodeListParse: seriesId=${series.seriesId} title=${series.title}")
+        tracker.debug("episodeListParse: slug=${series.slug} title=${series.title}")
 
-        // Fetch semua episode
-        val episodes = mutableListOf<EpisodeItem>()
-        var page = 1
-        var lastPage = 1
+        // Fetch page 1 dulu untuk tahu lastPage
+        val firstResp = client.newCall(
+            GET("$apiUrl/series/${series.slug}/episodes?page=1", headers),
+        ).execute()
+        val firstData = json.decodeFromString<EpisodeListResponse>(firstResp.body.string())
+        val lastPage = firstData.meta.lastPage
 
-        do {
-            val epResponse = client.newCall(
-                GET("$apiUrl/episodes?seriesId=${series.seriesId}&page=$page", headers),
+        // Fetch semua page secara parallel
+        val episodes = (1..lastPage).toList().parallelCatchingFlatMapBlocking { page ->
+            val epResp = client.newCall(
+                GET("$apiUrl/series/${series.slug}/episodes?page=$page", headers),
             ).execute()
-            val epData = json.decodeFromString<EpisodeListResponse>(epResponse.body.string())
-            episodes.addAll(epData.data)
-            lastPage = epData.meta.lastPage
-            page++
-        } while (page <= lastPage)
+            json.decodeFromString<EpisodeListResponse>(epResp.body.string()).data
+        }
 
         tracker.debug("episodeListParse: total ${episodes.size} episodes")
 
@@ -254,7 +254,7 @@ class Oploverz : ConfigurableAnimeSource, AnimeHttpSource() {
                 episode_number = ep.episodeNumber.toFloatOrNull() ?: 0F
                 date_upload = ep.releasedAt?.let { parseDate(it) } ?: 0L
             }
-        }.reversed()
+        }.sortedBy { it.episode_number }
     }
 
     // ============================ Video Links =============================
