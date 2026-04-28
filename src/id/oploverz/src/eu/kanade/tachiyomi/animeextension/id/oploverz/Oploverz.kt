@@ -76,7 +76,7 @@ class Oploverz : ConfigurableAnimeSource, AnimeHttpSource() {
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         val url = "$apiUrl/series".toHttpUrl().newBuilder().apply {
             addQueryParameter("page", page.toString())
-            if (query.isNotBlank()) addQueryParameter("title", query)
+            if (query.isNotBlank()) addQueryParameter("q", query)
 
             filters.forEach { filter ->
                 when (filter) {
@@ -269,14 +269,28 @@ class Oploverz : ConfigurableAnimeSource, AnimeHttpSource() {
         val data = json.decodeFromString<EpisodeDetailResponse>(response.body.string()).data
         tracker.debug("videoListParse: episodeId=${data.id} streamUrls=${data.streamUrl?.size}")
 
-        val streamUrls = data.streamUrl ?: run {
-            tracker.error("videoListParse: streamUrl is null")
-            return emptyList()
+        // Coba streamUrl dulu
+        val streamVideos = data.streamUrl?.let { streams ->
+            streams.parallelCatchingFlatMapBlocking { stream ->
+                extractor.videosFromStreamUrl(listOf(stream))
+            }
+        } ?: emptyList()
+
+        if (streamVideos.isNotEmpty()) return streamVideos
+
+        // Fallback ke downloadUrl
+        tracker.debug("videoListParse: streamUrl kosong/gagal, fallback ke downloadUrl")
+        val downloadVideos = mutableListOf<Video>()
+        data.downloadUrl?.forEach { format ->
+            format.resolutions.forEach { resolution ->
+                resolution.downloadLinks.firstOrNull()?.let { link ->
+                    val quality = "${format.format} - ${resolution.quality}"
+                    downloadVideos.add(Video(link.url, quality, link.url))
+                }
+            }
         }
 
-        return streamUrls.parallelCatchingFlatMapBlocking { stream ->
-            extractor.videosFromStreamUrl(listOf(stream))
-        }
+        return downloadVideos
     }
 
     // ============================== Settings ==============================
