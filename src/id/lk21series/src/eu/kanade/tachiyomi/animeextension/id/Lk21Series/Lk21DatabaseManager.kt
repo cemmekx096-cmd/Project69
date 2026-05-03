@@ -1,4 +1,5 @@
 package eu.kanade.tachiyomi.animeextension.id.lk21series
+
 import android.content.Context
 import android.content.SharedPreferences
 import okhttp3.OkHttpClient
@@ -27,7 +28,7 @@ class Lk21DatabaseManager(
 
     companion object {
         // Ganti setelah upload ke GitHub
-        const val INDEX_URL = "https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/lk21_index.json"
+        const val INDEX_URL = "https://raw.githubusercontent.com/cemmekx096-cmd/Project69/refs/heads/main/lk21data/lk21_index.json"
 
         const val PAGE_SIZE = 24
         private const val CHECK_INTERVAL_MS = 14L * 24 * 60 * 60 * 1000 // 14 hari
