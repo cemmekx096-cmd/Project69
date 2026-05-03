@@ -40,7 +40,7 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     // [+] Database manager untuk local search
     private val db by lazy {
         Lk21DatabaseManager(
-            context = Injekt.get<Application>(),
+            app = Injekt.get<Application>(),  // ← ganti "context" jadi "app"
             client = client,
         ).also {
             Thread { it.checkForUpdates() }.start()
