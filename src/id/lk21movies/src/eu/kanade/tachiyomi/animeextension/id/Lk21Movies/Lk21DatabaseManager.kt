@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.lib.lk21database
+package eu.kanade.tachiyomi.animeextension.id.lk21movies
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -8,12 +8,26 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/**
+ * Ganti package sesuai extension:
+ * - LK21Movies: eu.kanade.tachiyomi.animeextension.id.lk21movies
+ * - LK21Series: eu.kanade.tachiyomi.animeextension.id.lk21series
+ */
+
+data class Lk21Film(
+    val title: String,
+    val slug: String,
+    val poster: String,
+    val type: String,
+)
+
 class Lk21DatabaseManager(
     private val context: Context,
     private val client: OkHttpClient,
 ) {
 
     companion object {
+        // Ganti setelah upload ke GitHub
         const val INDEX_URL = "https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/lk21_index.json"
 
         const val PAGE_SIZE = 24
@@ -40,7 +54,7 @@ class Lk21DatabaseManager(
 
     /**
      * Search lokal — return Pair<List<Lk21Film>, hasNextPage>
-     * Konversi ke SAnime dilakukan di extension masing-masing
+     * Konversi ke SAnime dilakukan di extension
      */
     fun searchLocal(query: String, page: Int, type: String = ""): Pair<List<Lk21Film>, Boolean> {
         val films = loadFilms()
@@ -88,7 +102,8 @@ class Lk21DatabaseManager(
         prefs.edit().remove(PREF_VERSION).remove(PREF_LAST_CHECK).apply()
     }
 
-    fun currentVersion(): String = prefs.getString(PREF_VERSION, "Belum didownload") ?: "Belum didownload"
+    fun currentVersion(): String =
+        prefs.getString(PREF_VERSION, "Belum didownload") ?: "Belum didownload"
 
     fun totalFilms(): Int = loadFilms().size
 
@@ -139,3 +154,9 @@ class Lk21DatabaseManager(
         } catch (_: Exception) { emptyList() }
     }
 }
+
+data class Lk21DbIndex(
+    val version: String,
+    val total: Int,
+    val url: String,
+)

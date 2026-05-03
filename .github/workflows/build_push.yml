@@ -90,6 +90,9 @@ jobs:
         with:
           main-branch-name: ${{ github.ref_name }}
 
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
       - id: generate-matrices
         name: Create output matrices
         run: |
