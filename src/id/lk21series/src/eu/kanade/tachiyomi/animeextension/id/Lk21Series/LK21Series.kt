@@ -5,16 +5,20 @@ import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.ParsedAnimeHttpSource
+import eu.kanade.tachiyomi.lib.lk21database.Lk21DatabaseManager
 import eu.kanade.tachiyomi.lib.lk21extractor.Lk21Extractor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.Response
+import org.json.JSONObject
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
@@ -35,6 +39,18 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     private val extractor by lazy { Lk21Extractor(client, headers) }
 
+    private val posterBase = "https://poster.lk21.party/"
+    private val searchApiBase = "https://gudangvape.com/search.php"
+
+    private val db by lazy {
+        Lk21DatabaseManager(
+            context = Injekt.get<Application>(),
+            client = client,
+        ).also {
+            Thread { it.checkForUpdates() }.start()
+        }
+    }
+
     override val client: OkHttpClient
         get() {
             val timeoutSeconds = preferences.getString(PREF_TIMEOUT_KEY, PREF_TIMEOUT_DEFAULT)!!
@@ -48,10 +64,8 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
 
     override fun headersBuilder(): Headers.Builder {
-        val userAgent = preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT)!!
-
         return super.headersBuilder().apply {
-            add("User-Agent", userAgent)
+            add("User-Agent", preferences.getString(PREF_USER_AGENT_KEY, PREF_USER_AGENT_DEFAULT)!!)
             add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
             add("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7")
         }
@@ -84,19 +98,21 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override fun latestUpdatesNextPageSelector() = popularAnimeNextPageSelector()
 
     // =============================== Search ===============================
-    // Search disabled - Cloudflare protection
 
-    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): okhttp3.Request {
+    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         val params = LK21Filters.getSearchParameters(filters)
 
+        // Query teks → pakai local database (offline), bypass Cloudflare
+        if (query.isNotEmpty()) {
+            ReportLog.log("LK21Series-Search", "Local search: '$query' page $page", LogLevel.INFO)
+            return GET("local://search?q=$query&page=$page", headers)
+        }
+
+        // Filter genre/country → tetap pakai HTML scraping
         val url = when {
-            params.genre.isNotEmpty() -> {
-                "$baseUrl/genre/${params.genre}/page/$page"
-            }
-            params.country.isNotEmpty() -> {
-                "$baseUrl/country/${params.country}/page/$page"
-            }
-            else -> "$baseUrl/populer/page/$page" // default ke popular
+            params.genre.isNotEmpty() -> "$baseUrl/genre/${params.genre}/page/$page"
+            params.country.isNotEmpty() -> "$baseUrl/country/${params.country}/page/$page"
+            else -> "$baseUrl/populer/page/$page"
         }
 
         ReportLog.log("LK21Series-Search", "Filter: Genre=${params.genre}, Country=${params.country}", LogLevel.DEBUG)
@@ -109,6 +125,62 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
     override fun searchAnimeNextPageSelector() = popularAnimeNextPageSelector()
 
+    override fun searchAnimeParse(response: Response): AnimesPage {
+        val url = response.request.url.toString()
+
+        // Intercept dummy local search
+        if (url.startsWith("local://search")) {
+            val query = response.request.url.queryParameter("q") ?: ""
+            val page = response.request.url.queryParameter("page")?.toInt() ?: 1
+
+            if (!db.isAvailable) {
+                ReportLog.log("LK21Series-Search", "Local DB not available, fallback to API", LogLevel.WARN)
+                return searchViaApi(query, page)
+            }
+
+            return db.searchLocal(query, page, type = "series")
+        }
+
+        // Filter genre/country → HTML scraping biasa
+        val seenTitles = mutableSetOf<String>()
+        val document = response.asJsoup()
+        val animes = document.select(searchAnimeSelector())
+            .map { searchAnimeFromElement(it) }
+            .filter { anime -> seenTitles.add(anime.title.trim().lowercase()) }
+        val hasNextPage = document.selectFirst(searchAnimeNextPageSelector()) != null
+        return AnimesPage(animes, hasNextPage)
+    }
+
+    // Fallback ke API gudangvape kalau local DB belum didownload
+    private fun searchViaApi(query: String, page: Int): AnimesPage {
+        return try {
+            val url = "$searchApiBase?s=$query&page=$page"
+            val response = client.newCall(GET(url, headers)).execute()
+            val jsonObject = JSONObject(response.body.string())
+            val totalPages = jsonObject.getInt("totalPages")
+            val dataArray = jsonObject.getJSONArray("data")
+            val animes = mutableListOf<SAnime>()
+
+            for (i in 0 until dataArray.length()) {
+                val item = dataArray.getJSONObject(i)
+                if (item.getString("type") != "series") continue
+                animes.add(
+                    SAnime.create().apply {
+                        setUrlWithoutDomain("/${item.getString("slug")}")
+                        title = item.getString("title")
+                        thumbnail_url = "${posterBase}wp-content/uploads/${item.getString("poster")}"
+                        ReportLog.log("LK21Series-Search", "API fallback: $title", LogLevel.DEBUG)
+                    },
+                )
+            }
+
+            AnimesPage(animes, page < totalPages)
+        } catch (e: Exception) {
+            ReportLog.reportError("LK21Series-Search", "API fallback error: ${e.message}")
+            AnimesPage(emptyList(), false)
+        }
+    }
+
     // =========================== Anime Details ============================
 
     override fun animeDetailsParse(document: Document) = SAnime.create().apply {
@@ -116,7 +188,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         thumbnail_url = document.select("meta[property=og:image]").attr("content")
         genre = document.select("div.tag-list span a").joinToString(", ") { it.text() }
 
-        // Status dari span.episode atau default completed
         status = if (document.selectFirst("span.episode.complete") != null) {
             SAnime.COMPLETED
         } else {
@@ -127,18 +198,14 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             document.selectFirst("div.meta-info")?.text()?.let {
                 append("Synopsis:\n$it\n\n")
             }
-
-            document.selectFirst("span.year")?.text()?.let {
-                append("Year: $it\n")
-            }
-
-            document.selectFirst("div.info-tag strong")?.text()?.let {
-                append("Rating: $it\n")
-            }
-
+            document.selectFirst("span.year")?.text()?.let { append("Year: $it\n") }
+            document.selectFirst("div.info-tag strong")?.text()?.let { append("Rating: $it\n") }
             document.selectFirst("a.yt-lightbox[href*=youtube]")?.attr("href")?.let {
                 append("\nTrailer: $it")
             }
+
+            // Info database tersedia
+            append("\n\n📦 DB: ${db.currentVersion()} (${db.totalFilms()} film)")
         }
 
         ReportLog.log("LK21Series-Detail", "Parsed: $title (Status: $status)", LogLevel.INFO)
@@ -154,7 +221,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         ReportLog.log("LK21Series-Episodes", "Parsing from: ${response.request.url}", LogLevel.INFO)
 
-        // Parse JSON dari script#season-data
         val seasonDataScript = document.selectFirst("script#season-data")?.data()
 
         if (seasonDataScript.isNullOrEmpty()) {
@@ -163,7 +229,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         }
 
         try {
-            // Parse JSON manually (format: {"1": [{episode_no, slug, s}, ...]})
             val json = org.json.JSONObject(seasonDataScript)
             val baseUrlPage = response.request.url.toString().substringBefore("?")
                 .trimEnd('/').substringBeforeLast("/")
@@ -207,12 +272,11 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
         ReportLog.log("LK21Series-Video", "=== VIDEO PARSE START ===", LogLevel.INFO)
         ReportLog.log("LK21Series-Video", "Page URL: $pageUrl", LogLevel.INFO)
 
-        // Ambil player list (dari LayarKacaProvider CloudStream logic)
-        val playerItems = document.select("ul#player-list a[href]")
-        ReportLog.log("LK21Series-Video", "Found ${playerItems.size} player links", LogLevel.INFO)
-
         data class PlayerEntry(val url: String, val name: String)
         val playerEntries = mutableListOf<PlayerEntry>()
+
+        val playerItems = document.select("ul#player-list a[href]")
+        ReportLog.log("LK21Series-Video", "Found ${playerItems.size} player links", LogLevel.INFO)
 
         playerItems.forEach { element ->
             val serverName = element.text().trim()
@@ -229,7 +293,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
         }
 
-        // Fallback direct iframe
         if (playerEntries.isEmpty()) {
             ReportLog.log("LK21Series-Video", "No player-list, trying direct iframe", LogLevel.WARN)
             document.selectFirst("iframe[src]")?.let { iframe ->
@@ -241,17 +304,14 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
             }
         }
 
-        // Extract video dari setiap player (CloudStream logic)
         playerEntries.forEachIndexed { index, entry ->
             try {
                 ReportLog.log("LK21Series-Video", "[$index] Following: ${entry.name} → ${entry.url}", LogLevel.DEBUG)
 
-                // Follow link ke halaman intermediate
                 val intermediateDoc = client.newCall(
                     GET(entry.url, headers.newBuilder().add("Referer", pageUrl).build()),
                 ).execute().asJsoup()
 
-                // Ambil iframe src
                 val iframeSrc = intermediateDoc
                     .selectFirst("iframe[src]")
                     ?.attr("src")
@@ -261,7 +321,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                 ReportLog.log("LK21Series-Video", "[$index] Iframe src: $iframeSrc", LogLevel.DEBUG)
 
                 if (iframeSrc.isEmpty()) {
-                    // Kalau tidak ada iframe, coba resolve redirect
                     val resolvedUrl = resolveRedirect(entry.url)
                     ReportLog.log("LK21Series-Video", "[$index] No iframe, resolved: $resolvedUrl", LogLevel.WARN)
                     val videos = extractor.videosFromUrl(resolvedUrl, entry.name)
@@ -273,14 +332,12 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
                     return@forEachIndexed
                 }
 
-                // Normalize iframe URL
                 val finalIframeUrl = when {
                     iframeSrc.startsWith("//") -> "https:$iframeSrc"
                     iframeSrc.startsWith("http") -> iframeSrc
                     else -> iframeSrc
                 }
 
-                // Handle short.icu redirect (dari CloudStream)
                 val resolvedUrl = if (finalIframeUrl.contains("short.icu")) {
                     resolveRedirect(finalIframeUrl)
                 } else {
@@ -289,7 +346,6 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
                 ReportLog.log("LK21Series-Video", "[$index] Extracting from: $resolvedUrl", LogLevel.INFO)
 
-                // Extract video
                 val videos = extractor.videosFromUrl(resolvedUrl, entry.name)
                 if (videos.isNotEmpty()) {
                     ReportLog.log("LK21Series-Video", "[$index] Found ${videos.size} video(s)", LogLevel.INFO)
