@@ -30,7 +30,7 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
     override val lang = "id"
     override val supportsLatest = true
 
-    override val baseUrl = "https://tv3.nontondrama.my"
+    override val baseUrl = "https://tv4.nontondrama.my"
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
@@ -260,7 +260,7 @@ class LK21Series : ConfigurableAnimeSource, ParsedAnimeHttpSource() {
 
         playerItems.forEach { element ->
             val serverName = element.text().trim()
-            val encodedUrl = element.attr("data-url").trim()
+            val href = element.attr("data-url").trim()
 
             if (href.isNotEmpty() && href != "#") {
                 val fullUrl = when {
