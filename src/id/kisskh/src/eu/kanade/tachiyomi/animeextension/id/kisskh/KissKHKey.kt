@@ -32,7 +32,7 @@ object KissKHKey {
             platform.take(48),
             referrer, appName, appCodeName, "00", "",
         )
-        arr.add(1, jsHashCode(arr.joinToString("|")).toInt().toString())
+        arr.add(1, jsHashCode(arr.joinToString("|")).toString())
 
         val padded = pkcs16Pad(arr.joinToString("|"))
         val (words, len) = stringToWords(padded)
