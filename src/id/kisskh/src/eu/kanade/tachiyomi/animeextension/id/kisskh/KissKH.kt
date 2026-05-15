@@ -55,10 +55,14 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
         GET("$apiUrl/DramaList/List?page=$page&type=0&sub=0&country=0&status=0&order=1", headers)
 
     override fun popularAnimeParse(response: Response): AnimesPage {
-        val arr = JSONArray(response.body.string())
+        val obj = JSONObject(response.body.string())
+        val arr = obj.getJSONArray("data")
         val animes = (0 until arr.length()).map { arr.getJSONObject(it).toSAnime() }
+        val totalCount = obj.getInt("totalCount")
+        val pageSize = obj.getInt("pageSize")
+        val page = obj.getInt("page")
         ReportLog.log("KissKH-Popular", "Fetched ${animes.size} items", LogLevel.DEBUG)
-        return AnimesPage(animes, animes.size >= 28)
+        return AnimesPage(animes, page * pageSize < totalCount)
     }
 
     // =============================== Latest ===============================
@@ -86,13 +90,15 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
 
     override fun searchAnimeParse(response: Response): AnimesPage {
         val body = response.body.string()
-        // Search return array langsung, List juga array
-        val arr = JSONArray(body)
-        val animes = (0 until arr.length()).map { arr.getJSONObject(it).toSAnime() }
-        ReportLog.log("KissKH-Search", "Found ${animes.size} results", LogLevel.DEBUG)
-        // Search tidak ada pagination, List ada
-        val hasNext = response.request.url.queryParameter("order") != null && animes.size >= 28
-        return AnimesPage(animes, hasNext)
+        val isSearch = response.request.url.toString().contains("/Search")
+        return if (isSearch) {
+            val arr = JSONArray(body)
+            val animes = (0 until arr.length()).map { arr.getJSONObject(it).toSAnime() }
+            ReportLog.log("KissKH-Search", "Found ${animes.size} results", LogLevel.DEBUG)
+            AnimesPage(animes, false)
+        } else {
+            popularAnimeParse(response)
+        }
     }
 
     // =========================== Anime Details ============================
@@ -224,9 +230,10 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
     // ============================== Helpers ===============================
 
     private fun JSONObject.toSAnime() = SAnime.create().apply {
-        // url cukup drama ID saja
-        url = getInt("id").toString()
-        title = getString("title")
+        val dramaId = getInt("id")
+        val dramaTitle = getString("title")
+        url = dramaId.toString()
+        title = dramaTitle
         thumbnail_url = optString("thumbnail").takeIf { it.isNotBlank() }
         status = SAnime.UNKNOWN
     }
