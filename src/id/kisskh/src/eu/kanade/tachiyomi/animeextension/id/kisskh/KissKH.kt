@@ -55,13 +55,14 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
         GET("$apiUrl/DramaList/List?page=$page&type=0&sub=0&country=0&status=0&order=1", headers)
 
     override fun popularAnimeParse(response: Response): AnimesPage {
-        val obj = JSONObject(response.body.string())
+        val body = response.body.string()
+        val obj = JSONObject(body)
         val arr = obj.getJSONArray("data")
         val animes = (0 until arr.length()).map { arr.getJSONObject(it).toSAnime() }
         val totalCount = obj.getInt("totalCount")
         val pageSize = obj.getInt("pageSize")
         val page = obj.getInt("page")
-        ReportLog.log("KissKH-Popular", "Fetched ${animes.size} items", LogLevel.DEBUG)
+        ReportLog.log("KissKH-Popular", "Page=$page | Count=${animes.size} | Total=$totalCount", LogLevel.DEBUG)
         return AnimesPage(animes, page * pageSize < totalCount)
     }
 
@@ -70,21 +71,31 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
     override fun latestUpdatesRequest(page: Int) =
         GET("$apiUrl/DramaList/List?page=$page&type=0&sub=0&country=0&status=0&order=2", headers)
 
-    override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
+    override fun latestUpdatesParse(response: Response): AnimesPage {
+        val body = response.body.string()
+        val obj = JSONObject(body)
+        val arr = obj.getJSONArray("data")
+        val animes = (0 until arr.length()).map { arr.getJSONObject(it).toSAnime() }
+        val totalCount = obj.getInt("totalCount")
+        val pageSize = obj.getInt("pageSize")
+        val page = obj.getInt("page")
+        ReportLog.log("KissKH-Latest", "Page=$page | Count=${animes.size} | Total=$totalCount", LogLevel.DEBUG)
+        return AnimesPage(animes, page * pageSize < totalCount)
+    }
 
     // =============================== Search ===============================
 
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         return if (query.isNotBlank()) {
+            ReportLog.log("KissKH-Search", "Query: $query", LogLevel.DEBUG)
             GET("$apiUrl/DramaList/Search?q=${query.trim()}&type=0", headers)
         } else {
             val params = KissKHFilters.getSearchParameters(filters)
-            GET(
-                "$apiUrl/DramaList/List?page=$page&type=${params.type}" +
-                    "&sub=${params.sub}&country=${params.country}" +
-                    "&status=${params.status}&order=${params.order}",
-                headers,
-            )
+            val url = "$apiUrl/DramaList/List?page=$page&type=${params.type}" +
+                "&sub=${params.sub}&country=${params.country}" +
+                "&status=${params.status}&order=${params.order}"
+            ReportLog.log("KissKH-Search", "Filter URL: $url", LogLevel.DEBUG)
+            GET(url, headers)
         }
     }
 
@@ -94,10 +105,17 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
         return if (isSearch) {
             val arr = JSONArray(body)
             val animes = (0 until arr.length()).map { arr.getJSONObject(it).toSAnime() }
-            ReportLog.log("KissKH-Search", "Found ${animes.size} results", LogLevel.DEBUG)
+            ReportLog.log("KissKH-Search", "Results: ${animes.size}", LogLevel.DEBUG)
             AnimesPage(animes, false)
         } else {
-            popularAnimeParse(response)
+            val obj = JSONObject(body)
+            val arr = obj.getJSONArray("data")
+            val animes = (0 until arr.length()).map { arr.getJSONObject(it).toSAnime() }
+            val totalCount = obj.getInt("totalCount")
+            val pageSize = obj.getInt("pageSize")
+            val page = obj.getInt("page")
+            ReportLog.log("KissKH-Search", "Filter page=$page | Count=${animes.size} | Total=$totalCount", LogLevel.DEBUG)
+            AnimesPage(animes, page * pageSize < totalCount)
         }
     }
 
@@ -124,7 +142,7 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
             else -> SAnime.UNKNOWN
         }
         genre = obj.optString("type")
-        ReportLog.log("KissKH-Detail", "Parsed: $title", LogLevel.DEBUG)
+        ReportLog.log("KissKH-Detail", "Parsed: $title | Status: $status", LogLevel.DEBUG)
     }
 
     // ============================== Episodes ==============================
@@ -135,8 +153,11 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
     override fun episodeListParse(response: Response): List<SEpisode> {
         val obj = JSONObject(response.body.string())
         val episodes = obj.getJSONArray("episodes")
-        val list = mutableListOf<SEpisode>()
         val dramaId = obj.getInt("id")
+        val dramaTitle = obj.getString("title")
+        val list = mutableListOf<SEpisode>()
+
+        ReportLog.log("KissKH-Episodes", "Drama: $dramaTitle (id=$dramaId) | Episodes: ${episodes.length()}", LogLevel.DEBUG)
 
         for (i in 0 until episodes.length()) {
             val ep = episodes.getJSONObject(i)
@@ -144,8 +165,9 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
             val epNum = ep.getDouble("number")
             val hasSub = ep.getInt("sub") > 0
 
+            ReportLog.log("KissKH-Episodes", "Ep${epNum.toInt()} | epId=$epId | hasSub=$hasSub", LogLevel.DEBUG)
+
             val episode = SEpisode.create().apply {
-                // url = "dramaId/episodeId" untuk dipakai di videoListRequest
                 url = "$dramaId/$epId"
                 name = "Episode ${epNum.toInt()}" + (if (!hasSub) " (No Sub)" else "")
                 episode_number = epNum.toFloat()
@@ -154,60 +176,125 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
             list.add(episode)
         }
 
-        ReportLog.log("KissKH-Episodes", "Found ${list.size} episodes for drama $dramaId", LogLevel.DEBUG)
+        ReportLog.log("KissKH-Episodes", "Total parsed: ${list.size}", LogLevel.INFO)
         return list.reversed()
     }
 
     // ============================ Video Links =============================
 
     override fun videoListRequest(episode: SEpisode): Request {
-        val epId = episode.url.substringAfter("/")
-        val kkey = KissKHKey.videoKey(epId.toInt())
-        return GET(
-            "$apiUrl/DramaList/Episode/$epId.png?err=false&ts=null&time=null&kkey=$kkey",
-            headers,
-        )
+        val tracker = FeatureTracker("KissKH-Video")
+        tracker.start()
+
+        val parts = episode.url.split("/")
+        val dramaId = parts[0]
+        val epId = parts[1]
+
+        // ── Step 1: Build kkey ─────────────────────────────────
+        tracker.debug("Step 1: Building kkey | epId=$epId")
+        val kkey = try {
+            val k = KissKHKey.videoKey(epId.toInt())
+            tracker.debug("Step 1 OK: kkey=$k")
+            k
+        } catch (e: Exception) {
+            tracker.error("Step 1 FAILED: ${e.message}")
+            return GET("$apiUrl/DramaList/Episode/$epId.png?err=false&ts=null&time=null&kkey=", headers)
+        }
+
+        // ── Step 2: Build API URL ──────────────────────────────
+        val url = "$apiUrl/DramaList/Episode/$epId.png?err=false&ts=null&time=null&kkey=$kkey"
+        tracker.debug("Step 2: API URL = $url")
+
+        return GET(url, headers)
     }
 
     override fun videoListParse(response: Response): List<Video> {
-        val obj = JSONObject(response.body.string())
-        val videoUrl = obj.optString("Video").takeIf { it.isNotBlank() }
-            ?: return emptyList<Video>().also {
-                ReportLog.log("KissKH-Video", "Empty video URL", LogLevel.WARN)
-            }
+        val perf = PerformanceTracker("KissKH-VideoListParse")
+        val tracker = FeatureTracker("KissKH-Video")
+        perf.start()
 
-        // Ambil episode ID dari request URL
+        // ── Step 3: Read API response ──────────────────────────
+        tracker.debug("Step 3: Reading video API response")
+        val body = response.body.string()
+        tracker.debug("Step 3 Response: $body")
+
+        val obj = try {
+            JSONObject(body)
+        } catch (e: Exception) {
+            tracker.error("Step 3 FAILED - JSON parse error: ${e.message}")
+            perf.end()
+            return emptyList()
+        }
+
+        // ── Step 4: Extract M3U8 URL ───────────────────────────
+        tracker.debug("Step 4: Extracting M3U8 URL")
+        val videoUrl = obj.optString("Video").takeIf { it.isNotBlank() }
+        if (videoUrl == null) {
+            tracker.error("Step 4 FAILED - Video URL is empty! Full response: $body")
+            perf.end()
+            return emptyList()
+        }
+        val isM3u8 = videoUrl.contains(".m3u8")
+        tracker.debug("Step 4 OK: videoUrl=$videoUrl | isM3U8=$isM3u8")
+
+        // ── Step 5: Get episode ID from request URL ────────────
+        tracker.debug("Step 5: Extracting epId from request URL")
         val epId = response.request.url.pathSegments
             .last().removeSuffix(".png").toIntOrNull()
-            ?: return listOf(Video(videoUrl, "KissKH", videoUrl))
+        if (epId == null) {
+            tracker.warn("Step 5 WARN - Cannot parse epId, skipping subtitles")
+            perf.end()
+            return listOf(Video(videoUrl, "KissKH", videoUrl))
+        }
+        tracker.debug("Step 5 OK: epId=$epId")
 
-        // Fetch subtitles
-        val subtitleTracks = fetchSubtitles(epId)
+        // ── Step 6: Fetch subtitles ────────────────────────────
+        tracker.debug("Step 6: Fetching subtitles for epId=$epId")
+        val subtitleTracks = fetchSubtitles(epId, tracker)
+        tracker.debug("Step 6 OK: ${subtitleTracks.size} subtitle track(s) found")
 
-        ReportLog.log("KissKH-Video", "Video: $videoUrl | Subs: ${subtitleTracks.size}", LogLevel.DEBUG)
+        // ── Step 7: Build Video object ─────────────────────────
+        tracker.success("Step 7: Video ready | url=$videoUrl | subs=${subtitleTracks.size}")
+        perf.end()
 
         return listOf(
             Video(
-                url = videoUrl,
-                quality = "KissKH",
-                videoUrl = videoUrl,
+                videoUrl,
+                "KissKH",
+                videoUrl,
                 subtitleTracks = subtitleTracks,
             ),
         )
     }
 
-    private fun fetchSubtitles(epId: Int): List<Track> {
+    private fun fetchSubtitles(epId: Int, tracker: FeatureTracker? = null): List<Track> {
+        val subTracker = FeatureTracker("KissKH-Subtitle")
+        subTracker.start()
+
         return try {
+            // ── Sub Step 1: Build sub kkey ─────────────────────
+            subTracker.debug("Sub Step 1: Building sub kkey | epId=$epId")
             val kkey = KissKHKey.subKey(epId)
+            subTracker.debug("Sub Step 1 OK: kkey=$kkey")
+
+            // ── Sub Step 2: Build sub API URL ──────────────────
+            val subUrl = "$apiUrl/Sub/$epId?kkey=$kkey"
+            subTracker.debug("Sub Step 2: URL=$subUrl")
+
+            // ── Sub Step 3: Fetch subtitle list ────────────────
             val subHeaders = Headers.Builder()
                 .add("Accept", "application/json, text/plain, */*")
                 .build()
-            val response = client.newCall(
-                GET("$apiUrl/Sub/$epId?kkey=$kkey", subHeaders),
-            ).execute()
+            val response = client.newCall(GET(subUrl, subHeaders)).execute()
+            val body = response.body.string()
+            subTracker.debug("Sub Step 3 Response: $body")
 
-            val arr = JSONArray(response.body.string())
+            // ── Sub Step 4: Parse subtitle list ────────────────
+            val arr = JSONArray(body)
+            subTracker.debug("Sub Step 4: Found ${arr.length()} subtitle(s)")
+
             val preferredLang = preferences.getString(PREF_SUB_KEY, PREF_SUB_DEFAULT)!!
+            subTracker.debug("Sub Step 4: Preferred lang=$preferredLang")
 
             val tracks = mutableListOf<Track>()
             for (i in 0 until arr.length()) {
@@ -215,14 +302,16 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
                 val lang = sub.getString("land")
                 val label = sub.getString("label")
                 val src = sub.getString("src")
+                subTracker.debug("Sub Step 4: Track[$i] lang=$lang | label=$label | src=$src")
                 tracks.add(Track(src, label))
-                ReportLog.log("KissKH-Sub", "Sub: $label ($lang)", LogLevel.DEBUG)
             }
 
-            // Sort: preferred lang duluan
-            tracks.sortedWith(compareBy { if (it.lang == preferredLang) 0 else 1 })
+            // ── Sub Step 5: Sort preferred lang first ──────────
+            val sorted = tracks.sortedWith(compareBy { if (it.lang == preferredLang) 0 else 1 })
+            subTracker.success("Sub Step 5 OK: ${sorted.size} tracks | preferred=$preferredLang first")
+            sorted
         } catch (e: Exception) {
-            ReportLog.reportError("KissKH-Sub", "Failed: ${e.message}")
+            subTracker.error("Subtitle fetch FAILED: ${e.message}")
             emptyList()
         }
     }
