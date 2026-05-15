@@ -14,18 +14,18 @@ object KissKHKey {
     private fun generateKey(
         episodeId: Int,
         guid: String,
-        p2: String = "null",
+        p2: String? = null,                    // ✅ ubah jadi null
         appVer: String = APP_VER,
         platformVer: Int = PLATFORM_VER,
         url: String = APP_NAME,
         userAgent: String = APP_NAME,
         platform: String = APP_NAME,
         referrer: String = APP_NAME,
-        appName: String = APP_NAME,
-        appCodeName: String = APP_NAME,
+        appName: String = "Netscape",           // ✅ hardcode
+        appCodeName: String = "Mozilla",        // ✅ hardcode
     ): String {
         val arr = mutableListOf(
-            "", episodeId.toString(), p2, "mg3c3b04ba",
+            "", episodeId.toString(), p2 ?: "", "mg3c3b04ba",  // ✅ p2 ?: ""
             appVer, guid, platformVer.toString(),
             url.take(48),
             userAgent.lowercase().take(48),
@@ -33,7 +33,7 @@ object KissKHKey {
             referrer, appName, appCodeName, "00", "",
         )
         arr.add(1, jsHashCode(arr.joinToString("|")).toInt().toString())
-
+    
         val padded = pkcs16Pad(arr.joinToString("|"))
         val (words, len) = stringToWords(padded)
         aesEncrypt(words)
@@ -86,7 +86,7 @@ object KissKHKey {
         -0x4b793324, 0x74ca2f25, -0x62094ce1, 0x44aee7ec,
     )
 
-    private val INIT_KEY = intArrayOf(0x1504af3, 0x56e619cf, 0x2e42bba6, -0x73c08f07)
+    private val INIT_KEY = intArrayOf(0x01504af3, 0x56e619cf, 0x2e42bba6, -0x73c08f07)
 
     private val T0 = IntArray(256)
     private val T1 = IntArray(256)
