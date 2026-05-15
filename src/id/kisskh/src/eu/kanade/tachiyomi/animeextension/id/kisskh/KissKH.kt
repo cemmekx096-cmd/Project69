@@ -138,13 +138,14 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
             val epNum = ep.getDouble("number")
             val hasSub = ep.getInt("sub") > 0
 
-            list.add(SEpisode.create().apply {
+            val episode = SEpisode.create().apply {
                 // url = "dramaId/episodeId" untuk dipakai di videoListRequest
                 url = "$dramaId/$epId"
                 name = "Episode ${epNum.toInt()}" + (if (!hasSub) " (No Sub)" else "")
                 episode_number = epNum.toFloat()
                 date_upload = System.currentTimeMillis()
-            })
+            }
+            list.add(episode)
         }
 
         ReportLog.log("KissKH-Episodes", "Found ${list.size} episodes for drama $dramaId", LogLevel.DEBUG)
