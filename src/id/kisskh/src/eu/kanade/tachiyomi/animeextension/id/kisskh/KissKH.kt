@@ -141,7 +141,7 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
             list.add(SEpisode.create().apply {
                 // url = "dramaId/episodeId" untuk dipakai di videoListRequest
                 url = "$dramaId/$epId"
-                name = "Episode ${epNum.toInt()}" + if (!hasSub) " (No Sub)" else ""
+                name = "Episode ${epNum.toInt()}" + (if (!hasSub) " (No Sub)" else "")
                 episode_number = epNum.toFloat()
                 date_upload = System.currentTimeMillis()
             })
