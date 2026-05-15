@@ -158,38 +158,36 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
         val obj = JSONObject(body)
         val videoUrl = obj.getString("Video")
         ReportLog.log("KissKH-Video", "Step 4 OK: videoUrl=$videoUrl", LogLevel.INFO)
-        return listOf(Video(videoUrl, "KissKH", videoUrl))
+
+        // Fetch subtitle
+        val epId = response.request.url.toString()
+            .substringAfter("/Episode/").substringBefore(".png").toIntOrNull()
+        val subtitleTracks = if (epId != null) fetchSubtitles(epId) else emptyList()
+        ReportLog.log("KissKH-Video", "Step 5: ${subtitleTracks.size} subtitle(s)", LogLevel.INFO)
+
+        return listOf(Video(videoUrl, "KissKH", videoUrl, subtitleTracks = subtitleTracks))
     }
 
     // =============================== Subtitle =============================
 
-    override fun subtitleListRequest(episode: SEpisode): Request {
-        val epId = episode.url.toInt()
-        ReportLog.log("KissKH-Sub", "Step 1: Building sub kkey | epId=$epId", LogLevel.DEBUG)
-        val kkey = try {
-            val k = KissKHKey.subKey(epId)
-            ReportLog.log("KissKH-Sub", "Step 1 OK: kkey=$k", LogLevel.DEBUG)
-            k
+    private fun fetchSubtitles(epId: Int): List<Track> {
+        return try {
+            val kkey = KissKHKey.subKey(epId)
+            val subUrl = "$apiUrl/Sub/$epId?kkey=$kkey"
+            ReportLog.log("KissKH-Sub", "Fetching: $subUrl", LogLevel.DEBUG)
+            val subResponse = client.newCall(GET(subUrl, headers)).execute()
+            val body = subResponse.body.string()
+            ReportLog.log("KissKH-Sub", "Response: $body", LogLevel.DEBUG)
+            val arr = JSONArray(body)
+            val preferredLang = preferences.getString(PREF_SUB_KEY, PREF_SUB_DEFAULT)!!
+            (0 until arr.length()).map { i ->
+                val sub = arr.getJSONObject(i)
+                Track(sub.getString("src"), sub.getString("label"))
+            }.sortedBy { if (it.lang == preferredLang) 0 else 1 }
         } catch (e: Exception) {
-            ReportLog.log("KissKH-Sub", "Step 1 FAILED: ${e.message}", LogLevel.ERROR)
-            ""
+            ReportLog.log("KissKH-Sub", "FAILED: ${e.message}", LogLevel.ERROR)
+            emptyList()
         }
-        val url = "$apiUrl/Sub/$epId?kkey=$kkey"
-        ReportLog.log("KissKH-Sub", "Step 2: URL=$url", LogLevel.DEBUG)
-        return GET(url, headers)
-    }
-
-    override fun subtitleListParse(response: Response): List<Track> {
-        val body = response.body.string()
-        ReportLog.log("KissKH-Sub", "Step 3 Response: $body", LogLevel.DEBUG)
-        val arr = JSONArray(body)
-        val preferredLang = preferences.getString(PREF_SUB_KEY, PREF_SUB_DEFAULT)!!
-        val tracks = (0 until arr.length()).map { i ->
-            val sub = arr.getJSONObject(i)
-            Track(sub.getString("src"), sub.getString("label"))
-        }.sortedBy { if (it.lang == preferredLang) 0 else 1 }
-        ReportLog.log("KissKH-Sub", "Step 4 OK: ${tracks.size} tracks | preferred=$preferredLang", LogLevel.INFO)
-        return tracks
     }
 
     // ============================== Helpers ===============================
