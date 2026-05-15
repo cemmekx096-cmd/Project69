@@ -6,7 +6,6 @@ object KissKHKey {
     private const val VI_GUID = "62f176f3bb1b5b8e70e39932ad34a0c7"
     private const val SUB_GUID = "VgV52sWhwvBSf8BsM3BRY9weWiiCbtGp"
     private const val PLATFORM_VER = 4830201
-    private const val APP_NAME = "kisskh"
 
     fun videoKey(episodeId: Int) = generateKey(episodeId, VI_GUID)
     fun subKey(episodeId: Int) = generateKey(episodeId, SUB_GUID)
@@ -17,12 +16,12 @@ object KissKHKey {
         p2: String? = null,
         appVer: String = APP_VER,
         platformVer: Int = PLATFORM_VER,
-        url: String = APP_NAME,
-        userAgent: String = APP_NAME,
-        platform: String = APP_NAME,
-        referrer: String = APP_NAME,
-        appName: String = "Netscape",
-        appCodeName: String = "Mozilla",
+        url: String = "kisskh",
+        userAgent: String = "kisskh",
+        platform: String = "kisskh",
+        referrer: String = "kisskh",
+        appName: String = "kisskh",
+        appCodeName: String = "kisskh",
     ): String {
         val arr = mutableListOf(
             "", episodeId.toString(), p2 ?: "", "mg3c3b04ba",
@@ -70,8 +69,9 @@ object KissKHKey {
         return sb.toString()
     }
 
-    // ── AES Tables ────────────────────────────────────────────
+    // ── AES ───────────────────────────────────────────────────
 
+    private val INIT_KEY = intArrayOf(0x01504af3, 0x56e619cf, 0x2e42bba6, -0x73c08f07)
     private val RCON = intArrayOf(
         0x4f6bdaa3.toInt(), -0x61d07350, 0x7f5e722d, -0x61210cec,
         0x536620a8.toInt(), -0x32b653e8, -0x4de821cb, 0x2cc92d21,
@@ -86,12 +86,8 @@ object KissKHKey {
         -0x4b793324, 0x74ca2f25, -0x62094ce1, 0x44aee7ec,
     )
 
-    private val INIT_KEY = intArrayOf(0x01504af3, 0x56e619cf, 0x2e42bba6, -0x73c08f07)
-
-    private val T0 = IntArray(256)
-    private val T1 = IntArray(256)
-    private val T2 = IntArray(256)
-    private val T3 = IntArray(256)
+    private val T0 = IntArray(256); private val T1 = IntArray(256)
+    private val T2 = IntArray(256); private val T3 = IntArray(256)
     private val SBOX = IntArray(256)
 
     init {
@@ -117,13 +113,9 @@ object KissKHKey {
     private fun aesBlock(w: IntArray, offset: Int) {
         val prev = if (offset == 0) INIT_KEY else w.sliceArray(offset - 4 until offset)
         for (i in 0 until 4) w[offset + i] = w[offset + i] xor prev[i]
-
-        var a0 = w[offset] xor RCON[0]
-        var a1 = w[offset + 1] xor RCON[1]
-        var a2 = w[offset + 2] xor RCON[2]
-        var a3 = w[offset + 3] xor RCON[3]
+        var a0 = w[offset] xor RCON[0]; var a1 = w[offset + 1] xor RCON[1]
+        var a2 = w[offset + 2] xor RCON[2]; var a3 = w[offset + 3] xor RCON[3]
         var ki = 4
-
         for (r in 1 until 10) {
             val b0 = T0[a0 ushr 24] xor T1[(a1 ushr 16) and 0xff] xor T2[(a2 ushr 8) and 0xff] xor T3[0xff and a3] xor RCON[ki++]
             val b1 = T0[a1 ushr 24] xor T1[(a2 ushr 16) and 0xff] xor T2[(a3 ushr 8) and 0xff] xor T3[0xff and a0] xor RCON[ki++]
@@ -131,7 +123,6 @@ object KissKHKey {
             val b3 = T0[a3 ushr 24] xor T1[(a0 ushr 16) and 0xff] xor T2[(a1 ushr 8) and 0xff] xor T3[0xff and a2] xor RCON[ki++]
             a0 = b0; a1 = b1; a2 = b2; a3 = b3
         }
-
         w[offset] = ((SBOX[a0 ushr 24] shl 24) or (SBOX[(a1 ushr 16) and 0xff] shl 16) or (SBOX[(a2 ushr 8) and 0xff] shl 8) or SBOX[0xff and a3]) xor RCON[ki++]
         w[offset + 1] = ((SBOX[a1 ushr 24] shl 24) or (SBOX[(a2 ushr 16) and 0xff] shl 16) or (SBOX[(a3 ushr 8) and 0xff] shl 8) or SBOX[0xff and a0]) xor RCON[ki++]
         w[offset + 2] = ((SBOX[a2 ushr 24] shl 24) or (SBOX[(a3 ushr 16) and 0xff] shl 16) or (SBOX[(a0 ushr 8) and 0xff] shl 8) or SBOX[0xff and a1]) xor RCON[ki++]
