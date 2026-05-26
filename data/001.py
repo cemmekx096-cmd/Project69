@@ -7,8 +7,10 @@ import re
 LINKS_PER_TITLE = 15  # Jumlah link per title (default 10)
 POSTERS = [
     "https://raw.githubusercontent.com/cemmekx096-cmd/Project69/main/.ide/markup_1000044239.png",
-    # Tambahkan link poster lain di sini jika ada
+    # Tambahkan link poster lain jika ada
 ]
+OLD_DOMAIN = "https://vidxlr.de"
+NEW_DOMAIN = "https://vidvf.com"
 # =================================================
 
 def list_txt_files():
@@ -39,6 +41,11 @@ def extract_links(file_path):
                 links.append(match.group())
     return links
 
+def replace_domain(link, old_domain=OLD_DOMAIN, new_domain=NEW_DOMAIN):
+    if link.startswith(old_domain):
+        return link.replace(old_domain, new_domain, 1)
+    return link
+
 def generate_titles(base_name, total_links, links_per_title):
     total_titles = (total_links + links_per_title - 1) // links_per_title
     titles = [f"{base_name}_{i+1}" for i in range(total_titles)]
@@ -53,7 +60,7 @@ def generate_json(links, titles, posters, links_per_title):
         poster = random.choice(posters)
         episodes = []
         for ep_idx, link in enumerate(episode_links, 1):
-            # Format satu baris per episode
+            link = replace_domain(link)
             episodes.append({
                 "episode": f"{ep_idx:02}",
                 "name": f"Episode {ep_idx}",
@@ -67,7 +74,6 @@ def generate_json(links, titles, posters, links_per_title):
     return data
 
 def save_json(json_data, output_file):
-    # Custom encoder supaya setiap episode satu baris
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("[\n")
         for t_idx, title_block in enumerate(json_data):
