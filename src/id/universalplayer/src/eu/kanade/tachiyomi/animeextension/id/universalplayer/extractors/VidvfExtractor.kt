@@ -41,6 +41,9 @@ class VidvfExtractor(private val client: OkHttpClient) : AnimeExtractor {
                     .post(FormBody.Builder().add("id", videoId).build())
                     .header("User-Agent", UA)
                     .header("Referer", "$baseUrl/d/$videoId")
+                    .header("Origin", baseUrl)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("X-Requested-With", "XMLHttpRequest")
                     .build(),
             ).execute()
             val tokenJson = JSONObject(tokenResponse.body.string())
