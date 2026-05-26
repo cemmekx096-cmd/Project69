@@ -85,35 +85,20 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
 
     // =============================== Search ===============================
 
-    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        val tracker = FeatureTracker("UP-Search")
-        tracker.start()
-        tracker.debug("Query: '$query'")
-
-        val url = githubRawUrl.ifBlank { FALLBACK_URL }
-        return GET(url, headers)
-    }
-
     override fun searchAnimeParse(response: Response): AnimesPage {
         val tracker = FeatureTracker("UP-SearchParse")
         tracker.start()
 
         return try {
-            val query = response.request.url.queryParameter("q") ?: ""
             val arr = JSONArray(response.body.string())
 
-            val animes = (0 until arr.length()).mapIndexedNotNull { i, _ ->
+            val animes = (0 until arr.length()).mapNotNull { i ->
                 val obj = arr.getJSONObject(i)
-                val title = obj.getString("title")
-
-                // Filter berdasarkan query jika ada
-                if (query.isNotBlank() && !title.contains(query, ignoreCase = true)) {
-                    return@mapIndexedNotNull null
-                }
+                val animeTitle = obj.getString("title")
 
                 SAnime.create().apply {
                     url = i.toString()
-                    this.title = animeTitle
+                    title = animeTitle
                     thumbnail_url = obj.optString("poster", "").ifBlank { null }
                     status = SAnime.UNKNOWN
                 }.also {
@@ -180,25 +165,27 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
             val episodes = animeObj.getJSONArray("episodes")
             tracker.debug("Anime: ${animeObj.getString("title")} | Total episode: ${episodes.length()}")
 
-            val list = (0 until episodes.length()).map { i ->
+            val list = mutableListOf<SEpisode>()
+            for (i in 0 until episodes.length()) {
                 val ep = episodes.getJSONObject(i)
                 val epNum = ep.getString("episode")
                 val epName = ep.optString("name", "Episode $epNum")
                 val epUrl = ep.getString("url")
 
-                SEpisode.create().apply {
-                    url = epUrl
-                    name = epName
-                    episode_number = epNum.toFloatOrNull() ?: (i + 1).toFloat()
-                    date_upload = System.currentTimeMillis()
-                }.also {
-                    tracker.debug("Episode[$i]: $epName | url=$epUrl")
-                }
-            }.reversed()
+                val episode = SEpisode.create()
+                episode.url = epUrl
+                episode.name = epName
+                episode.episode_number = epNum.toFloatOrNull() ?: (i + 1).toFloat()
+                episode.date_upload = System.currentTimeMillis()
 
-            tracker.success("Berhasil parse ${list.size} episode")
+                tracker.debug("Episode[$i]: $epName | url=$epUrl")
+                list.add(episode)
+            }
+
+            val result = list.reversed()
+            tracker.success("Berhasil parse ${result.size} episode")
             perf.end()
-            list
+            result
         } catch (e: Exception) {
             tracker.error("getEpisodeList gagal: ${e.message}")
             perf.end()
