@@ -113,11 +113,11 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
 
                 SAnime.create().apply {
                     url = i.toString()
-                    this.title = title
+                    this.title = animeTitle
                     thumbnail_url = obj.optString("poster", "").ifBlank { null }
                     status = SAnime.UNKNOWN
                 }.also {
-                    tracker.debug("Search result[$i]: $title")
+                    tracker.debug("Search result[$i]: $animeTitle")
                 }
             }
 
@@ -158,7 +158,7 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
         return emptyList()
     }
 
-    override fun getEpisodeList(anime: SAnime): List<SEpisode> {
+    override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> {
         val perf = PerformanceTracker("UP-Episodes")
         val tracker = FeatureTracker("UP-Episodes")
         perf.start()
