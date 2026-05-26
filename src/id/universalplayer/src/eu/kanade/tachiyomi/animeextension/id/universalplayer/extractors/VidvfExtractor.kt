@@ -1,5 +1,7 @@
 package eu.kanade.tachiyomi.animeextension.id.universalplayer.extractors
 
+import eu.kanade.tachiyomi.animeextension.id.universalplayer.FeatureTracker
+import eu.kanade.tachiyomi.animeextension.id.universalplayer.PerformanceTracker
 import eu.kanade.tachiyomi.animesource.model.Video
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -8,65 +10,90 @@ import org.json.JSONObject
 
 class VidvfExtractor(private val client: OkHttpClient) : AnimeExtractor {
 
-    override val supportedDomains = listOf("vidvf.com")
+    override val supportedDomains = listOf("vidvf.com", "vixoly.de")
 
     override suspend fun getVideoList(url: String, client: OkHttpClient): List<Video> {
-        val videoId = url.substringAfterLast("/")
+        val perf = PerformanceTracker("VidvfExtractor")
+        val tracker = FeatureTracker("VidvfExtractor")
+        perf.start()
+        tracker.start()
+
+        // Step 0: Normalisasi URL (vixoly.de → vidvf.com)
+        val normalizedUrl = url.replace("vixoly.de", "vidvf.com")
+        val videoId = normalizedUrl.substringAfterLast("/")
         val baseUrl = "https://vidvf.com"
+        tracker.debug("Step 0 OK: $url → $normalizedUrl | videoId=$videoId")
 
-        // Step 1: POST /token911 → dapat accessToken
-        val tokenBody = FormBody.Builder()
-            .add("id", videoId)
-            .build()
-        val tokenRequest = Request.Builder()
-            .url("$baseUrl/token911")
-            .post(tokenBody)
-            .header("Referer", "$baseUrl/d/$videoId")
-            .build()
-        val tokenResponse = client.newCall(tokenRequest).execute()
-        val tokenJson = JSONObject(tokenResponse.body.string())
-        val accessToken = tokenJson.optString("token", "")
+        return try {
+            // Step 1: GET /d/{videoId} → set cookie
+            client.newCall(
+                Request.Builder()
+                    .url("$baseUrl/d/$videoId")
+                    .header("User-Agent", UA)
+                    .header("Referer", baseUrl)
+                    .build()
+            ).execute().close()
+            tracker.debug("Step 1 OK: halaman utama di-fetch")
 
-        // Step 2: Konversi videoId → hexId
-        val hexId = videoIdToHex(videoId)
+            // Step 2: POST /token911 → dapat accessToken
+            val tokenResponse = client.newCall(
+                Request.Builder()
+                    .url("$baseUrl/token911")
+                    .post(FormBody.Builder().add("id", videoId).build())
+                    .header("User-Agent", UA)
+                    .header("Referer", "$baseUrl/d/$videoId")
+                    .build()
+            ).execute()
+            val tokenJson = JSONObject(tokenResponse.body.string())
+            val accessToken = tokenJson.optString("token", "")
+            if (accessToken.isBlank()) {
+                tracker.error("Step 2 FAILED: accessToken kosong!")
+                perf.end()
+                return emptyList()
+            }
+            tracker.debug("Step 2 OK: accessToken=$accessToken")
 
-        // Step 3: GET /ip129jk?id={hexId} → dapat iframe src
-        val iframeRequest = Request.Builder()
-            .url("$baseUrl/ip129jk?id=$hexId")
-            .header("Referer", "$baseUrl/d/$videoId")
-            .header("Cookie", "accessToken=$accessToken")
-            .build()
-        val iframeResponse = client.newCall(iframeRequest).execute()
-        val iframeHtml = iframeResponse.body.string()
+            // Step 3: GET /embed.php
+            val embedHtml = client.newCall(
+                Request.Builder()
+                    .url("$baseUrl/embed.php?bucket=temporary&id=$videoId")
+                    .header("User-Agent", UA)
+                    .header("Referer", "$baseUrl/d/$videoId")
+                    .header("Cookie", "accessToken=$accessToken")
+                    .build()
+            ).execute().body.string()
+            tracker.debug("Step 3 OK: embed.php di-fetch | length=${embedHtml.length}")
 
-        // Parse embed URL dari iframe src
-        val embedUrl = Regex("""embed\.php\?bucket=temporary&(?:amp;)?id=([\w]+)""")
-            .find(iframeHtml)
-            ?.groupValues?.get(1)
-            ?: return emptyList()
+            if (embedHtml.isBlank()) {
+                tracker.error("Step 3 FAILED: response kosong!")
+                perf.end()
+                return emptyList()
+            }
 
-        // Step 4: GET /embed.php?bucket=temporary&id={videoId}
-        val embedRequest = Request.Builder()
-            .url("$baseUrl/embed.php?bucket=temporary&id=$embedUrl")
-            .header("Referer", "$baseUrl/ip129jk?id=$hexId")
-            .header("Cookie", "accessToken=$accessToken")
-            .build()
-        val embedResponse = client.newCall(embedRequest).execute()
-        val embedHtml = embedResponse.body.string()
+            // Step 4: Parse video URL
+            val videoUrl = Regex("""<source\s+src="(https://m\.imgvdy\.com/[^"]+)"""")
+                .find(embedHtml)
+                ?.groupValues?.get(1)
 
-        // Step 5: Parse <source src="https://m.imgvdy.com/...">
-        val videoUrl = Regex("""<source\s+src="(https://m\.imgvdy\.com/[^"]+)"""")
-            .find(embedHtml)
-            ?.groupValues?.get(1)
-            ?: return emptyList()
+            if (videoUrl == null) {
+                tracker.error("Step 4 FAILED: source URL tidak ditemukan")
+                tracker.debug("HTML preview: ${embedHtml.take(500)}")
+                perf.end()
+                return emptyList()
+            }
 
-        return listOf(Video(videoUrl, "vidvf [MP4]", videoUrl))
+            tracker.success("Step 4 OK: videoUrl=$videoUrl")
+            perf.end()
+            listOf(Video(videoUrl, "vidvf [MP4]", videoUrl))
+
+        } catch (e: Exception) {
+            tracker.error("FATAL: ${e.message}")
+            perf.end()
+            emptyList()
+        }
     }
 
-    // "d20jfqna0zvy" → reverse → "yvz0anqfj02d" → hex → "79767a30616e71666a303264"
-    private fun videoIdToHex(id: String): String {
-        return id.reversed()
-            .map { it.code.toString(16).padStart(2, '0') }
-            .joinToString("")
+    companion object {
+        private const val UA = "Mozilla/5.0 (Android 16; Mobile; rv:151.0) Gecko/151.0 Firefox/151.0"
     }
 }
