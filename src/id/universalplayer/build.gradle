@@ -1,0 +1,7 @@
+ext {
+    extName = 'Universal Player'
+    extClass = '.UniversalPlayer'
+    extVersionCode = 1
+}
+
+apply from: "$rootDir/common.gradle"
