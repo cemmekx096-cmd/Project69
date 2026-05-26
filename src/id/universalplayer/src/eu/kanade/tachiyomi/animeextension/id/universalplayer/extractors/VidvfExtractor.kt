@@ -18,7 +18,6 @@ class VidvfExtractor(private val client: OkHttpClient) : AnimeExtractor {
         perf.start()
         tracker.start()
 
-        // Step 0: Normalisasi URL (vixoly.de → vidvf.com)
         val normalizedUrl = url.replace("vixoly.de", "vidvf.com")
         val videoId = normalizedUrl.substringAfterLast("/")
         val baseUrl = "https://vidvf.com"
@@ -31,7 +30,7 @@ class VidvfExtractor(private val client: OkHttpClient) : AnimeExtractor {
                     .url("$baseUrl/d/$videoId")
                     .header("User-Agent", UA)
                     .header("Referer", baseUrl)
-                    .build()
+                    .build(),
             ).execute().close()
             tracker.debug("Step 1 OK: halaman utama di-fetch")
 
@@ -42,7 +41,7 @@ class VidvfExtractor(private val client: OkHttpClient) : AnimeExtractor {
                     .post(FormBody.Builder().add("id", videoId).build())
                     .header("User-Agent", UA)
                     .header("Referer", "$baseUrl/d/$videoId")
-                    .build()
+                    .build(),
             ).execute()
             val tokenJson = JSONObject(tokenResponse.body.string())
             val accessToken = tokenJson.optString("token", "")
@@ -60,7 +59,7 @@ class VidvfExtractor(private val client: OkHttpClient) : AnimeExtractor {
                     .header("User-Agent", UA)
                     .header("Referer", "$baseUrl/d/$videoId")
                     .header("Cookie", "accessToken=$accessToken")
-                    .build()
+                    .build(),
             ).execute().body.string()
             tracker.debug("Step 3 OK: embed.php di-fetch | length=${embedHtml.length}")
 
@@ -85,7 +84,6 @@ class VidvfExtractor(private val client: OkHttpClient) : AnimeExtractor {
             tracker.success("Step 4 OK: videoUrl=$videoUrl")
             perf.end()
             listOf(Video(videoUrl, "vidvf [MP4]", videoUrl))
-
         } catch (e: Exception) {
             tracker.error("FATAL: ${e.message}")
             perf.end()
