@@ -6,6 +6,7 @@ import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animeextension.id.universalplayer.extractors.ExtractorFactory
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
+import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.AnimesPage
 import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
@@ -33,42 +34,36 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
     private val githubRawUrl: String
         get() = preferences.getString(PREF_JSON_URL, "")?.trim() ?: ""
 
-    // ============================== Popular ===============================
+    // ============================== Core ===============================
 
-    override fun popularAnimeRequest(page: Int): Request {
-        val perf = PerformanceTracker("UP-Popular")
-        val tracker = FeatureTracker("UP-Popular")
-        perf.start()
-        tracker.start()
-
+    private fun animeListRequest(): Request {
+        val tracker = FeatureTracker("UP-Core")
         val url = githubRawUrl.ifBlank {
-            tracker.warn("GitHub Raw URL kosong, menggunakan fallback")
+            tracker.warn("GitHub Raw URL kosong!")
             FALLBACK_URL
         }
         tracker.debug("Fetching JSON dari: $url")
         return GET(url, headers)
     }
 
-    override fun popularAnimeParse(response: Response): AnimesPage {
-        val perf = PerformanceTracker("UP-PopularParse")
-        val tracker = FeatureTracker("UP-PopularParse")
+    private fun animeListParse(response: Response): AnimesPage {
+        val perf = PerformanceTracker("UP-Core")
+        val tracker = FeatureTracker("UP-Core")
         perf.start()
-        tracker.start()
 
         return try {
             val arr = JSONArray(response.body.string())
-            tracker.debug("Total anime ditemukan: ${arr.length()}")
+            tracker.debug("Total anime: ${arr.length()}")
 
             val animes = (0 until arr.length()).map { i ->
-                arr.getJSONObject(i).let { obj ->
-                    SAnime.create().apply {
-                        url = i.toString()
-                        title = obj.getString("title")
-                        thumbnail_url = obj.optString("poster", "").ifBlank { null }
-                        status = SAnime.UNKNOWN
-                    }.also {
-                        tracker.debug("Parsed anime[$i]: ${it.title}")
-                    }
+                val obj = arr.getJSONObject(i)
+                SAnime.create().apply {
+                    url = i.toString()
+                    title = obj.getString("title")
+                    thumbnail_url = obj.optString("poster", "").ifBlank { null }
+                    status = SAnime.UNKNOWN
+                }.also {
+                    tracker.debug("Parsed[$i]: ${it.title}")
                 }
             }
 
@@ -82,65 +77,42 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
         }
     }
 
+    // ============================== Popular ===============================
+
+    override fun popularAnimeRequest(page: Int) = animeListRequest()
+    override fun popularAnimeParse(response: Response) = animeListParse(response)
+
     // =============================== Search ===============================
 
-    override fun searchAnimeParse(response: Response): AnimesPage {
-        val tracker = FeatureTracker("UP-SearchParse")
-        tracker.start()
+    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList) = animeListRequest()
+    override fun searchAnimeParse(response: Response) = animeListParse(response)
 
-        return try {
-            val arr = JSONArray(response.body.string())
+    // =============================== Latest ===============================
 
-            val animes = (0 until arr.length()).mapNotNull { i ->
-                val obj = arr.getJSONObject(i)
-                val animeTitle = obj.getString("title")
+    override fun latestUpdatesRequest(page: Int) = animeListRequest()
+    override fun latestUpdatesParse(response: Response) = animeListParse(response)
 
-                SAnime.create().apply {
-                    url = i.toString()
-                    title = animeTitle
-                    thumbnail_url = obj.optString("poster", "").ifBlank { null }
-                    status = SAnime.UNKNOWN
-                }.also {
-                    tracker.debug("Search result[$i]: $animeTitle")
-                }
-            }
+    // =============================== Filters ==============================
 
-            tracker.success("Search selesai: ${animes.size} hasil")
-            AnimesPage(animes, false)
-        } catch (e: Exception) {
-            tracker.error("Search parse gagal: ${e.message}")
-            AnimesPage(emptyList(), false)
-        }
-    }
+    override fun getFilterList() = AnimeFilterList()
 
     // =========================== Anime Details ============================
 
     override fun animeDetailsRequest(anime: SAnime): Request {
         val tracker = FeatureTracker("UP-Details")
-        tracker.debug("Request detail untuk index: ${anime.url}")
-        val url = githubRawUrl.ifBlank { FALLBACK_URL }
-        return GET(url, headers)
+        tracker.debug("Request detail index: ${anime.url}")
+        return animeListRequest()
     }
 
     override fun animeDetailsParse(response: Response): SAnime {
-        val tracker = FeatureTracker("UP-DetailsParse")
-        tracker.start()
-
-        // Detail di-handle di getEpisodeList, ini return kosong
-        tracker.debug("animeDetailsParse dipanggil, return default")
         return SAnime.create()
     }
 
     // ============================== Episodes ==============================
 
-    override fun episodeListRequest(anime: SAnime): Request {
-        val url = githubRawUrl.ifBlank { FALLBACK_URL }
-        return GET(url, headers)
-    }
+    override fun episodeListRequest(anime: SAnime) = animeListRequest()
 
-    override fun episodeListParse(response: Response): List<SEpisode> {
-        return emptyList()
-    }
+    override fun episodeListParse(response: Response): List<SEpisode> = emptyList()
 
     override suspend fun getEpisodeList(anime: SAnime): List<SEpisode> {
         val perf = PerformanceTracker("UP-Episodes")
@@ -149,20 +121,19 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
         tracker.start()
 
         return try {
-            val url = githubRawUrl.ifBlank { FALLBACK_URL }
-            val response = client.newCall(GET(url, headers)).execute()
+            val response = client.newCall(animeListRequest()).execute()
             val arr = JSONArray(response.body.string())
 
             val index = anime.url.toIntOrNull()
             if (index == null) {
-                tracker.error("Index anime tidak valid: ${anime.url}")
+                tracker.error("Index tidak valid: ${anime.url}")
                 perf.end()
                 return emptyList()
             }
 
             val animeObj = arr.getJSONObject(index)
             val episodes = animeObj.getJSONArray("episodes")
-            tracker.debug("Anime: ${animeObj.getString("title")} | Total episode: ${episodes.length()}")
+            tracker.debug("Anime: ${animeObj.getString("title")} | Total: ${episodes.length()}")
 
             val list = mutableListOf<SEpisode>()
             for (i in 0 until episodes.length()) {
@@ -197,7 +168,6 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
     override fun videoListRequest(episode: SEpisode): Request {
         val tracker = FeatureTracker("UP-VideoRequest")
         tracker.debug("Episode URL: ${episode.url}")
-        // Kembalikan request dummy, logic ada di videoListParse
         return GET(episode.url, headers)
     }
 
@@ -212,12 +182,12 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
 
         val extractor = ExtractorFactory.get(episodeUrl, client)
         if (extractor == null) {
-            tracker.error("Tidak ada extractor untuk domain: $episodeUrl")
+            tracker.error("Tidak ada extractor untuk: $episodeUrl")
             perf.end()
             return emptyList()
         }
 
-        tracker.debug("Menggunakan extractor: ${extractor::class.simpleName}")
+        tracker.debug("Extractor: ${extractor::class.simpleName}")
 
         return try {
             val videos = runBlocking {
@@ -232,11 +202,6 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
             emptyList()
         }
     }
-
-    // =============================== Latest ===============================
-
-    override fun latestUpdatesRequest(page: Int) = popularAnimeRequest(page)
-    override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
     // ============================== Settings ==============================
 
@@ -253,6 +218,6 @@ class UniversalPlayer : ConfigurableAnimeSource, AnimeHttpSource() {
 
     companion object {
         private const val PREF_JSON_URL = "github_raw_url"
-        private const val FALLBACK_URL = "" // Kosong, wajib isi di preferences
+        private const val FALLBACK_URL = ""
     }
 }
