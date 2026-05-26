@@ -1,0 +1,13 @@
+[
+  {
+    "title": "Harnis TikTok",
+    "poster": "https://raw.githubusercontent.com/cemmekx096-cmd/Project69/main/.ide/markup_1000044239.png",
+    "episodes": [
+      { "episode": "01", "name": "Episode 1", "url": "https://vixoly.de/d/c401vr1t5m7e" },
+      { "episode": "02", "name": "Episode 2", "url": "https://vixoly.de/d/voak9bvwrpui" },
+      { "episode": "03", "name": "Episode 3", "url": "https://vixoly.de/d/98acv7gdjze3" },
+      { "episode": "04", "name": "Episode 4", "url": "https://vixoly.de/d/21orgaauffmr" },
+      { "episode": "05", "name": "Episode 5", "url": "https://vixoly.de/d/dmw3dbwqccpr" }
+    ]
+  }
+]
