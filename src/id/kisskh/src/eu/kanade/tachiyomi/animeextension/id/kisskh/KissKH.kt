@@ -340,7 +340,6 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
             subTracker.success("Sub Step 7 OK: Track ready | label=$label")
 
             listOf(Track(dataUri, label))
-
         } catch (e: Exception) {
             subTracker.error("Subtitle fetch FAILED: ${e.message}")
             emptyList()
@@ -388,9 +387,9 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
     // Deteksi line cipher: pure base64, bukan nomor urut / timestamp
     private fun String.isBase64Cipher(): Boolean {
         if (isBlank()) return false
-        if (matches(Regex("\\d+"))) return false       // nomor urut
-        if (contains("-->")) return false              // timestamp SRT
-        if (length < 8) return false                   // terlalu pendek
+        if (matches(Regex("\\d+"))) return false // nomor urut
+        if (contains("-->")) return false // timestamp SRT
+        if (length < 8) return false // terlalu pendek
         return matches(Regex("[A-Za-z0-9+/=]+"))
     }
 
