@@ -331,20 +331,20 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
             val finalContent = decryptSubtitleContent(rawContent, subTracker)
             subTracker.debug("Sub Step 6 OK: Final content ${finalContent.length} chars")
 
-            // ── Sub Step 7: Encode sebagai data URI ────────────
+            // ── Sub Step 7: Tulis ke cache file ────────────────
             val cacheFile = java.io.File(
                 Injekt.get<Application>().cacheDir,
-                "kisskh_sub_${epId}.srt"
+                "kisskh_sub_$epId.srt",
             )
             cacheFile.writeText(finalContent, Charsets.UTF_8)
             subTracker.success("Sub Step 7 OK: Track ready | label=$label | path=${cacheFile.absolutePath}")
 
             listOf(Track("file://${cacheFile.absolutePath}", label))
-            } catch (e: Exception) {
-                subTracker.error("Subtitle fetch FAILED: ${e.message}")
-                emptyList()
-            }
+        } catch (e: Exception) {
+            subTracker.error("Subtitle fetch FAILED: ${e.message}")
+            emptyList()
         }
+    }
 
     // ── Subtitle Decrypt ──────────────────────────────────────────────────
 
