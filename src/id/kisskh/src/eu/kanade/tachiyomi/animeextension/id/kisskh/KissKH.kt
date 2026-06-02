@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.animeextension.id.kisskh
 
 import android.app.Application
 import android.content.SharedPreferences
+import android.util.Base64
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.animesource.ConfigurableAnimeSource
@@ -22,6 +23,9 @@ import org.json.JSONObject
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
+import javax.crypto.Cipher
+import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.SecretKeySpec
 
 class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
 
@@ -248,8 +252,8 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
         }
         tracker.debug("Step 5 OK: epId=$epId")
 
-        // ── Step 6: Fetch subtitles ────────────────────────────
-        tracker.debug("Step 6: Fetching subtitles for epId=$epId")
+        // ── Step 6: Fetch subtitle (preferred lang only) ───────
+        tracker.debug("Step 6: Fetching subtitle for epId=$epId")
         val subtitleTracks = fetchSubtitles(epId, tracker)
         tracker.debug("Step 6 OK: ${subtitleTracks.size} subtitle track(s) found")
 
@@ -289,31 +293,105 @@ class KissKH : ConfigurableAnimeSource, AnimeHttpSource() {
             val body = response.body.string()
             subTracker.debug("Sub Step 3 Response: $body")
 
-            // ── Sub Step 4: Parse subtitle list ────────────────
+            // ── Sub Step 4: Parse & filter preferred lang only ─
             val arr = JSONArray(body)
-            subTracker.debug("Sub Step 4: Found ${arr.length()} subtitle(s)")
-
             val preferredLang = preferences.getString(PREF_SUB_KEY, PREF_SUB_DEFAULT)!!
-            subTracker.debug("Sub Step 4: Preferred lang=$preferredLang")
+            subTracker.debug("Sub Step 4: Found ${arr.length()} sub(s) | preferred=$preferredLang")
 
-            val tracks = mutableListOf<Track>()
+            // Cari preferred lang dulu, fallback ke index 0
+            var chosenSub: JSONObject? = null
             for (i in 0 until arr.length()) {
                 val sub = arr.getJSONObject(i)
-                val lang = sub.getString("land")
-                val label = sub.getString("label")
-                val src = sub.getString("src")
-                subTracker.debug("Sub Step 4: Track[$i] lang=$lang | label=$label | src=$src")
-                tracks.add(Track(src, label))
+                if (sub.getString("land") == preferredLang) {
+                    chosenSub = sub
+                    break
+                }
+            }
+            if (chosenSub == null && arr.length() > 0) {
+                chosenSub = arr.getJSONObject(0)
+                subTracker.debug("Sub Step 4: preferred '$preferredLang' not found, fallback to first sub")
+            }
+            if (chosenSub == null) {
+                subTracker.debug("Sub Step 4: No subtitles available")
+                return emptyList()
             }
 
-            // ── Sub Step 5: Sort preferred lang first ──────────
-            val sorted = tracks.sortedWith(compareBy { if (it.lang == preferredLang) 0 else 1 })
-            subTracker.success("Sub Step 5 OK: ${sorted.size} tracks | preferred=$preferredLang first")
-            sorted
+            val lang = chosenSub.getString("land")
+            val label = chosenSub.getString("label")
+            val src = chosenSub.getString("src")
+            subTracker.debug("Sub Step 4 OK: chosen lang=$lang | label=$label | src=$src")
+
+            // ── Sub Step 5: Download subtitle file ─────────────
+            subTracker.debug("Sub Step 5: Downloading subtitle file from $src")
+            val rawContent = client.newCall(GET(src, subHeaders)).execute().body.string()
+            subTracker.debug("Sub Step 5 OK: Downloaded ${rawContent.length} chars")
+
+            // ── Sub Step 6: Detect & decrypt if needed ─────────
+            subTracker.debug("Sub Step 6: Detecting subtitle format")
+            val finalContent = decryptSubtitleContent(rawContent, subTracker)
+            subTracker.debug("Sub Step 6 OK: Final content ${finalContent.length} chars")
+
+            // ── Sub Step 7: Encode sebagai data URI ────────────
+            val dataUri = "data:text/srt;base64," +
+                Base64.encodeToString(
+                    finalContent.toByteArray(Charsets.UTF_8),
+                    Base64.NO_WRAP,
+                )
+            subTracker.success("Sub Step 7 OK: Track ready | label=$label")
+
+            listOf(Track(dataUri, label))
+
         } catch (e: Exception) {
             subTracker.error("Subtitle fetch FAILED: ${e.message}")
             emptyList()
         }
+    }
+
+    // ── Subtitle Decrypt ──────────────────────────────────────────────────
+
+    private fun decryptSubtitleContent(raw: String, tracker: FeatureTracker? = null): String {
+        // Deteksi apakah perlu decrypt:
+        // Ambil baris pertama yang bukan nomor urut / timestamp / kosong
+        val firstTextLine = raw.lines().firstOrNull { line ->
+            val t = line.trim()
+            t.isNotBlank() &&
+                !t.matches(Regex("\\d+")) &&
+                !t.contains("-->")
+        }
+
+        val needsDecrypt = firstTextLine?.isBase64Cipher() ?: false
+        tracker?.debug("Subtitle format: ${if (needsDecrypt) "ENCRYPTED (AES-CBC)" else "PLAIN TEXT"}")
+
+        if (!needsDecrypt) return raw
+
+        val key = SecretKeySpec("8056483646328763".toByteArray(), "AES")
+        val iv = IvParameterSpec("6852612370185273".toByteArray())
+        val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+
+        return raw.lines().joinToString("\n") { line ->
+            val trimmed = line.trim()
+            if (trimmed.isBase64Cipher()) {
+                try {
+                    cipher.init(Cipher.DECRYPT_MODE, key, iv)
+                    val decoded = Base64.decode(trimmed, Base64.DEFAULT)
+                    String(cipher.doFinal(decoded), Charsets.UTF_8)
+                } catch (e: Exception) {
+                    tracker?.debug("Decrypt line failed: ${e.message} | line=$trimmed")
+                    line
+                }
+            } else {
+                line
+            }
+        }
+    }
+
+    // Deteksi line cipher: pure base64, bukan nomor urut / timestamp
+    private fun String.isBase64Cipher(): Boolean {
+        if (isBlank()) return false
+        if (matches(Regex("\\d+"))) return false       // nomor urut
+        if (contains("-->")) return false              // timestamp SRT
+        if (length < 8) return false                   // terlalu pendek
+        return matches(Regex("[A-Za-z0-9+/=]+"))
     }
 
     // ============================== Helpers ===============================
